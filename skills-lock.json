@@ -73,11 +73,11 @@
       "skillPath": "skills/scope/SKILL.md",
       "computedHash": "cc0c9ad797d81ab7466aa647ed7a62376e7734e6cb85b6c94d6f9b8ab997b7e5"
     },
-    "sentry-node-sdk": {
+    "sentry-nextjs-sdk": {
       "source": "getsentry/sentry-for-ai",
       "sourceType": "github",
-      "skillPath": "skills-legacy/sentry-node-sdk/SKILL.md",
-      "computedHash": "bb6688a6e3c89e52bea2c3c10feab48fe7662392bd20e73745226111d8fd6da9"
+      "skillPath": "skills-legacy/sentry-nextjs-sdk/SKILL.md",
+      "computedHash": "03d3615a553aea79f21cb78e4ea4d37c30bc9d5c1bc5c90629424aa9e7fdd647"
     },
     "sentry-sdk-setup": {
       "source": "getsentry/sentry-for-ai",
@@ -108,6 +108,12 @@
       "sourceType": "github",
       "skillPath": "skills/test/SKILL.md",
       "computedHash": "c16769fc36b0b44427c78112adeb8870854cb0c6731ca8036d9fffe549f19d93"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     }
   }
 }
