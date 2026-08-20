@@ -1,0 +1,9 @@
+# Lint and format the staged files, then type check the whole project.
+#
+# lint-staged is per file, which is what keeps the hook fast. `tsc` has no
+# per file mode that still honours tsconfig.json, so the type check is project
+# wide and reads the working tree rather than the staged index. A commit made
+# with `git add -p` can therefore pass a check that the committed snapshot would
+# fail; CI runs the same three commands on the real commit and is the backstop.
+pnpm exec lint-staged
+pnpm typecheck

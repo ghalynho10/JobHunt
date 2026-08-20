@@ -1,0 +1,47 @@
+name: CI
+
+# Runs on every push to the default branch and on every pull request, so a
+# commit that skipped the pre commit hook is still caught before it merges.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, type check, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # The version comes from the packageManager field in package.json, so
+      # local and CI never drift.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm format:check
+
+      - run: pnpm typecheck
+
+      # This build proves the code compiles, not that a real environment is
+      # configured: CI holds no Supabase keys, so env validation is skipped here
+      # and only here. Feature 3 owns the deployed build, which runs with real
+      # values and must never set this flag.
+      - run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: "true"
+
+# The test job waits for feature 8, which chooses the test runners and builds the
+# fixtures. Adding one before that would pick the runner by accident.
