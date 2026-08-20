@@ -12,7 +12,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | # | Feature | Phase | Status |
 |---|---------|-------|--------|
 | 1 | Stack & architecture | Foundation | done |
-| 2 | Coding standards & tooling | Foundation | planned |
+| 2 | Coding standards & tooling | Foundation | in-progress |
 | 3 | Deployment & environments | Foundation | planned |
 | 4 | Data model | Foundation | planned |
 | 5 | Design system & UI foundation | Foundation | planned |
@@ -54,10 +54,17 @@ _spec [0001](../specs/0001-stack-and-architecture/index.md) · code in `src/`, `
 - [x] Verify it: `/check verify stack & architecture`
 - [ ] Test it: `/test stack & architecture` · **skipped**, called done after verify. Feature 8 builds the test foundation; the durable steps in [verify.md](../specs/0001-stack-and-architecture/verify.md) are what a later `/test` would lock.
 
-### 2. Coding standards & tooling · Alpha
+### 2. Coding standards & tooling · in-progress · Alpha
 Capture the conventions and tooling from the real scaffolded project, then install them, so every line written after this follows one standard rather than drifting per feature.
 **Done when:** root `AGENTS.md` reflects the real stack, and lint, format, type checking and a pre commit hook all run clean on the scaffold.
-- [ ] Capture conventions + tooling choices: `/audit`
+_tooling recorded in root [AGENTS.md](../../AGENTS.md) `## Tooling` · code in `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore`, `.lintstagedrc.json`, `.husky/pre-commit`, `.github/workflows/ci.yml`_
+- [x] Capture conventions + tooling choices: `/audit`
+- [x] Build it: `/develop tooling`
+  - [x] ESLint flat config: Next core web vitals plus TypeScript, `jsx-a11y` strict raised to errors (binding rule 8)
+  - [x] The `src/lib/supabase/secret.ts` import block from `src/app/**` (binding rule 1), proven to fire on relative and type only imports
+  - [x] Prettier plus `eslint-config-prettier`, with a repo wide format check
+  - [x] Pre commit hook: husky plus lint-staged on staged files, then a project wide type check
+  - [x] CI: GitHub Actions on push and pull request running lint, format check, type check and build; no test job until feature 8
 
 ### 3. Deployment & environments · needs a decision
 Get the bare scaffold live on a real URL before auth exists, so hosting, environment variables, and the preview versus production split are solved while the app is tiny instead of at the end. The portfolio URL exists from week one, and later OAuth callback work has a known production origin to point at.
