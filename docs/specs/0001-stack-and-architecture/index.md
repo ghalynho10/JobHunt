@@ -1,7 +1,7 @@
 # 0001. Stack and architecture for JobHunt
 
 **Date**: 2026-08-19
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

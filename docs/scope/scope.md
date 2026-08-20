@@ -11,7 +11,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 
 | # | Feature | Phase | Status |
 |---|---------|-------|--------|
-| 1 | Stack & architecture | Foundation | in-progress |
+| 1 | Stack & architecture | Foundation | done |
 | 2 | Coding standards & tooling | Foundation | planned |
 | 3 | Deployment & environments | Foundation | planned |
 | 4 | Data model | Foundation | planned |
@@ -45,14 +45,14 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 
 ## Foundation
 
-### 1. Stack & architecture · in-progress
+### 1. Stack & architecture · done
 Record the stack already chosen (backend and auth platform, framework, styling) as a real architecture spec, then scaffold a project that boots, and close what the brief left open: exact OAuth providers, directory layout, language strictness, and where the model tier configuration lives.
 **Done when:** the architecture decision is written down with what was rejected and why, and an empty scaffold boots locally and passes a clean build and a protected page reads one row from Supabase through the real server client and renders it, proving the framework, client, session, policy and error path all connect. The deployed leg of that same thread belongs to feature 3, which cannot be proved before a real URL exists.
 _spec [0001](../specs/0001-stack-and-architecture/index.md) · code in `src/`, `supabase/`_
 - [x] Decide the stack (spec): `/architect stack & architecture`
 - [x] Scaffold from the decision: `/develop stack & architecture`
 - [x] Verify it: `/check verify stack & architecture`
-- [ ] Test it: `/test stack & architecture`
+- [ ] Test it: `/test stack & architecture` · **skipped**, called done after verify. Feature 8 builds the test foundation; the durable steps in [verify.md](../specs/0001-stack-and-architecture/verify.md) are what a later `/test` would lock.
 
 ### 2. Coding standards & tooling · Alpha
 Capture the conventions and tooling from the real scaffolded project, then install them, so every line written after this follows one standard rather than drifting per feature.
