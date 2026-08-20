@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="currentColor" role="img" aria-label="JobHunt">
+  <rect x="2" y="2" width="11" height="3"></rect>
+  <rect x="2" y="2" width="3" height="11"></rect>
+  <rect x="12" y="12" width="8" height="8"></rect>
+  <rect x="19" y="27" width="11" height="3"></rect>
+  <rect x="27" y="19" width="3" height="11"></rect>
+</svg>

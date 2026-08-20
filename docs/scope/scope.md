@@ -47,11 +47,11 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 
 ### 1. Stack & architecture · in-progress
 Record the stack already chosen (backend and auth platform, framework, styling) as a real architecture spec, then scaffold a project that boots, and close what the brief left open: exact OAuth providers, directory layout, language strictness, and where the model tier configuration lives.
-**Done when:** the architecture decision is written down with what was rejected and why, and an empty scaffold boots locally and passes a clean build and a protected page reads one row from Supabase through the real server client and renders it, proving the framework, client, session, policy, deployment and error path all connect.
+**Done when:** the architecture decision is written down with what was rejected and why, and an empty scaffold boots locally and passes a clean build and a protected page reads one row from Supabase through the real server client and renders it, proving the framework, client, session, policy and error path all connect. The deployed leg of that same thread belongs to feature 3, which cannot be proved before a real URL exists.
 _spec [0001](../specs/0001-stack-and-architecture/index.md) · code in `src/`, `supabase/`_
 - [x] Decide the stack (spec): `/architect stack & architecture`
 - [x] Scaffold from the decision: `/develop stack & architecture`
-- [ ] Verify it: `/check verify stack & architecture`
+- [x] Verify it: `/check verify stack & architecture`
 - [ ] Test it: `/test stack & architecture`
 
 ### 2. Coding standards & tooling · Alpha
@@ -61,7 +61,7 @@ Capture the conventions and tooling from the real scaffolded project, then insta
 
 ### 3. Deployment & environments · needs a decision
 Get the bare scaffold live on a real URL before auth exists, so hosting, environment variables, and the preview versus production split are solved while the app is tiny instead of at the end. The portfolio URL exists from week one, and later OAuth callback work has a known production origin to point at.
-**Done when:** a push deploys, the live URL serves the scaffold, secrets are set per environment and never committed, and the global kill switch flag is readable from the deployed app.
+**Done when:** a push deploys, the live URL serves the scaffold, secrets are set per environment and never committed, the global kill switch flag is readable from the deployed app, and the feature 1 thread is re run against the live URL so the deployed leg is proved rather than assumed (feature 1 proved every other leg locally).
 - [ ] Design it (spec): `/architect deployment & environments`
 
 ### 4. Data model · needs a decision · GA
