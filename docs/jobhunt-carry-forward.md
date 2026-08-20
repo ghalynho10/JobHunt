@@ -91,10 +91,10 @@ phrase "Jobs by Adzuna" at least 116 × 23 pixels, with the word "Jobs"
 hyperlinked to adzuna.co.uk (or relevant local domain) and the word
 "Adzuna" being the Adzuna logo image, also hyperlinked.
 
-`brand-tokens.md` currently says "any screen displaying real Adzuna
-listings," which understates it. This is a per-result-card requirement,
-and 116 × 23 px is not small at card scale — it affects card layout, so
-it is a design-system input, not a footer to add later.
+This is a per-result-card requirement, and 116 × 23 px is not small at
+card scale — it affects card layout, so it is a design-system input, not
+a footer to add later. `brand-tokens.md` carries the corrected per-advert
+wording under its results-page requirements.
 
 Logo images: adzuna.co.uk/press.html
 
@@ -120,6 +120,24 @@ the source URL, label scoring as based on partial data, or accept the
 limitation and state it in the UI. All three are honest; silently scoring
 against a snippet as if it were the full posting is not.
 
+**If the fetch option is taken:** `defuddle` (github.com/kepano/defuddle)
+extracts clean markdown from a web page, stripping nav, ads, cookie
+banners and footers. That is the concrete mechanism for turning a posting
+URL into scoreable text rather than page furniture. It also ships as one
+of the five skills in kepano/obsidian-skills. Verify its current state
+against the repo when this spec is written rather than assuming the
+description above still holds.
+
+**Check the terms before assuming the fetch option is clean.** Adzuna
+returns a redirect URL that routes through their own tracking rather than
+a direct link to the employer's page, so "fetch the source URL" may mean
+fetching Adzuna's redirect at volume — a different activity from the API
+use they licensed, and a second rate-limit surface on top of theirs.
+Confirm what the field actually points at, and what the terms say about
+automated fetching of it, before designing around this option. Many
+careers pages are also JS-rendered, the same open question already flagged
+for lite company research.
+
 ---
 
 ## Feature 19 — Listing data quality
@@ -139,7 +157,10 @@ count as Jobsworth estimates before displaying them.
 
 ---
 
-## Features 1 and 5 — Stack, and design system
+## Feature 5 — Design system
+
+*(The feature 1 half is spent: spec 0001 records Tailwind v4 in the stack
+table and the scaffold is built on it.)*
 
 **Tailwind v4 removed the JavaScript config file.** Current is 4.3.x.
 Customization lives in CSS via `@theme`. `brand-tokens.md` has been
@@ -157,31 +178,31 @@ Deprecation to avoid: `start-*` and `end-*` in favor of `inline-s-*` and
 
 ---
 
-## Feature 2 — Coding standards & tooling
+## Unowned — TypeScript 7
 
-**`next dev` writes and maintains its own `AGENTS.md` block**, version
-matched, pointing at bundled docs in local `node_modules`. It is
-delimited, so it coexists with a hand-written root `AGENTS.md` — but
-`/audit` should not clobber it. Worth checking after the first
-`next dev` run.
-
-**Node 24 (Krypton) is Active LTS**, supported to April 2028. Everything
-20 and below is EOL. Pin 24 in `.nvmrc` and match it in Vercel's
-`NODE_VERSION`.
+*(The rest of this entry is spent. The `next dev` `AGENTS.md` block was
+preserved byte for byte during `/audit`; Node 24 is pinned in `.nvmrc`
+and `engines`.)*
 
 **TypeScript 7** shipped recently and `next build` can use it for type
-checking via `pnpm add -D typescript@^7`. An input to the language
-strictness decision.
+checking via `pnpm add -D typescript@^7`. This was an input to feature
+1's language strictness decision, which settled the flags but not the
+version — so the project is on TypeScript 5.x. That makes this an
+optional upgrade rather than a pending decision. Worth revisiting only if
+build times become a real problem; a major compiler bump mid build is not
+free.
 
 ---
 
-## Features 2 and 3 — Supabase MCP server
+## Feature 3 — Supabase MCP server
 
-**This is the one with a named, demonstrated risk.** Split across two
-owners rather than a standalone spec: **feature 3** (deployment &
-environments) owns which project the agent points at, since it already
-owns the environment split and secrets; **feature 2** (coding standards
-& tooling) owns the `AGENTS.md` rule.
+**This is the one with a named, demonstrated risk.** The feature 2 half
+is spent: binding rule 7 in spec 0001 states all five conditions, and
+`/audit` wrote them into root `AGENTS.md`. What remains is feature 3's
+half — **which project the connection points at**, since feature 3 owns
+the environment split and secrets. The fifth condition ("never pointed at
+real user data") is only enforceable once a dev project distinct from
+production actually exists.
 
 The 2026 server uses OAuth rather than a pasted personal access token:
 `claude mcp add --transport http supabase https://mcp.supabase.com/mcp`,
