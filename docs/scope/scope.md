@@ -1,0 +1,275 @@
+# Scope: JobHunt
+
+A multi user job search web app: enter a profile, search real listings, see them ranked with the reasoning shown, click through to apply, and record that you applied. Free, no billing, built for the author's own job search plus a few friends and recruiters evaluating it as a portfolio piece.
+
+**Build approach:** Tracer Bullet (prove the whole pipe works end to end, narrow but real, before building any single part of it fully).
+**Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). Four features carry a `· GA` tag and also get a fresh model `/check review` plus `/document`.
+
+_You are in charge. Every box below is a **suggestion**, not a gate: run any, skip any, and mark a feature `done` when you decide it is. The workflow records what you actually did (including "skipped"), it never requires a step. The one thing it asks is that a load bearing decision be written down (a spec), not that any check be run._
+
+## At a glance
+
+| # | Feature | Phase | Status |
+|---|---------|-------|--------|
+| 1 | Stack & architecture | Foundation | in-progress |
+| 2 | Coding standards & tooling | Foundation | planned |
+| 3 | Deployment & environments | Foundation | planned |
+| 4 | Data model | Foundation | planned |
+| 5 | Design system & UI foundation | Foundation | planned |
+| 6 | Entry page & link metadata | Foundation | planned |
+| 7 | Auth & per user isolation | Foundation | planned |
+| 8 | Test foundation | Foundation | planned |
+| 9 | Profile entry | Slice 1 | planned |
+| 10 | Usage gating & kill switch | Slice 1 | planned |
+| 11 | Job search & results list | Slice 1 | planned |
+| 12 | Apply redirect & application record | Slice 1 | planned |
+| 13 | Model client router | Slice 2 | planned |
+| 14 | Fit scoring with shown reasoning | Slice 2 | planned |
+| 15 | Eval ground truth set | Slice 2 | planned |
+| 16 | Eval harness runner | Slice 2 | planned |
+| 17 | Cross vendor self check | Slice 2 | planned |
+| 18 | Structured search filters | Slice 3 | planned |
+| 19 | Listing data quality | Slice 3 | planned |
+| 20 | Guided application capture | Slice 4 | planned |
+| 21 | Terms & privacy notices | Slice 5 | planned |
+| 22 | Discard with reason | v1.5 | planned |
+| 23 | Applications dashboard | v1.5 | planned |
+| 24 | Master resume | v1.5 | planned |
+| 25 | Resume tailoring per job | v1.5 | planned |
+| 26 | Profile depth & completeness | v1.5 | planned |
+| 27 | Auth remainder | v1.5 | planned |
+| 28 | Spend visibility & gating polish | v1.5 | planned |
+| 29 | Product analytics | v1.5 | planned |
+| 30 | Company research, lite | v1.5 | planned |
+| 31 | Seeded demo account | v1.5 | planned |
+
+## Foundation
+
+### 1. Stack & architecture · in-progress
+Record the stack already chosen (backend and auth platform, framework, styling) as a real architecture spec, then scaffold a project that boots, and close what the brief left open: exact OAuth providers, directory layout, language strictness, and where the model tier configuration lives.
+**Done when:** the architecture decision is written down with what was rejected and why, and an empty scaffold boots locally and passes a clean build and a protected page reads one row from Supabase through the real server client and renders it, proving the framework, client, session, policy, deployment and error path all connect.
+_spec [0001](../specs/0001-stack-and-architecture/index.md)_
+- [x] Decide the stack (spec): `/architect stack & architecture`
+- [ ] Scaffold from the decision: `/develop stack & architecture`
+- [ ] Verify it: `/check verify stack & architecture`
+- [ ] Test it: `/test stack & architecture`
+
+### 2. Coding standards & tooling · Alpha
+Capture the conventions and tooling from the real scaffolded project, then install them, so every line written after this follows one standard rather than drifting per feature.
+**Done when:** root `AGENTS.md` reflects the real stack, and lint, format, type checking and a pre commit hook all run clean on the scaffold.
+- [ ] Capture conventions + tooling choices: `/audit`
+
+### 3. Deployment & environments · needs a decision
+Get the bare scaffold live on a real URL before auth exists, so hosting, environment variables, and the preview versus production split are solved while the app is tiny instead of at the end. The portfolio URL exists from week one, and later OAuth callback work has a known production origin to point at.
+**Done when:** a push deploys, the live URL serves the scaffold, secrets are set per environment and never committed, and the global kill switch flag is readable from the deployed app.
+- [ ] Design it (spec): `/architect deployment & environments`
+
+### 4. Data model · needs a decision · GA
+The core entities every later feature reads and writes: users, profile with skills and flat work history, stated job preferences, application records and their captured answers. Search results deliberately do not persist. A wrong data model is the most expensive thing to redo, so it is decided once, explicitly, before any feature depends on it.
+**Done when:** the schema, keys, constraints and per user row level policies are applied and live, a query as one user cannot return another user's rows, and every value is stored raw with formatting left to render time.
+- [ ] Design it (spec): `/architect data model`
+
+### 5. Design system & UI foundation · needs a decision
+Port the locked visual decisions (seven token palette, finalized logo, Space Grotesk and JetBrains Mono typography) into a real token layer and a set of base components. These are inherited decisions, not open questions. Sets the responsive posture and the accessibility floor for every screen built after this.
+**Done when:** the tokens, type scale and base components exist as code; every base component is keyboard reachable with a visible focus state and a proper label; and the components hold up from phone width to desktop.
+- [ ] Design it (spec): `/architect design system & UI foundation`
+
+### 6. Entry page & link metadata · Alpha
+Port the already built and reviewed landing page onto the design token layer. It is the front door for three audiences: the author, a few friends, and recruiters opening a link. Not a public marketing page, but a pasted link has to render as a real product.
+**Done when:** the page renders on the real tokens at phone and desktop width, sign in is reachable from it, page title, description and a social preview image are set, and crawlers are told not to index.
+- [ ] Build it: `/develop entry page & link metadata`
+
+### 7. Auth & per user isolation · needs a decision · GA
+OAuth sign in only (Google and GitHub), plus real per user data isolation enforced at the database rather than in application code. OAuth is kept over email and password for v1 because a linked real account is harder to fake for abuse than a burner address, and it removes the need for any transactional email in v1.
+**Done when:** a user can sign in and out with either provider on the deployed URL, an authenticated request only ever reaches its own rows, and an unauthenticated request to a protected route fails visibly rather than returning empty data that looks like success.
+- [ ] Design it (spec): `/architect auth & per user isolation`
+
+### 8. Test foundation · needs a decision
+The fixtures every later test depends on, built once rather than improvised per feature: a development only path that mints a real session without driving a browser, a fixed pool of obviously fake users for proving isolation, and a way to record and replay real responses from external services. This exists because the reference project's worst bug survived six passing tests that all mocked the same wrong assumption.
+**Done when:** a test can sign in as user A, write data, switch to user B and prove B cannot see it; an external service can be exercised against a real recorded response rather than a hand written mock; the session path is hard blocked outside development; and no fixture contains a real personal identifier.
+- [ ] Design it (spec): `/architect test foundation`
+
+## Slice 1: Core loop thread
+
+The thinnest real thread through the whole product, touching every layer and actually working. Real auth, real database, real external search, real UI. Narrow, not faked: results are not ranked yet and filters are minimal, but nothing here is a placeholder to be thrown away.
+
+### 9. Profile entry · needs a decision
+A form for the flat profile: personal details, skills, one layer of work history, and stated job preferences. Typed by hand, with no resume upload and no extraction, so it makes no external call at all. Scoring cannot function without this, and the completion test does not start without a way to get profile data in.
+**Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, and the saved shape is exactly what scoring will later read.
+- [ ] Design it (spec): `/architect profile entry`
+
+### 10. Usage gating & kill switch · needs a decision · GA
+Per account caps on the call types the app actually makes, checked atomically so a burst cannot slip past, failing closed by default, plus a single global kill switch operated from outside the app. Built before the first external call rather than after it. This is here under the named risk rule: the risk is uncontrolled external API cost during unemployment, and it is only removed by deciding that risk is acceptable, never by trimming for time.
+**Done when:** the jobs search call type is capped per account and the check is atomic under concurrent calls proven against a real database connection, not a mock; a blocked call tells the user plainly why; flipping the external kill switch stops all gated calls without a deploy; the atomic gate function increments an attempt counter alongside its decision; trace sampling is 1.0 on gated operations; the expected-failure rate alert rule is defined in docs/observability/ and applied; and a forced-failure smoke test proves the alert actually fires.
+- [ ] Design it (spec): `/architect usage gating & kill switch`
+
+### 11. Job search & results list · needs a decision
+Search real listings by title and location and render them. Deliberately narrow for this slice: the structured filters and the data quality fixes come in Slice 3, and ranking comes in Slice 2. Results are fresh per search and never persist, which is what removes the need for any staleness or expiry state machine.
+**Done when:** a signed in user runs a search and sees real listings; the search call goes through the gate from feature 10; a failed or empty search renders a visible state rather than a silent blank; and every screen showing listings carries the required attribution label at no less than 116 by 23 pixels with both the word and the logo linked as the source's terms require.
+- [ ] Design it (spec): `/architect job search & results list`
+
+### 12. Apply redirect & application record
+Click a result through to the real posting on the source site, and record that you applied. No auto fill and nothing submitted on the user's behalf. Minimal here: the guided capture questions arrive in Slice 4. This closes the thread and makes the application record the only place a job persists.
+**Done when:** a result links out to the real posting in a new tab, marking it applied writes a record tied to that user, the record survives a reload, and the same job applied to twice does not silently create a duplicate.
+- [ ] Build it: `/develop apply redirect & application record`
+
+## Slice 2: Ranking
+
+The differentiator and the answer to the sharpest finding in the reference audits: a scoring feature that shipped, passed every test, and returned a nearly constant meaningless number. Most of the build time belongs here.
+
+### 13. Model client router · needs a decision
+One thin client every AI call routes through: tier in, response out, with model and provider read from configuration and never written into a feature. This is what makes the deliberately cross vendor design swappable later. Built here with its first real caller in hand rather than as an empty foundation, because that is what keeps it a router. Watch this one: it is a named place where scope quietly expands into a framework.
+**Done when:** two tiers resolve from configuration to two different vendors, a feature calling it names a tier and never a model, swapping a model is a configuration change with no feature code touched, and a provider failure surfaces as a visible error rather than a default that reads as success.
+- [ ] Design it (spec): `/architect model client router`
+
+### 14. Fit scoring with shown reasoning · needs a decision · GA
+Score a listing against the profile and stated preferences, and show the work: the skills that matched and the skills that are missing, not just a number. The shown reasoning is both the usability point and a built in sanity check against the constant score failure mode. The spec defines the scoring bands, which is what makes the eval ranges in feature 15 meaningful.
+**Done when:** scoring uses an anchored band rubric rather than an open numeric range; results across genuinely different listings spread across bands instead of clustering; every score displays its matched and missing skills; a scoring failure is visible and never writes a record that reports success; and an optional sponsorship signal is scored when the posting states one.
+- [ ] Design it (spec): `/architect fit scoring with shown reasoning`
+
+### 15. Eval ground truth set · needs a decision
+The authored content the harness needs and does not get for free: several realistic profile archetypes beyond the author's own, matching job postings across a range of fit levels, and a decided expected band for each pair. Real writing work, budgeted as its own line rather than discovered mid build. The bands are fixed from the rubric before any model output is looked at, so the set measures the scorer instead of describing it.
+**Done when:** the archetypes cover clearly different career shapes, the pairs span the full band range including deliberate poor fits, every expected band was set before seeing any real output, and the set lives in version control as data rather than inside test code.
+- [ ] Design it (spec): `/architect eval ground truth set`
+
+### 16. Eval harness runner
+Run every ground truth pair against the current scoring configuration and report which fell outside their expected band. Run it whenever the scoring prompt or the model changes, so a swap is checked rather than hoped about.
+**Done when:** one command runs the whole set and prints a per pair pass or fail with the actual score, a regression on any pair is visible in the output, and the run works against a changed model with no code edit.
+- [ ] Build it: `/develop eval harness runner`
+
+### 17. Cross vendor self check · needs a decision · GA
+A genuine verification pass, not a bigger prompt: does the stated reasoning actually cite skills present in both the listing and the profile. It runs on a different vendor than the bulk scoring pass, because checking a model's work with the same model defeats the point of having a check. The same principle as cross model code review, applied one layer down inside the pipeline.
+**Done when:** the check runs on a demonstrably different vendor than the scoring tier; a fabricated skill in the reasoning is caught; a caught result is surfaced to the user rather than silently dropped or silently kept; and the check's own failure is visible rather than treated as a pass.
+- [ ] Design it (spec): `/architect cross vendor self check`
+
+## Slice 3: Search depth
+
+### 18. Structured search filters · needs a decision
+Thicken the search segment: seniority, remote or hybrid, job type, salary range, and listing recency, on top of the title and location already there. The underlying source already supports most of these; the gap in the reference project was its own implementation. There is no structured remote field, so remote is handled by a text heuristic over title and description for now.
+**Done when:** each filter changes the result set as stated, filter state is reflected in the URL so a search is shareable and survives a reload, the remote heuristic's limits are visible to the user rather than presented as certain, and a repeat search does not wipe the visible results.
+- [ ] Design it (spec): `/architect structured search filters`
+
+### 19. Listing data quality · needs a decision
+Fix the known problems in the incoming listing data rather than switching sources: the same job appearing under different identifiers, a salary rendered as a range from a number to itself, and occasional ungrounded outlier figures. The dedup key is the risky part: key on the wrong field and a genuinely different real result disappears silently.
+**Done when:** genuine duplicates collapse into one result while two distinct roles at the same company stay distinct, a single salary figure renders as a figure rather than a fake range, outliers are handled visibly rather than shown as fact, and the dedup key is exercised by a test that would fail if it hid a real result.
+- [ ] Design it (spec): `/architect listing data quality`
+
+## Slice 4: Tracking depth
+
+### 20. Guided application capture · needs a decision
+Thicken the tracking segment: when a user marks a job applied, walk them through a small set of preset questions and save their own typed answers. Hand typed, never AI generated. This is what later makes the dashboard and the discard signal worth anything.
+**Done when:** marking applied opens the guided flow, answers save against the application record and are editable afterwards, an abandoned flow still leaves a valid applied record, and nothing in the flow makes an external call.
+- [ ] Design it (spec): `/architect guided application capture`
+
+## Slice 5: Launch readiness
+
+### 21. Terms & privacy notices · Alpha
+A plain terms page and a privacy notice saying what is stored, why, and how to have it deleted. Owed the day the first person other than the author signs in, because real resumes and personal details are in the database from Slice 1 onward. Written against the actual data model rather than from a template, so it is accurate.
+**Done when:** both pages exist and are linked from the entry page and from sign in, the privacy notice names the real stored fields and the real third parties data reaches, and a user can find out how to request deletion.
+- [ ] Build it: `/develop terms & privacy notices`
+
+## v1.5
+
+Sequenced immediately after the v1 loop ships and is actually used, not deferred indefinitely. Several of these depend on something in v1 existing first.
+
+### 22. Discard with reason · needs a decision
+Discard a result with a reason from a fixed list, and let that softly adjust future ranking for that user only, with no learning across users. Needs scoring live to have anything to adjust. Deliberately soft: nothing is hidden by a score threshold, because a slightly miscalibrated model would then silently bury results worth seeing.
+**Done when:** a discard records a reason, the adjustment is per user only, its effect on a later score is explainable to the user, and nothing is ever filtered out of view without the user choosing it.
+- [ ] Design it (spec): `/architect discard with reason`
+
+### 23. Applications dashboard · needs a decision
+Applications grouped by status and a response rate, both computed directly from the tracked records. Kept clearly separate from product usage analytics, which measure something else entirely.
+**Done when:** counts and rate are derived from real records rather than stored as a snapshot, an empty account renders a meaningful empty state, and the page never presents product analytics numbers as application numbers.
+- [ ] Design it (spec): `/architect applications dashboard`
+
+### 24. Master resume · needs a decision
+One canonical resume as the single source of truth, from which every tailored version is regenerated fresh rather than edited in place.
+**Done when:** the canonical version is editable and versioned, a tailored version is always regenerated from it rather than from a previous tailoring, and each generated version is saved as a snapshot tied to its application record.
+- [ ] Design it (spec): `/architect master resume`
+
+### 25. Resume tailoring per job · needs a decision
+Generate a resume tailored to a specific listing, showing the fit score alongside with no hard gate. Ships with the numeral verification pattern carried forward from the reference project: a deterministic check after generation that drops any bullet containing a number not present in the user's own profile data. Needs the application record and the master resume live first.
+**Done when:** a tailored version generates against a real listing, any bullet with an unsupported number is dropped by a deterministic check rather than by asking a model to behave, the result is attached to its application record, and a generation failure is visible.
+- [ ] Design it (spec): `/architect resume tailoring per job`
+
+### 26. Profile depth & completeness · needs a decision
+Replace the flat one row per job history with nested roles containing sub projects, so a research assistant project stops having to masquerade as a standalone employer. Adds honest completeness signalling: say what is actually missing, not a vague percentage. Also brings resume upload with extraction, with its accuracy limits shown rather than assumed.
+**Done when:** a role can contain sub projects and renders correctly, completeness names the specific missing pieces, extraction results are shown for review before being saved, and the migration from the flat shape loses nothing.
+- [ ] Design it (spec): `/architect profile depth & completeness`
+
+### 27. Auth remainder · needs a decision
+Email and password sign up as an alternative for people without a Google or GitHub account, password reset, session expiry handling, and an account settings screen. Deferred out of v1 because it pulls in a transactional email service and a verification flow that OAuth alone does not need.
+**Done when:** a user can sign up and reset a password by email, an expired session is handled visibly rather than as a silent failure, account settings covers deletion, and the isolation guarantees hold identically for both sign in paths.
+- [ ] Design it (spec): `/architect auth remainder`
+
+### 28. Spend visibility & gating polish
+Surface actual usage against the caps so the limits are legible rather than a surprise, and extend gating past the two call types v1 covers as new call types arrive.
+**Done when:** a user can see their own usage against their cap, any newly added call type is gated by default rather than by remembering to add it, and the external kill switch remains the last resort it was built to be.
+- [ ] Build it: `/develop spend visibility & gating polish`
+
+### 29. Product analytics · needs a decision
+Product usage analytics, kept conceptually and technically separate from the dashboard's own computed application statistics. The reference project's own documentation was caught conflating the two.
+**Done when:** the events that matter are instrumented, nothing personally identifying leaves the app without a decision recorded about it, and the analytics surface is never presented as application statistics.
+- [ ] Design it (spec): `/architect product analytics`
+
+### 30. Company research, lite · needs a decision
+Company level facts only, one fetch plus one summarize call, cached with a long lifetime. No agent loop and no browser automation decision yet. **Open flag:** confirm that a plain fetch actually retrieves usable content from real company sites before designing around it, since many render their content in the browser.
+**Done when:** the fetch is proven against real sites before the feature is built out, cached results are reused rather than refetched, a site that cannot be read says so plainly instead of returning an empty summary, and the summarize call is gated like every other AI call.
+- [ ] Design it (spec): `/architect company research, lite`
+
+### 31. Seeded demo account · needs a decision
+A pre populated account reachable without signing up: a fake profile, applications across every status, discard history and a populated dashboard. Solves real demo friction, since a freshly created empty account shows a recruiter nothing. Needs the dashboard to exist first, because it seeds one.
+**Done when:** a visitor reaches it without signing up, every seeded value is obviously fake, a visitor cannot corrupt it for the next visitor, and it makes no external paid call.
+- [ ] Design it (spec): `/architect seeded demo account`
+
+## Deferred
+
+Out of scope for this build pass, kept so the plan stays honest.
+
+- **Tailoring and discard trends**: tailoring activity over time and discard reason patterns, the most honest signal about what the ranking is getting wrong · needs a decision
+- **Company research, full**: role specific synthesis tied to the listing being viewed, an adaptive extraction loop, a grounding check, and the browser automation choice made against pricing real at that time · needs a decision
+- **Fuller tailoring verification**: verification beyond the numeral only pattern · needs a decision
+- **Scheduled push digest**: a genuinely different interaction model from the pull based app, worth real consideration once v1 is stable · needs a decision
+- **Supplementary remote jobs source**: only if the text heuristic for remote proves too weak in practice · needs a decision
+- **Retrieval tool over job search history**: a separate later project; its relationship to this app's multi user database is explicitly unresolved · needs a decision
+- **Alert rule drift detection**: a scheduled diff between Sentry's live alert rules and the definitions in `docs/observability/`, so a rule that is edited or deleted in the Sentry interface is caught. Blocks nothing in v1; the forced failure smoke test in feature 10 is the load bearing half. `from spec 0001`
+
+## Legend
+
+**The decision box.** Every feature carries exactly one, the sub task whose label ends with `(spec)`. Its wording varies (`Design it (spec)` normally, `Decide the stack (spec)` on Stack & architecture), so skills locate it by that `(spec)` suffix, never by an exact label. Every other box is an execution box and `/architect` never ticks one.
+
+**Feature lifecycle**: the scope updates as a feature moves; each row is what it shows and who sets it:
+
+| State | Set by | The feature shows |
+|---|---|---|
+| `planned` · needs a decision | `/scope` | one box: `Design it (spec): /architect <feature>` |
+| `in-progress` (designed) | **`/architect` at spec capture** | `Design it` ticked; spec linked; `Build it: /develop <feature>` + **2 to 5 milestones**; the tier's closing boxes (`Verify it` Alpha+, `Test it` Beta+, `Review it` + `Document it` GA); any surfaced follow-up enrolled |
+| `in-progress` (building) | `/develop` | milestone sub-boxes tick one by one; code pointer filled |
+| `in-progress` (verified) | `/check verify` | `Build it` + milestones ticked; `Verify it` ticked |
+| `done` | **you, when you decide it is** (any skill sets it when you say so); `/sync` reconciles | the boxes you ran are ticked, ones you skipped are recorded as skipped; the tier's last stage (`Prototype` → after `/develop`; `Alpha` → after `/check verify`; `Beta`/`GA` → after `/test`) is the *suggested* point to call it done, never a gate; `/sync` captures conventions |
+
+- **Next step** = the first unticked box (always a command or a tracked milestone).
+- **needs a decision** = run `/architect` first; otherwise straight to `/develop` (or `/audit` for standards & tooling). The tag drops once the spec is captured.
+- **Atomic build tasks live in the spec's `## Build plan`, not here**: the scope carries only the milestone rollup.
+- **Status** `planned` → `in-progress` → `done`, plus `existing` (pre-workflow) and `dropped` (de-scoped, kept for history).
+- **Approach tag** beside a heading (e.g. `· Facade`) overrides the project default for that feature; no tag = inherits it.
+- **Workflow tier tag** beside a heading (e.g. `· GA`, `· Alpha`) overrides the project default `**Workflow:**` tier for that one feature; no tag = inherit. The **effective tier** (tag if set, else default) is the *recommended* verification depth; every skill reads it the same way to suggest the next step and to shape the closing boxes. Those boxes are suggestions you run or skip; skipping never blocks `done`.
+- **Workflow** (header line) is the project default tier, the stages each feature *suggests* running **after** `/develop`: **Prototype** = nothing; **Alpha** = `/check verify`; **Beta** = `/check verify` then `/test`; **GA** = adds a fresh model `/check review` then `/document`. `done` is your call, not gated on these; a skipped stage is recorded as skipped.
+- **Pointer line** (`spec <n> · code in <path>`): the spec link added by `/architect`, the code path by `/develop`.
+
+## Standing rules this scope was written under
+
+Carried from the idea brief, so `/architect` and `/develop` inherit them without re reading it:
+
+- **The v1 completion test.** v1 is done when a user can enter a profile, search, see ranked results with the reasoning shown, click through to apply, and record that they applied. Check every proposed addition against this, not against whether it is individually reasonable.
+- **The named risk retention rule.** Anything in scope because of a specific named real risk (features 10 and 7 here) is removed only by explicitly deciding that risk is acceptable, never as a side effect of trimming for time.
+- **Search results never persist.** Only an applied record, and later a discard, makes a job stick. This is what avoids a staleness state machine. Accepted trade off: jobs merely seen but not acted on are not deduplicated against, deliberately, to avoid a growing seen jobs ledger.
+- **No silent failures anywhere.** A failed fetch, a failed auth check or a failed scoring call is visible, never swallowed into a default that looks like success.
+- **Real dependency tests.** Every external dependency gets at least one test that actually calls it or replays a real recorded response, never a mock encoding the same assumption as the code under test.
+- **Quality, not just shape.** Anything that scores, ranks or generates needs expected ranges, not only schema validation. A schema check proves shape, not usefulness.
+- **Raw in, formatted at render.** Store raw values; a formatted string frozen into a column cannot be fixed by fixing the formatter.
+- **Cross model review before merge**, and cross vendor self check inside the AI pipeline: the same principle at two layers.
+- **Fixtures never carry real personal data.** Obviously fake identifiers only, even for convenience.
+- **No billing.** Cost exposure is handled by usage gating, not monetization.
+- **Responsive throughout, designed desktop first**, and WCAG 2.2 AA on the v1 loop.
+- **Write the data and control flow from memory** at the end of each feature before calling it done. Understanding erodes silently under scope pressure, and a stated intention does not catch that.
