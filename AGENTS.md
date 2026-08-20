@@ -25,6 +25,8 @@ Tracer Bullet: prove the whole pipe works end to end, narrow but real, before bu
 
 ```bash
 pnpm install / dev / build / typecheck
+pnpm lint        # eslint, --max-warnings=0, so a warning fails too
+pnpm format      # prettier --write; format:check is the read only version
 pnpm db:start    # local Supabase stack, needs Docker
 pnpm db:reset    # reapply migrations and seed
 pnpm db:types    # regenerate src/lib/supabase/database.types.ts
@@ -55,11 +57,12 @@ Spec [0001](docs/specs/0001-stack-and-architecture/index.md) is accepted and its
 
 ## Tooling
 
-Chosen here, installed by `/develop tooling`. Nothing below exists yet.
+Installed and green on the scaffold (feature 2).
 
-- **Lint and format**: ESLint plus Prettier. Must enforce `jsx-a11y` rules and, per binding rule 1, a `no-restricted-imports` override blocking `src/lib/supabase/secret.ts` from `src/app/**`.
-- **Before commit**: lint, format and typecheck on changed files.
-- **CI**: GitHub Actions on push and pull request, running lint, typecheck and build. The test job waits for feature 8.
+- **Lint and format**: ESLint flat config in [eslint.config.mjs](eslint.config.mjs), Next core web vitals plus TypeScript, `eslint-config-prettier` last, with Prettier in [.prettierrc.json](.prettierrc.json). `jsx-a11y` strict is raised to errors, above the eight warnings `eslint-config-next` ships. A `@typescript-eslint/no-restricted-imports` override blocks `src/lib/supabase/secret.ts` from `src/app/**` per binding rule 1, and catches relative and type only imports too.
+- **Before commit**: husky plus lint-staged, see [.husky/pre-commit](.husky/pre-commit) and [.lintstagedrc.json](.lintstagedrc.json). ESLint and Prettier run on staged files, then `tsc --noEmit` on the whole project.
+- **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) on push to `main` and every pull request, running lint, format check, typecheck and build. The test job waits for feature 8.
+- **Two constraints worth knowing.** ESLint stays on 9 until the react, `jsx-a11y` and import plugins accept 10 as a peer. Prettier ignores `docs/` and every `*.md`, so specs and scope tables are never rewrapped, and it skips the generated `src/lib/supabase/database.types.ts`.
 
 ## Git
 
@@ -78,6 +81,7 @@ Messages are conventional (`feat:`, `fix:`, `docs:`, `chore:`). Push and pull re
 - [vercel-react-best-practices](.agents/skills/vercel-react-best-practices/): `vercel-labs/agent-skills`, React 19 and Next.js App Router performance and rendering patterns.
 
 Declined: `vercel-labs@web-design-guidelines`, `vercel-labs@vercel-composition-patterns`, `addyosmani@accessibility`.
+Declined, no search run: ESLint, Prettier, husky and lint-staged. Their config files plus the `## Tooling` section above are the conventions.
 Reconsider at slice 2: `vercel/ai@ai-sdk`, since spec 0001 picks AI SDK 7 and nothing uses it yet.
 MCP servers: none connected. The Supabase MCP is permitted only under all five conditions of spec 0001 binding rule 7; feature 3 owns the environment half of that decision.
 
