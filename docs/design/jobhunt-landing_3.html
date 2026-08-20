@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JobHunt · Job search that shows its work</title>
+<meta name="description" content="JobHunt ranks job openings for your profile, then shows exactly which skills matched and which are missing. The reasoning behind every score is in the open." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<!-- NOTE: cdn.tailwindcss.com compiles CSS live in the browser. It is for prototyping only
+     and logs its own production warning. In the real Next.js build the JobHunt theme lives
+     in tailwind.config (see brand-tokens.md) and this <script> is removed entirely. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper:   '#FFFAFB',
+          surface: '#FFFFFF',
+          ink:     '#1A1A1A',
+          muted:   '#6B717E',
+          secondary: '#474A51',
+          line:    '#6B717E',
+          primary: {
+            50:  '#F0F6F6', 100: '#DEEEEE', 200: '#C2E1E1', 300: '#98DADA',
+            400: '#66BABA', 500: '#429A9A', 600: '#297373', 700: '#205B5B',
+            800: '#194646', 900: '#123434',
+          },
+          accent: {
+            50:  '#FFF9EC', 100: '#FDF1D3', 200: '#FBE4AB', 300: '#FCD581',
+            400: '#F7C55C', 500: '#EDAB33', 600: '#D58F1E', 700: '#AF7017',
+            800: '#8C5718', 900: '#714617',
+          },
+        },
+        fontFamily: {
+          sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  :root { --focus: #297373; }
+  html { scroll-padding-top: 88px; }
+  body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #6B717E;
+  }
+  .mono-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.02em;
+  }
+
+  .js [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .js [data-reveal].revealed { opacity: 1; transform: none; }
+
+  .match-cell { animation: cell-in .5s both; transform-origin: left center; }
+  .match-cell:nth-child(1) { animation-delay: .05s }
+  .match-cell:nth-child(2) { animation-delay: .10s }
+  .match-cell:nth-child(3) { animation-delay: .15s }
+  .match-cell:nth-child(4) { animation-delay: .20s }
+  .match-cell:nth-child(5) { animation-delay: .25s }
+  .match-cell:nth-child(6) { animation-delay: .30s }
+  .match-cell:nth-child(7) { animation-delay: .35s }
+  .match-cell:nth-child(8) { animation-delay: .40s }
+  @keyframes cell-in { from { opacity: 0; transform: scaleX(.35); } to { opacity: 1; transform: scaleX(1); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .js [data-reveal] { opacity: 1; transform: none; transition: none; }
+    .match-cell { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body class="bg-paper font-sans text-ink antialiased">
+
+<!-- Header -->
+<header data-od-id="site-header" class="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur">
+  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+    <a href="#" class="text-primary-600" aria-label="JobHunt home">
+      <svg viewBox="0 0 484.26 71.4" class="h-7 w-auto" fill="currentColor" role="img" aria-label="JobHunt">
+        <title>JobHunt</title>
+        <g transform="scale(2.1875)">
+          <rect x="2" y="2" width="11" height="3"></rect>
+          <rect x="2" y="2" width="3" height="11"></rect>
+          <rect x="12" y="12" width="8" height="8"></rect>
+          <rect x="19" y="27" width="11" height="3"></rect>
+          <rect x="27" y="19" width="3" height="11"></rect>
+        </g>
+        <path transform="translate(87.5 0)" d="M23.19 71.4 Q12.52 71.4 6.26 65.53 Q0 59.65 0 49 L0 42.7 L12.01 42.7 L12.01 49 Q12.01 54.15 14.82 57.15 Q17.63 60.15 22.87 60.15 Q27.9 60.15 30.47 57.2 Q33.03 54.24 33.03 49 L33.03 10.92 L20.96 10.92 L20.96 0 L52.94 0 L52.94 10.92 L45.04 10.92 L45.04 49 Q45.04 59.9 39.27 65.65 Q33.5 71.4 23.19 71.4Z M85.86 71.4 Q78.46 71.4 72.62 68.37 Q66.78 65.35 63.44 59.66 Q60.1 53.97 60.1 46.05 L60.1 44.52 Q60.1 36.61 63.44 30.92 Q66.78 25.23 72.62 22.2 Q78.46 19.17 85.86 19.17 Q93.26 19.17 99.1 22.2 Q104.94 25.23 108.28 30.92 Q111.62 36.61 111.62 44.52 L111.62 46.05 Q111.62 53.97 108.28 59.66 Q104.94 65.35 99.1 68.37 Q93.26 71.4 85.86 71.4Z M85.86 61.21 Q92.15 61.21 96.16 57.17 Q100.17 53.12 100.17 45.77 L100.17 44.8 Q100.17 37.46 96.2 33.41 Q92.23 29.36 85.86 29.36 Q79.59 29.36 75.57 33.41 Q71.55 37.46 71.55 44.8 L71.55 45.77 Q71.55 53.12 75.57 57.17 Q79.59 61.21 85.86 61.21Z M147.44 71.4 Q140.51 71.4 136.76 68.95 Q133.02 66.5 131.25 63.49 L129.55 63.49 L129.55 70 L118.3 70 L118.3 0 L129.75 0 L129.75 26.76 L131.45 26.76 Q132.58 24.84 134.52 23.13 Q136.46 21.41 139.63 20.29 Q142.8 19.17 147.44 19.17 Q153.55 19.17 158.68 22.14 Q163.82 25.11 166.92 30.8 Q170.02 36.49 170.02 44.52 L170.02 46.05 Q170.02 54.08 166.91 59.77 Q163.8 65.47 158.66 68.43 Q153.53 71.4 147.44 71.4Z M144.06 61.38 Q150.3 61.38 154.42 57.36 Q158.53 53.34 158.53 45.77 L158.53 44.8 Q158.53 37.24 154.46 33.22 Q150.38 29.2 144.06 29.2 Q137.84 29.2 133.71 33.22 Q129.59 37.24 129.59 44.8 L129.59 45.77 Q129.59 53.34 133.71 57.36 Q137.84 61.38 144.06 61.38Z M179.84 70 L179.84 0 L191.85 0 L191.85 29.44 L219.53 29.44 L219.53 0 L231.54 0 L231.54 70 L219.53 70 L219.53 40.36 L191.85 40.36 L191.85 70Z M262.67 70.83 Q256.97 70.83 252.61 68.26 Q248.24 65.69 245.8 61.04 Q243.35 56.38 243.35 50.17 L243.35 20.57 L254.8 20.57 L254.8 49.28 Q254.8 55.28 257.77 58.21 Q260.74 61.14 266.12 61.14 Q272.21 61.14 275.73 57.1 Q279.24 53.06 279.24 45.62 L279.24 20.57 L290.69 20.57 L290.69 70 L279.44 70 L279.44 63.06 L277.75 63.06 Q276.44 65.81 273 68.32 Q269.56 70.83 262.67 70.83Z M303.3 70 L303.3 20.57 L314.55 20.57 L314.55 27.51 L316.25 27.51 Q317.55 24.68 320.99 22.21 Q324.43 19.74 331.32 19.74 Q337.04 19.74 341.39 22.31 Q345.75 24.88 348.2 29.5 Q350.64 34.11 350.64 40.4 L350.64 70 L339.19 70 L339.19 41.3 Q339.19 35.28 336.23 32.35 Q333.26 29.43 327.88 29.43 Q321.78 29.43 318.27 33.47 Q314.75 37.52 314.75 44.96 L314.75 70Z M381.56 70 Q376.83 70 373.98 67.13 Q371.12 64.27 371.12 59.43 L371.12 30.1 L358.16 30.1 L358.16 20.57 L371.12 20.57 L371.12 4.69 L382.57 4.69 L382.57 20.57 L396.76 20.57 L396.76 30.1 L382.57 30.1 L382.57 57.47 Q382.57 60.47 385.4 60.47 L395.32 60.47 L395.32 70Z"></path>
+      </svg>
+    </a>
+
+    <nav class="hidden items-center gap-7 md:flex" aria-label="Primary">
+      <a href="#how-it-works" class="text-[14px] font-medium text-muted transition-colors hover:text-ink">How it works</a>
+      <a href="#reasoning" class="text-[14px] font-medium text-muted transition-colors hover:text-ink">The reasoning</a>
+      <a href="#about" class="text-[14px] font-medium text-muted transition-colors hover:text-ink">About</a>
+    </nav>
+
+    <div class="hidden items-center gap-4 md:flex">
+      <a href="#start" class="mono-label text-[13px] text-muted transition-colors hover:text-ink">
+        Try the demo <span class="ml-1 rounded border border-line px-1 py-0.5 text-[10px] tracking-[0.06em] text-muted">SOON</span>
+      </a>
+      <a href="#start" class="inline-flex items-center rounded-lg border border-line bg-surface px-4 py-2 text-[14px] font-medium transition-colors hover:border-ink/30 hover:bg-paper">
+        Sign in
+      </a>
+    </div>
+
+    <button type="button" id="menu-toggle" aria-expanded="false" aria-controls="mobile-menu" class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line md:hidden" aria-label="Open menu">
+      <svg viewBox="0 0 20 20" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5.5h14M3 10h14M3 14.5h14"/></svg>
+    </button>
+  </div>
+
+  <div id="mobile-menu" class="hidden border-t border-line bg-paper px-5 py-4 md:hidden">
+    <nav class="flex flex-col gap-1" aria-label="Mobile">
+      <a href="#how-it-works" class="rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-surface">How it works</a>
+      <a href="#reasoning" class="rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-surface">The reasoning</a>
+      <a href="#about" class="rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-surface">About</a>
+      <div class="mt-2 flex flex-col gap-2 border-t border-line pt-3">
+        <a href="#start" class="mono-label inline-flex items-center gap-2 px-3 py-2 text-[13px] text-muted">Try the demo <span class="rounded border border-line px-1 py-0.5 text-[10px] tracking-[0.06em]">SOON</span></a>
+        <a href="#start" class="rounded-lg border border-line bg-surface px-3 py-3 text-center text-[15px] font-medium">Sign in</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section data-od-id="hero" class="mx-auto max-w-6xl px-5 pb-20 pt-14 sm:px-8 sm:pt-20 lg:pb-28">
+    <div class="grid items-start gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <div data-od-id="hero-copy">
+        <p class="eyebrow" data-reveal>Job search, with the reasoning shown</p>
+        <h1 data-od-id="hero-title" data-reveal class="mt-4 max-w-[16ch] text-[40px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[54px] sm:leading-[1.06]">
+          Job search that shows its work.
+        </h1>
+        <p data-reveal class="mt-5 max-w-[54ch] text-[17px] leading-[1.6] text-muted">
+          JobHunt ranks openings for your profile, then shows exactly which skills matched and which are missing. You see the reasoning behind every result, not just a number.
+        </p>
+
+        <div data-od-id="hero-cta" data-reveal class="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <a href="#start" class="inline-flex items-center gap-2.5 rounded bg-primary-800 px-6 py-4 text-[15px] font-medium text-white transition-colors hover:bg-primary-600 active:translate-y-px">
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+            Sign in with Google
+          </a>
+          <a href="#start" class="inline-flex items-center gap-2.5 rounded border border-line bg-paper px-6 py-4 text-[15px] font-medium text-ink transition-colors hover:border-primary-800 hover:text-primary-800 active:translate-y-px">
+            <svg viewBox="0 0 16 16" class="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            Sign in with GitHub
+          </a>
+          <a href="#start" class="mono-label ml-1 inline-flex items-center gap-2 text-[13px] text-muted underline-offset-4 transition-colors hover:text-ink">
+            or try the demo <span class="rounded border border-line px-1 py-0.5 text-[10px] tracking-[0.06em]">SOON</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Ranked result card -->
+      <figure data-od-id="match-card" data-reveal class="rounded-2xl border border-line bg-surface p-5 shadow-[0_1px_2px_rgba(26,26,26,0.04),0_12px_32px_-16px_rgba(26,26,26,0.18)] sm:p-6">
+        <div class="flex items-center justify-between">
+          <span class="mono-label text-[12px] uppercase tracking-[0.08em] text-muted">Northwind Labs</span>
+          <span class="mono-label text-[12px] text-muted">4d ago</span>
+        </div>
+        <figcaption class="mt-2 text-[20px] font-semibold tracking-[-0.01em]">Senior Backend Engineer</figcaption>
+        <p class="mono-label mt-1 text-[12.5px] text-muted">Berlin · Hybrid · €92k–118k</p>
+
+        <div class="my-5 border-t border-line"></div>
+
+        <div class="flex items-baseline justify-between">
+          <span class="eyebrow">Your match</span>
+          <span class="font-mono text-[22px] font-semibold tracking-[-0.01em]"><span class="rounded-md bg-accent-300 px-2 py-0.5 text-ink">8 / 11</span></span>
+        </div>
+
+        <div class="mt-3 flex gap-[3px]" aria-hidden="true">
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="match-cell h-2 flex-1 rounded-sm bg-primary-600"></span>
+          <span class="h-2 flex-1 rounded-sm border border-line"></span>
+          <span class="h-2 flex-1 rounded-sm border border-line"></span>
+          <span class="h-2 flex-1 rounded-sm border border-line"></span>
+        </div>
+
+        <div class="mt-5">
+          <p class="mono-label text-[12px] uppercase tracking-[0.06em] text-secondary">Matched</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Go</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>PostgreSQL</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>gRPC</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Kubernetes</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Terraform</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>TypeScript</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>REST APIs</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-primary-300 px-2.5 py-1 text-[13px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>CI/CD</span>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <p class="mono-label text-[12px] uppercase tracking-[0.06em] text-secondary">Missing</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <span class="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-[13px] font-medium text-muted"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.6"/></svg>Airflow</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-[13px] font-medium text-muted"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.6"/></svg>Kafka</span>
+            <span class="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-[13px] font-medium text-muted"><svg viewBox="0 0 12 12" class="h-3 w-3 shrink-0" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.6"/></svg>AWS</span>
+          </div>
+          <ul class="mt-3 space-y-1 font-mono text-[13px] leading-[1.6] text-secondary">
+            <li>Airflow: nice to have, not core to this backend role.</li>
+            <li>Kafka: nice to have, named once in the posting.</li>
+            <li>AWS: overlaps with your Terraform work, so the gap is small.</li>
+          </ul>
+        </div>
+
+        <div class="my-5 border-t border-line"></div>
+
+        <p class="font-mono text-[13px] leading-[1.6] text-secondary">
+          <span class="text-primary-600">//</span> 8 of 11 skills matched. Strong fit on the core backend stack; the data-infra gap is the one to name in your application.
+        </p>
+
+        <a href="#" class="mt-4 inline-flex items-center gap-1 text-[13.5px] font-medium text-ink underline-offset-4 hover:underline">
+          Apply on the real posting
+          <svg viewBox="0 0 12 12" class="h-3 w-3" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </figure>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section data-od-id="how-it-works" class="scroll-mt-24 border-t border-line">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+      <div class="max-w-2xl" data-reveal>
+        <p class="eyebrow">How it works</p>
+        <h2 class="mt-3 text-[30px] font-semibold leading-[1.15] tracking-[-0.01em]">Three steps, no black box.</h2>
+      </div>
+
+      <div class="mt-12 grid gap-10 sm:grid-cols-3">
+        <div data-od-id="step-search" data-reveal class="border-t-2 border-primary-800 pt-5">
+          <span class="font-mono text-[13px] font-medium text-primary-600">01</span>
+          <h3 class="mt-3 text-[19px] font-semibold tracking-[-0.01em]">Tell it what you're after</h3>
+          <p class="mt-2 text-[15px] leading-[1.6] text-muted">Point it at your profile or resume, then set real filters: location, seniority, remote or hybrid, salary, and job type.</p>
+          <div class="mt-4 flex flex-wrap gap-1.5" aria-hidden="true">
+            <span class="inline-flex items-center rounded-md border border-line px-2.5 py-1 font-mono text-[11.5px] text-muted">Location</span>
+            <span class="inline-flex items-center rounded-md border border-line px-2.5 py-1 font-mono text-[11.5px] text-muted">Remote / hybrid</span>
+            <span class="inline-flex items-center rounded-md border border-line px-2.5 py-1 font-mono text-[11.5px] text-muted">Seniority</span>
+            <span class="inline-flex items-center rounded-md border border-line px-2.5 py-1 font-mono text-[11.5px] text-muted">Salary</span>
+            <span class="inline-flex items-center rounded-md border border-line px-2.5 py-1 font-mono text-[11.5px] text-muted">Job type</span>
+          </div>
+        </div>
+        <div data-od-id="step-rank" data-reveal class="border-t-2 border-primary-800 pt-5">
+          <span class="font-mono text-[13px] font-medium text-primary-600">02</span>
+          <h3 class="mt-3 text-[19px] font-semibold tracking-[-0.01em]">Search and read the reasoning</h3>
+          <p class="mt-2 text-[15px] leading-[1.6] text-muted">Results come back ranked for you. Each one shows which skills matched and which are missing, so the number is never a mystery.</p>
+          <div class="mt-4" aria-hidden="true">
+            <div class="flex gap-[3px]">
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+              <span class="h-2 flex-1 rounded-sm border border-line"></span>
+              <span class="h-2 flex-1 rounded-sm border border-line"></span>
+            </div>
+            <p class="mt-2 font-mono text-[11.5px] text-muted">matched / gap, always both.</p>
+          </div>
+        </div>
+        <div data-od-id="step-track" data-reveal class="border-t-2 border-primary-800 pt-5">
+          <span class="font-mono text-[13px] font-medium text-primary-600">03</span>
+          <h3 class="mt-3 text-[19px] font-semibold tracking-[-0.01em]">Apply on the real posting, then track it</h3>
+          <p class="mt-2 text-[15px] leading-[1.6] text-muted">JobHunt links out to the actual listing and records that you applied.</p>
+          <p class="mt-4 font-mono text-[12.5px] leading-[1.6] text-primary-600">No auto-fill. No application is ever submitted for you.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The reasoning -->
+  <section data-od-id="reasoning" class="scroll-mt-24 border-t border-line bg-surface">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+      <div class="max-w-2xl" data-reveal>
+        <p class="eyebrow">The reasoning</p>
+        <h2 class="mt-3 text-[30px] font-semibold leading-[1.15] tracking-[-0.01em]">The score is not a black box.</h2>
+        <p class="mt-3 max-w-[60ch] text-[16px] leading-[1.6] text-muted">Most tools hand you one number. JobHunt breaks it into the parts you can actually act on.</p>
+      </div>
+
+      <div class="mt-12 grid gap-6 md:grid-cols-2">
+        <div data-od-id="opaque-score" data-reveal class="rounded-2xl border border-line bg-paper p-6 sm:p-7">
+          <p class="mono-label text-[12px] uppercase tracking-[0.08em] text-muted">Most tools</p>
+          <p class="mt-6 text-[44px] font-semibold leading-none tracking-[-0.02em] text-muted">82%</p>
+          <div class="mt-4 h-2 w-full rounded-full bg-line/20" aria-hidden="true">
+            <div class="h-2 w-[82%] rounded-full bg-muted"></div>
+          </div>
+          <p class="mt-5 text-[15px] leading-[1.6] text-muted">A single number. You can't see which skills moved it, so you can't act on it.</p>
+        </div>
+
+        <div data-od-id="shown-score" data-reveal class="rounded-2xl border border-line bg-surface p-6 shadow-[0_12px_32px_-20px_rgba(26,26,26,0.22)] sm:p-7">
+          <p class="mono-label text-[12px] uppercase tracking-[0.08em] text-muted">JobHunt</p>
+          <p class="mt-6 text-[44px] font-semibold leading-none tracking-[-0.02em]"><span class="rounded-lg bg-accent-300 px-3 py-1 text-ink">8 of 11</span></p>
+          <div class="mt-4 flex gap-[3px]" aria-hidden="true">
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm bg-primary-600"></span>
+            <span class="h-2 flex-1 rounded-sm border border-line"></span>
+            <span class="h-2 flex-1 rounded-sm border border-line"></span>
+            <span class="h-2 flex-1 rounded-sm border border-line"></span>
+          </div>
+          <p class="mt-5 text-[15px] leading-[1.6] text-muted">The reasoning is written out: which skills matched, which are missing, and what to say about the gap.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section data-od-id="about" class="scroll-mt-24 border-t border-line">
+    <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+      <div class="grid gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
+        <div data-reveal>
+          <p class="eyebrow">About</p>
+          <h2 class="mt-3 text-[30px] font-semibold leading-[1.15] tracking-[-0.01em]">Built for real use, not for show.</h2>
+          <div class="mt-5 space-y-4 text-[16px] leading-[1.6] text-muted">
+            <p>JobHunt is a real product in progress, built and run by one engineer. I use it for my own search, so the parts that are broken get fixed because I run into them too.</p>
+            <p>The ranking compares your profile against each posting and writes out the reasoning. A score you can't question isn't much help when you're deciding where to spend an application.</p>
+            <p>Anything not built yet is labeled as such on this page, not implied.</p>
+          </div>
+        </div>
+
+        <div data-od-id="status-board" data-reveal class="self-start rounded-2xl border border-line bg-surface p-6">
+          <p class="mono-label text-[12px] uppercase tracking-[0.08em] text-secondary">What's real today</p>
+          <ul class="mt-4 space-y-4 font-mono text-[13px] leading-[1.7]">
+            <li class="flex gap-3">
+              <span class="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary-300 px-2 py-0.5 text-[11px] font-medium text-primary-800"><svg viewBox="0 0 12 12" class="h-2.5 w-2.5" aria-hidden="true"><path d="M2.5 6.2 4.8 8.5 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>working</span>
+              <span class="text-muted">profile · filtered search · ranked results with reasoning · application tracking</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line px-2 py-0.5 text-[11px] font-medium text-muted"><svg viewBox="0 0 12 12" class="h-2.5 w-2.5" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.6"/></svg>planned</span>
+              <span class="text-muted">email digests · a no-sign-in demo account</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sign in -->
+  <section data-od-id="start" class="scroll-mt-24 bg-primary-800">
+    <div class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-8 sm:py-24">
+      <div data-reveal>
+        <h2 class="text-[30px] font-semibold leading-[1.15] tracking-[-0.01em] text-paper sm:text-[34px]">Start your search.</h2>
+        <p class="mx-auto mt-3 max-w-[46ch] text-[16px] leading-[1.6] text-paper">Sign in with Google or GitHub and run your first search. No email, no password, no subscription. JobHunt is free.</p>
+      </div>
+
+      <div data-od-id="signin-cta" data-reveal class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="#" class="inline-flex w-full items-center justify-center gap-2.5 rounded bg-paper px-6 py-4 text-[15px] font-medium text-ink transition-colors hover:bg-primary-300 active:translate-y-px sm:w-auto">
+          <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+          Sign in with Google
+        </a>
+        <a href="#" class="inline-flex w-full items-center justify-center gap-2.5 rounded border border-paper/50 px-6 py-4 text-[15px] font-medium text-paper transition-colors hover:border-paper hover:bg-paper/10 active:translate-y-px sm:w-auto">
+          <svg viewBox="0 0 16 16" class="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          Sign in with GitHub
+        </a>
+      </div>
+
+      <p data-reveal class="mt-6 font-mono text-[13px] text-primary-300">
+        Want a look first? <a href="#" class="text-paper underline underline-offset-4 hover:text-primary-300">Try the demo</a> <span class="ml-1 rounded border border-primary-300/50 px-1 py-0.5 text-[10px] tracking-[0.06em]">SOON</span>
+      </p>
+    </div>
+  </section>
+</main>
+
+<!-- Footer -->
+<footer data-od-id="site-footer" class="border-t border-line">
+  <div class="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+    <div class="text-primary-600">
+      <svg viewBox="0 0 484.26 71.4" class="h-6 w-auto" fill="currentColor" role="img" aria-label="JobHunt">
+        <title>JobHunt</title>
+        <g transform="scale(2.1875)">
+          <rect x="2" y="2" width="11" height="3"></rect>
+          <rect x="2" y="2" width="3" height="11"></rect>
+          <rect x="12" y="12" width="8" height="8"></rect>
+          <rect x="19" y="27" width="11" height="3"></rect>
+          <rect x="27" y="19" width="3" height="11"></rect>
+        </g>
+        <path transform="translate(87.5 0)" d="M23.19 71.4 Q12.52 71.4 6.26 65.53 Q0 59.65 0 49 L0 42.7 L12.01 42.7 L12.01 49 Q12.01 54.15 14.82 57.15 Q17.63 60.15 22.87 60.15 Q27.9 60.15 30.47 57.2 Q33.03 54.24 33.03 49 L33.03 10.92 L20.96 10.92 L20.96 0 L52.94 0 L52.94 10.92 L45.04 10.92 L45.04 49 Q45.04 59.9 39.27 65.65 Q33.5 71.4 23.19 71.4Z M85.86 71.4 Q78.46 71.4 72.62 68.37 Q66.78 65.35 63.44 59.66 Q60.1 53.97 60.1 46.05 L60.1 44.52 Q60.1 36.61 63.44 30.92 Q66.78 25.23 72.62 22.2 Q78.46 19.17 85.86 19.17 Q93.26 19.17 99.1 22.2 Q104.94 25.23 108.28 30.92 Q111.62 36.61 111.62 44.52 L111.62 46.05 Q111.62 53.97 108.28 59.66 Q104.94 65.35 99.1 68.37 Q93.26 71.4 85.86 71.4Z M85.86 61.21 Q92.15 61.21 96.16 57.17 Q100.17 53.12 100.17 45.77 L100.17 44.8 Q100.17 37.46 96.2 33.41 Q92.23 29.36 85.86 29.36 Q79.59 29.36 75.57 33.41 Q71.55 37.46 71.55 44.8 L71.55 45.77 Q71.55 53.12 75.57 57.17 Q79.59 61.21 85.86 61.21Z M147.44 71.4 Q140.51 71.4 136.76 68.95 Q133.02 66.5 131.25 63.49 L129.55 63.49 L129.55 70 L118.3 70 L118.3 0 L129.75 0 L129.75 26.76 L131.45 26.76 Q132.58 24.84 134.52 23.13 Q136.46 21.41 139.63 20.29 Q142.8 19.17 147.44 19.17 Q153.55 19.17 158.68 22.14 Q163.82 25.11 166.92 30.8 Q170.02 36.49 170.02 44.52 L170.02 46.05 Q170.02 54.08 166.91 59.77 Q163.8 65.47 158.66 68.43 Q153.53 71.4 147.44 71.4Z M144.06 61.38 Q150.3 61.38 154.42 57.36 Q158.53 53.34 158.53 45.77 L158.53 44.8 Q158.53 37.24 154.46 33.22 Q150.38 29.2 144.06 29.2 Q137.84 29.2 133.71 33.22 Q129.59 37.24 129.59 44.8 L129.59 45.77 Q129.59 53.34 133.71 57.36 Q137.84 61.38 144.06 61.38Z M179.84 70 L179.84 0 L191.85 0 L191.85 29.44 L219.53 29.44 L219.53 0 L231.54 0 L231.54 70 L219.53 70 L219.53 40.36 L191.85 40.36 L191.85 70Z M262.67 70.83 Q256.97 70.83 252.61 68.26 Q248.24 65.69 245.8 61.04 Q243.35 56.38 243.35 50.17 L243.35 20.57 L254.8 20.57 L254.8 49.28 Q254.8 55.28 257.77 58.21 Q260.74 61.14 266.12 61.14 Q272.21 61.14 275.73 57.1 Q279.24 53.06 279.24 45.62 L279.24 20.57 L290.69 20.57 L290.69 70 L279.44 70 L279.44 63.06 L277.75 63.06 Q276.44 65.81 273 68.32 Q269.56 70.83 262.67 70.83Z M303.3 70 L303.3 20.57 L314.55 20.57 L314.55 27.51 L316.25 27.51 Q317.55 24.68 320.99 22.21 Q324.43 19.74 331.32 19.74 Q337.04 19.74 341.39 22.31 Q345.75 24.88 348.2 29.5 Q350.64 34.11 350.64 40.4 L350.64 70 L339.19 70 L339.19 41.3 Q339.19 35.28 336.23 32.35 Q333.26 29.43 327.88 29.43 Q321.78 29.43 318.27 33.47 Q314.75 37.52 314.75 44.96 L314.75 70Z M381.56 70 Q376.83 70 373.98 67.13 Q371.12 64.27 371.12 59.43 L371.12 30.1 L358.16 30.1 L358.16 20.57 L371.12 20.57 L371.12 4.69 L382.57 4.69 L382.57 20.57 L396.76 20.57 L396.76 30.1 L382.57 30.1 L382.57 57.47 Q382.57 60.47 385.4 60.47 L395.32 60.47 L395.32 70Z"></path>
+      </svg>
+    </div>
+    <p class="font-mono text-[12.5px] text-muted">Built with Next.js, TypeScript, and Tailwind. Sign-in via Google and GitHub.</p>
+    <p class="font-mono text-[12.5px] text-muted">© 2026 JobHunt</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var reveals = document.querySelectorAll('[data-reveal]');
+    if (reduce || !('IntersectionObserver' in window)) {
+      reveals.forEach(function (el) { el.classList.add('revealed'); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+      reveals.forEach(function (el) { io.observe(el); });
+    }
+
+    var toggle = document.getElementById('menu-toggle');
+    var menu = document.getElementById('mobile-menu');
+    if (toggle && menu) {
+      toggle.addEventListener('click', function () {
+        var open = menu.classList.toggle('hidden') === false;
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      menu.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { menu.classList.add('hidden'); toggle.setAttribute('aria-expanded', 'false'); });
+      });
+    }
+  })();
+</script>
+</body>
+</html>
