@@ -1,0 +1,6 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  # Sentry's CLI downloads its binary in a postinstall script. It is needed for
+  # source map upload at build time, so the script has to be allowed to run.
+  "@sentry/cli": true

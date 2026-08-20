@@ -48,9 +48,9 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 ### 1. Stack & architecture · in-progress
 Record the stack already chosen (backend and auth platform, framework, styling) as a real architecture spec, then scaffold a project that boots, and close what the brief left open: exact OAuth providers, directory layout, language strictness, and where the model tier configuration lives.
 **Done when:** the architecture decision is written down with what was rejected and why, and an empty scaffold boots locally and passes a clean build and a protected page reads one row from Supabase through the real server client and renders it, proving the framework, client, session, policy, deployment and error path all connect.
-_spec [0001](../specs/0001-stack-and-architecture/index.md)_
+_spec [0001](../specs/0001-stack-and-architecture/index.md) · code in `src/`, `supabase/`_
 - [x] Decide the stack (spec): `/architect stack & architecture`
-- [ ] Scaffold from the decision: `/develop stack & architecture`
+- [x] Scaffold from the decision: `/develop stack & architecture`
 - [ ] Verify it: `/check verify stack & architecture`
 - [ ] Test it: `/test stack & architecture`
 
