@@ -81,7 +81,7 @@ Port the already built and reviewed landing page onto the design token layer. It
 
 ### 7. Auth & per user isolation · needs a decision · GA
 OAuth sign in only (Google and GitHub), plus real per user data isolation enforced at the database rather than in application code. OAuth is kept over email and password for v1 because a linked real account is harder to fake for abuse than a burner address, and it removes the need for any transactional email in v1.
-**Done when:** a user can sign in and out with either provider on the deployed URL, an authenticated request only ever reaches its own rows, and an unauthenticated request to a protected route fails visibly rather than returning empty data that looks like success.
+**Done when:** a user can sign in and out with either provider on the deployed URL, an authenticated request only ever reaches its own rows, an unauthenticated request to a protected route fails visibly rather than returning empty data that looks like success, and the development only password sign in from feature 1 is deleted, not merely blocked.
 - [ ] Design it (spec): `/architect auth & per user isolation`
 
 ### 8. Test foundation · needs a decision

@@ -13,7 +13,7 @@ JobHunt is built as one Next.js application on Supabase, deployed to Vercel, wit
 
 Build JobHunt as a single Next.js 16 application whose data path runs entirely on the server through `@supabase/ssr`, with authorisation enforced by Postgres row level security and no object relational mapper in between.
 
-**Implementation skills**: `supabase` (`supabase/agent-skills`, `.agents/skills/supabase/`) · `supabase-postgres-best-practices` (`supabase/agent-skills`, `.agents/skills/supabase-postgres-best-practices/`) · `sentry-sdk-setup` (`getsentry/sentry-for-ai`, `.agents/skills/sentry-sdk-setup/`) · `sentry-node-sdk` (`getsentry/sentry-for-ai`, `.agents/skills/sentry-node-sdk/`)
+**Implementation skills**: `supabase` (`supabase/agent-skills`, `.agents/skills/supabase/`) · `supabase-postgres-best-practices` (`supabase/agent-skills`, `.agents/skills/supabase-postgres-best-practices/`) · `sentry-sdk-setup` (`getsentry/sentry-for-ai`, `.agents/skills/sentry-sdk-setup/`) · `sentry-nextjs-sdk` (`getsentry/sentry-for-ai`, `.agents/skills/sentry-nextjs-sdk/`)
 
 ## Rationale
 
@@ -186,6 +186,7 @@ Feature 3 owns the environment half of this decision.
 - [ ] Decide the test runners in feature 8.
 - [ ] Decide the linter and formatter in feature 2, against the two constraints in binding rule 7.
 - [ ] Feature 3 owns the environment half of the MCP decision: which project the development connection points at, and confirmation that no production project is ever reachable from it.
-- [ ] The four installed skills (`supabase`, `supabase-postgres-best-practices`, `sentry-sdk-setup`, `sentry-node-sdk`) are not yet referenced anywhere in project context. All four are project wide, so their conventions belong in root `AGENTS.md` once feature 2 creates it.
+- [ ] The four installed skills (`supabase`, `supabase-postgres-best-practices`, `sentry-sdk-setup`, `sentry-nextjs-sdk`) are not yet referenced anywhere in project context. All four are project wide, so their conventions belong in root `AGENTS.md` once feature 2 creates it.
+- [ ] **Install `sentry-nextjs-sdk` and remove `sentry-node-sdk` from `.agents/skills/`.** This spec originally named the Node SDK skill; the router skill points Next.js projects at the Next.js one, and the SDK wiring built during `/develop` follows the Next.js package. The spec text above is corrected, but the installed skill directory still has to be brought in line before feature 2 writes skill conventions into `AGENTS.md`.
 - [ ] The Vercel MCP server is present in the environment but not authorised, and it cannot be authorised from a non interactive session. Authorise it through `claude mcp` or `/mcp` in an interactive session if it is wanted; binding rule 6 says Supabase MCP only, so this needs a deliberate decision rather than a default.
 - [ ] Residual from the brief, unchanged by this spec: a direct email to Adzuna confirming the multi user reading of their terms.
