@@ -1,0 +1,23 @@
+# Build output and machine written files.
+.next/
+out/
+build/
+next-env.d.ts
+pnpm-lock.yaml
+*.tsbuildinfo
+
+# Generated from the live database by `pnpm db:types`. Reformatting it only
+# creates a diff that the next generation throws away.
+src/lib/supabase/database.types.ts
+
+# Prose owned by other tools and by hand. Specs and scope files carry wide
+# tables that Prettier would rewrap, which would churn files this build does
+# not own.
+docs/
+*.md
+
+# Local agent tooling and Supabase CLI scratch state.
+.agents/
+.claude/
+supabase/.temp/
+supabase/.branches/
