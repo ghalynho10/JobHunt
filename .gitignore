@@ -41,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent skills: local tooling, not part of the product. Reinstallable from
+# skills-lock.json, which stays tracked so the set is still recorded.
+/.agents/
+/.claude/
