@@ -29,8 +29,10 @@ did. Key rotation is not a substitute for RLS.
 
 **Use `@supabase/ssr`, not the legacy auth-helpers package.**
 
-**A root `middleware.ts` is required.** Server Components cannot write
-cookies, so middleware refreshes expired auth tokens: it calls
+**A root `proxy.ts` is required** (Next.js 16 renamed `middleware.ts` to
+`proxy.ts`, and the named export with it; it sits beside `app`, so
+`src/proxy.ts` here). Server Components cannot write
+cookies, so the proxy refreshes expired auth tokens: it calls
 `supabase.auth.getUser`, passes the refreshed token to Server Components
 via `request.cookies.set`, and back to the browser via
 `response.cookies.set`. Use a matcher so it does not run on routes that

@@ -129,7 +129,7 @@ Alert rule definitions live in `docs/observability/` in git, so they are reviewa
 
 This applies to external boundary calls only. A programmer bug still throws and still reaches an error boundary with its stack trace intact. Funnelling every escaping exception into a return value would swallow real bugs into data, which is the opposite of what this error model is for.
 
-**6. Authorisation is never decided in middleware.** Middleware refreshes the Supabase session cookie and does nothing else. The protected layout verifies the session, and every Server Action verifies its own caller independently, because a Server Action is a callable endpoint whatever page renders it. Row level security in Postgres is the guarantee behind both.
+**6. Authorisation is never decided in the proxy.** The proxy (`src/proxy.ts`, the file Next.js called `middleware.ts` before 16) refreshes the Supabase session cookie and does nothing else. The protected layout verifies the session, and every Server Action verifies its own caller independently, because a Server Action is a callable endpoint whatever page renders it. Row level security in Postgres is the guarantee behind both.
 
 **Route handlers under `src/app/api/` may not read or write user data.** They exist for callers with no session cookie, and this spec defines no authorisation rule for that case. The feature 16 eval harness runs in process as a script and imports the scoring code directly, so v1 is not expected to need one. A route handler that must touch user data means writing its authorisation rule into this spec first.
 

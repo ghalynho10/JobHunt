@@ -46,7 +46,7 @@ Spec [0001](docs/specs/0001-stack-and-architecture/index.md) is accepted and its
 - **Open the named span first.** In any operation whose failure rate matters, `Sentry.startSpan` is the *first* statement, before any guard clause or early return, then register the name in [docs/observability/spans.md](docs/observability/spans.md). A span opened later leaves the rate alert with no denominator.
 - **Wrap external calls in `attempt()`.** `fetch`, provider SDKs and the database driver may throw. A programmer bug should still throw and reach an error boundary.
 - **The secret key has exactly one home.** Only [src/lib/supabase/secret.ts](src/lib/supabase/secret.ts) may build a secret key client. Importing it from anywhere under `src/app` is forbidden.
-- **Authorisation is never decided in middleware.** Middleware only refreshes the session cookie. The protected layout checks the session and every Server Action checks its own caller independently. Row level security in Postgres is the real guarantee. Route handlers under `src/app/api/` may not read or write user data.
+- **Authorisation is never decided in the proxy.** [src/proxy.ts](src/proxy.ts) only refreshes the session cookie, and it is `proxy.ts` with a `proxy` export, never `middleware.ts`, which Next.js 16 deprecated. The protected layout checks the session and every Server Action checks its own caller independently. Row level security in Postgres is the real guarantee. Route handlers under `src/app/api/` may not read or write user data.
 - **Server Components read, Server Actions write.** No Supabase call and no session check runs in the browser.
 - **Parse at every boundary** with Zod: external responses, model output, form input, environment variables.
 - **Folder by feature.** A feature's code lives in `src/features/<feature>/`. Routes live only in `src/app`. Anything two features share moves to `src/lib` or `src/components/ui`.
@@ -94,6 +94,12 @@ patching (hard reset), or a foundation resting on a wrong assumption (rethink).
 /recover states its diagnosis without asking, but pauses for confirmation before a hard reset
 ends the session or a rethink changes code. A hard reset note goes to `docs/session-notes.md`,
 which /checkpoint reads and ages out.
+
+## Standing rules
+
+Read [docs/reflexes.md](docs/reflexes.md) before making changes: standing rules for how work is
+done here, one line each, written by /reflex. A rule that has become a plain convention belongs in
+this file instead; /reflex flags it and the engineer moves it.
 
 ## Context files
 
