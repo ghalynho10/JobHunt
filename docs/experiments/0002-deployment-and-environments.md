@@ -206,7 +206,7 @@ vercel env ls production ; vercel env ls preview
 vercel env pull "$TMP/preview.env" --environment=preview --yes
 ```
 
-**Result.** The variable matrix matches spec 0002's Configuration required table, including the one that matters most: `DEV_SESSION_ENABLED` is present on Preview and **absent** from Production. Preview points at `serbucmdtvbspkbmxewl.supabase.co`, production at `fvaaebmjrrrjxxnaiyrb.supabase.co`. Two distinct projects.
+**Result.** The variable matrix matches spec 0002's Configuration required table, including the one that matters most: `DEV_SESSION_ENABLED` is present on Preview and **absent** from Production. Preview points at `serbuc…`, production at `fvaae…`. Two distinct projects.
 
 **A false alarm worth recording, because the method produced it rather than the system.** Fingerprinting `SUPABASE_SECRET_KEY` from both pulls gave an identical hash, which was read as preview holding production credentials, a direct AC-2 violation. It was not. That variable is marked **Sensitive** in Vercel, which makes it write only: `vercel env pull` returns the literal string `[SENSITIVE]`, eleven characters, for every sensitive variable. The same placeholder hashed twice is the same hash.
 
