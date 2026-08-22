@@ -103,6 +103,10 @@ reset role;
   **This is the whole point of feature 3.** Spec 0001 proved every leg of this thread locally and said plainly that the deployed leg could not be proved before a real URL existed. It now has been: framework, server client, session, row level security policy, deployment and error path, all connecting on real infrastructure, with two users confined to their own rows.
 - [ ] Load `/health` on the preview with no session → redirected to `/sign-in`, not an empty page. → **AC-5**
 - [ ] On **production**, load `/sign-in` → hard 404, because `DEV_SESSION_ENABLED` is absent there. → **AC-10**
+
+  **Do not tick this on the current 404, which is a trap.** Production already returns 404 for `/sign-in`, and did so before this feature existed, because the old guard read `process.env.NODE_ENV !== "development"`. Two different mechanisms give the identical answer, so the check only means anything **after this branch is merged and deployed to production**. Confirm the running commit first, then check the route. AC-10's whole point is that neither guard depends on how a build labels `NODE_ENV` any more, and a 404 alone cannot tell you which mechanism produced it.
+
+  For reference, production on 2026-08-22 while still running `0ea8103`: `/` is 200, `/sign-in` is 404, `/health` is 307.
 - [ ] On **production**, POST to the sign in Server Action directly (browser devtools, or a replayed request) → refused. The page guard alone is not the proof; the action has its own. → **AC-10**
 
 ### The kill switch
