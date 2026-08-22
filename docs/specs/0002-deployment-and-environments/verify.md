@@ -2,6 +2,8 @@
 
 _Steps derived from spec 0002's acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
+_The probes behind these results, with the exact commands, the answers, and the two that answered something other than what they were pointed at, are in [docs/experiments/0002-deployment-and-environments.md](../../experiments/0002-deployment-and-environments.md)._
+
 Steps already proved during the build are ticked, with what proved them. Everything unticked needs either a dashboard, a hosted database, or a real deployed URL, none of which the build environment can reach.
 
 ## Hand proofs owed against the hosted development project
