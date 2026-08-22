@@ -55,7 +55,7 @@ select * from public.app_settings;
 reset role;
 ```
 
-- [ ] Returns `42501 permission denied for table app_settings`. An empty result instead means the grant is wrong and the switch is readable by users. → **AC-9**
+- [x] Returns `42501 permission denied for table app_settings`. An empty result instead would mean the grant is wrong and the switch is readable by users. *Proved 2026-08-22 on the hosted development project, with the denial reported verbatim including the hint suggesting the grant that must never be made.* → **AC-9**
 
 ## Commands
 
