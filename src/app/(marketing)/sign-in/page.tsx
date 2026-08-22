@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { env } from "@/env";
 import { SignInForm } from "@/features/dev-session/sign-in-form";
 
 /**
@@ -9,10 +10,18 @@ import { SignInForm } from "@/features/dev-session/sign-in-form";
  * replaces it.
  */
 export default function SignInPage() {
-  // Blocked in two places, not one: the page refuses to render outside
-  // development, and the Server Action refuses to run there as well. A page
-  // guard alone would leave the action callable on its own.
-  if (process.env.NODE_ENV !== "development") {
+  /**
+   * Spec 0002 AC-10: blocked in two places, not one. This page refuses to
+   * render, and the Server Action behind it refuses to run, each checking the
+   * same validated variable independently. A page guard alone would leave the
+   * action callable on its own, and an action guard alone would leave this page
+   * returning a not found on every preview, which is where the end to end
+   * thread has to be proved.
+   *
+   * The variable defaults to false, so production, which never sets it, is
+   * blocked by absence rather than by a label a build tool chooses.
+   */
+  if (!env.DEV_SESSION_ENABLED) {
     notFound();
   }
 
