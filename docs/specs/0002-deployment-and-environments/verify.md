@@ -69,6 +69,7 @@ reset role;
 
 - [x] `pnpm typecheck && pnpm lint && pnpm format:check && pnpm build` → all clean. *Proved 2026-08-21.*
 - [x] `SENTRY_DSN= NEXT_PUBLIC_SENTRY_DSN= NEXT_PUBLIC_VERCEL_ENV=preview pnpm build` → **fails**, naming `NEXT_PUBLIC_SENTRY_DSN`. *Proved 2026-08-21.* → **AC-4**, **AC-13**
+- [x] **The same rule fired on a real Vercel build, unprompted.** *2026-08-22: the first preview deployment of this branch failed with `NEXT_PUBLIC_SENTRY_DSN is required on a deployed build`, because that variable had never been set in the Vercel project while `SENTRY_DSN` had. A real deployed build with no client DSN was stopped by name rather than shipping with error reporting switched off, which is exactly what AC-13 exists to guarantee, and it found a genuine configuration gap on its first outing rather than in a simulation.* → **AC-4**, **AC-13**
 - [x] `SENTRY_DSN= NEXT_PUBLIC_SENTRY_DSN=https://x@o1.ingest.sentry.io/1 NEXT_PUBLIC_VERCEL_ENV=preview pnpm build` → **fails**, naming `SENTRY_DSN`. The server pass demands it separately. *Proved 2026-08-21.* → **AC-4**, **AC-13**
 - [x] `pnpm build` with no `NEXT_PUBLIC_VERCEL_ENV` → succeeds with no DSN set, so a fresh clone still runs. *Proved 2026-08-21.* → **AC-13**
 - [x] `DEV_SESSION_ENABLED= pnpm build && DEV_SESSION_ENABLED= pnpm start` → `/` is 200, `/sign-in` is **404**, `/health` is 307. *Proved 2026-08-21.* → **AC-10**
