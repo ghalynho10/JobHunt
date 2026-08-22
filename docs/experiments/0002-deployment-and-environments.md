@@ -216,7 +216,52 @@ The tell that something was wrong with the reading, before the shape was checked
 
 ---
 
-## 12. Why was CI red on `main` before any of this?
+## 12. What does the migration workflow actually need in its secrets?
+
+The workflow was written against spec 0002 and failed three times on its first real run, each failure naming the next. None of the three was a mistake in the workflow, and all three are shape problems in secret values that nobody can read back afterwards. Recorded because each one costs an hour when met cold, and because the same three apply to production, which has not run yet.
+
+**Failure 1: the project ref was not a project ref.**
+
+```
+Cannot resolve "***": it is not a project ref
+(refs are exactly 20 lowercase letters, like `abcdefghijklmnopqrst`)
+```
+
+`SUPABASE_PROJECT_ID_DEV` held something other than the bare 20 letter ref, most likely the full URL. The correct value is the subdomain of that environment's `NEXT_PUBLIC_SUPABASE_URL`, and nothing else.
+
+**Failure 2: the direct connection is IPv6 only, and GitHub runners are not.**
+
+```
+psql: connection to server at "db.***.supabase.co"
+      (2600:1f18:441a:8900:3ce8:7258:7052:8523), port 5432 failed:
+      Network is unreachable
+```
+
+Supabase's direct connection host, `db.<ref>.supabase.co`, resolves to IPv6 only on the free plan. GitHub Actions runners have no IPv6, so that string can never work from CI regardless of credentials. **The pooler is mandatory here, not a preference**, which is what spec 0002's Value sourcing table meant by "the pooler connection string". Note the error says nothing about IPv6: the only tell is the shape of the address.
+
+**Failure 3: the pooler username has to be tenant qualified.**
+
+```
+FATAL:  password authentication failed for user "postgres"
+```
+
+Reaching the pooler over IPv4 at `aws-0-us-east-1.pooler.supabase.com` but authenticating as bare `postgres`. Supavisor routes by username, so it must be `postgres.<project-ref>`. The username is not masked in that error, which is what makes this diagnosable at all; the message otherwise reads as a wrong password.
+
+**The working shape**, for both projects:
+
+```
+postgresql://postgres.<project-ref>:<password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+```
+
+Session mode, port 5432, rather than transaction mode on 6543, because the seed is a multi statement script run through `psql -f`.
+
+**Result once corrected.** Every step green: migrations pushed to development (both already applied, so skipped), psql present, seed applied. `Apply migrations (production)` correctly skipped on a pull request. This is AC-11's first half.
+
+**Still untested: the same three shapes on the production secrets.** `SUPABASE_PROJECT_ID_PROD` was corrected at the same time as the development one, but `SUPABASE_DB_PASSWORD_PROD` has never been exercised, and the production job runs for the first time on merge to `main`.
+
+---
+
+## 13. Why was CI red on `main` before any of this?
 
 Found while checking whether the CI job was safe to make a required check.
 
@@ -230,7 +275,7 @@ Outside spec 0002's build plan, and fixed anyway: AC-12 asks for a green CI chec
 
 ---
 
-## 13. Can `main` actually be protected?
+## 14. Can `main` actually be protected?
 
 ```bash
 gh api repos/ghalynho10/JobHunt/rulesets

@@ -76,7 +76,9 @@ reset role;
 - [x] `pnpm build` with no `NEXT_PUBLIC_VERCEL_ENV` → succeeds with no DSN set, so a fresh clone still runs. *Proved 2026-08-21.* → **AC-13**
 - [x] `DEV_SESSION_ENABLED= pnpm build && DEV_SESSION_ENABLED= pnpm start` → `/` is 200, `/sign-in` is **404**, `/health` is 307. *Proved 2026-08-21.* → **AC-10**
 - [x] Apply `supabase/seed.sql` three times to a freshly reset local database → counts stay 2, 2, 2. *Proved 2026-08-21.* → **AC-11**
-- [ ] Open a pull request and watch **Apply migrations (development)** run green, then confirm the development project holds the two users and both scaffold rows. → **AC-11**
+- [x] Open a pull request and watch **Apply migrations (development)** run green, then confirm the development project holds the two users and both scaffold rows. *Proved 2026-08-22 on PR #1: every step green, migrations pushed (both already applied, so skipped), seed applied, and `Apply migrations (production)` correctly skipped on a pull request.* → **AC-11**
+
+  **It took three attempts, and all three were secret value shapes rather than workflow bugs.** The project ref must be the bare 20 letter subdomain; the direct connection host is IPv6 only while GitHub runners are IPv4, so the pooler is mandatory; and the pooler username must be `postgres.<project-ref>`, not bare `postgres`. The working shape is `postgresql://postgres.<ref>:<password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres`. Full detail in the experiments file. **The production secrets have never been exercised and can fail the same three ways on merge.**
 - [ ] Write a migration that cannot apply, push it, and confirm the workflow **fails visibly** rather than reporting success. Remove it afterwards. → **AC-11**
 - [ ] Merge to `main` and watch **Apply migrations (production)** run green, then confirm production holds `app_settings` with one row and **no** `scaffold_check` rows and **no** fake users. → **AC-11**
 - [ ] `git grep -rn "SKIP_ENV_VALIDATION"` → appears only in `src/env.ts`, `.github/workflows/ci.yml` and documentation, never in a deployed build's configuration. → **AC-4**
