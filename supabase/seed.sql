@@ -25,6 +25,14 @@
 
 -- Password for both: devpassword123
 -- Sign in at /sign-in. Development only, hard blocked anywhere else.
+--
+-- KNOWN AND DELIBERATELY LEFT: the two user ids below (`1111…`, `2222…`) are not
+-- valid UUIDs by RFC version and variant, so `z.uuid()` rejects them, the same
+-- way it rejected the scaffold row ids until they were fixed. Nothing parses a
+-- user id today, so nothing is broken. They are not changed here because these
+-- users already exist on the hosted development project and changing an id would
+-- insert a second pair rather than rename the first. Feature 8 owns the fixture
+-- pool and should mint valid identifiers when it replaces this.
 
 insert into auth.users (
   instance_id,
@@ -122,15 +130,39 @@ on conflict (provider_id, provider) do nothing;
 -- The identifiers are fixed rather than generated so a re-run collides instead
 -- of accumulating a third and fourth row, which would break exactly the claim
 -- this fixture exists to make.
+--
+-- THEY ARE ALSO REAL VERSION 4 UUIDs, and that is not decoration. Postgres will
+-- accept any hex in the right shape into a `uuid` column, but Zod 4's `z.uuid()`
+-- checks the RFC version and variant nibbles, so the `4` and the `8` below are
+-- load bearing. An earlier version of this file used `aaaaaaaa-aaaa-aaaa-…`,
+-- which Postgres stored happily and the application then refused to parse,
+-- rendering `response_malformed` on a deployed page. A fixture that the real
+-- code cannot read proves nothing. Any identifier invented by hand for this
+-- project has to survive `z.uuid()`, not just `::uuid`.
+--
+-- Self healing, deliberately: this file runs against a shared development
+-- project that is never wiped, so it removes any stale fixture row for these two
+-- users before inserting. The delete is scoped to the two synthetic users by id
+-- and can never touch anything else.
+delete from public.scaffold_check
+where user_id in (
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222'
+  )
+  and id not in (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  );
+
 insert into public.scaffold_check (id, user_id, note)
 values
   (
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '11111111-1111-1111-1111-111111111111',
     'Row belonging to dev-one. Read through the real server client, under a real policy.'
   ),
   (
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '22222222-2222-2222-2222-222222222222',
     'Row belonging to dev-two. If dev-one can see this line, row level security is broken.'
   )
