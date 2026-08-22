@@ -104,6 +104,15 @@ Run once during the design conversation, on this thread, official documentation 
 - **`supabase db push` compares the migrations directory against the migration history table** and applies only what is missing. It does not run `seed.sql`. In CI it needs `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` and the project ref.
 - **Vercel Edge Config on Hobby** includes 100,000 reads and 100 writes a month, which would have been ample. Rejected on the control plane argument, not on limits.
 
+## What was checked after the accounts existed, 2026-08-21
+
+The design was written before any account existed, so several of its values were descriptions rather than facts. These were checked afterwards by the engineer, in the dashboards and in a browser, and the results are recorded in `index.md` under What is actually provisioned. Nothing in the build environment can read Vercel or Supabase state, since the Vercel CLI is not installed and the Vercel MCP server is unauthorised, so each of these rests on that check and not on a tool reading live state.
+
+- **Standard protection leaves the generated production URL public.** `https://usejobhunt.vercel.app` served the scaffold in a private window with no Vercel session. This confirms the landscape check above, which already recorded it, and it was worth confirming because the opposite would have broken AC-1, AC-3 and the uptime monitor together and would have forced the deferred custom domain immediately.
+- **A Vercel project name and its subdomain are claimed separately.** `jobhunt-app` was available as a project name while its subdomain was not. Hence project `jobhunt` on `usejobhunt.vercel.app`. Worth writing down because it is the kind of detail that looks like a typo later.
+- **The Data API was set not to expose new tables, on both projects.** The `scaffold_check` migration was already written against exactly that assumption, with an explicit `grant select ... to authenticated` and a comment saying so, so the setting makes an existing comment true rather than changing anything already applied. It did surface one gap the design missed, which is that `app_settings` needs its own grant to `service_role`; see the data model sketch.
+- **The framework prefixed variable names are still unconfirmed.** System environment variables are enabled, but nobody has checked that the three `NEXT_PUBLIC_VERCEL_*` names reach the client bundle. The follow up box stays open and task 3 carries the fallback.
+
 ## References
 
 **Project sources** (verifiable, in this repo):

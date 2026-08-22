@@ -70,14 +70,14 @@ _tooling recorded in root [AGENTS.md](../../AGENTS.md) `## Tooling` · code in `
 ### 3. Deployment & environments · in-progress
 Get the bare scaffold live on a real URL before auth exists, so hosting, environment variables, and the preview versus production split are solved while the app is tiny instead of at the end. The portfolio URL exists from week one, and later OAuth callback work has a known production origin to point at.
 **Done when:** a push deploys, the live URL serves the scaffold, secrets are set per environment and never committed, the global kill switch flag is readable from the deployed app, and the feature 1 thread is re run against the live URL so the deployed leg is proved rather than assumed (feature 1 proved every other leg locally).
-_spec [0002](../specs/0002-deployment-and-environments/index.md)_
+_spec [0002](../specs/0002-deployment-and-environments/index.md) · code in `src/env.ts`, `src/lib/origin.ts`, `src/lib/kill-switch.ts`, `supabase/migrations/`, `.github/workflows/db-migrate.yml`_
 - [x] Design it (spec): `/architect deployment & environments`
 - [ ] Build it: `/develop deployment & environments`
-  - [ ] The live thread: two Supabase projects, the validated environment variables, the Vercel project, preview protection (AC-1 to AC-4)
-  - [ ] Schema delivery: prove the seed's write path by hand against the real project, then the migration workflow for both projects (AC-11)
-  - [ ] The deployed leg proved: both dev sign in guards moved off `NODE_ENV`, the origin resolver, the feature 1 thread re run on a real preview URL as two users (AC-5, AC-10)
-  - [ ] The kill switch: the single row table with no policies, the read module behind the secret key client, its value rendered live and flipped with no deploy (AC-6 to AC-9)
-  - [ ] Guardrails: Sentry per environment with split sampling, quota and pause notifications, the uptime monitor, branch protection, the binding rule 1 correction, the rollback procedure (AC-12 to AC-18)
+  - [ ] The live thread: two Supabase projects, the validated environment variables, the Vercel project, preview protection (AC-1 to AC-4) · **code done** (`src/env.ts`, proved to fail a deployed build by name with a DSN missing); the four dashboard confirmations are the engineer's and are listed in the build handover
+  - [ ] Schema delivery: prove the seed's write path by hand against the real project, then the migration workflow for both projects (AC-11) · **workflow written and the seed made idempotent** (proved by applying it three times to a real database with no duplication); the hand proof against the hosted development project is owed before the workflow is allowed to run
+  - [ ] The deployed leg proved: both dev sign in guards moved off `NODE_ENV`, the origin resolver, the feature 1 thread re run on a real preview URL as two users (AC-5, AC-10) · **both guards and the resolver done**, and a production shaped build proved `/sign-in` is a hard 404 with the flag absent; the two user run on a real preview URL is owed
+  - [ ] The kill switch: the single row table with no policies, the read module behind the secret key client, its value rendered live and flipped with no deploy (AC-6 to AC-9) · **table, read module and display done**, applied locally and proved: the secret key reads the row, a user facing key gets a hard permission denial, the trigger moves `updated_at`, a second row is refused; the hosted read and the dashboard flip are owed
+  - [ ] Guardrails: Sentry per environment with split sampling, quota and pause notifications, the uptime monitor, branch protection, the binding rule 1 correction, the rollback procedure (AC-12 to AC-18) · **Sentry wiring, the binding rule 1 correction, the rollback procedure and the monitoring record done**; the notification settings are the engineer's, and **branch protection is blocked**: GitHub does not offer it on a private repository on the free plan, so AC-12 needs a decision (see spec 0002's first follow-up box)
 - [ ] Verify it: `/check verify deployment & environments`
 - [ ] Test it: `/test deployment & environments`
 
