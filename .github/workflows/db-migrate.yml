@@ -1,0 +1,119 @@
+name: Database migrations
+
+# Spec 0002, AC-11. Schema reaches the two hosted projects through this workflow
+# and nowhere else. A change applied to one project by hand is drift, and the two
+# projects running different schemas is the failure this exists to prevent.
+#
+# A pull request applies to the DEVELOPMENT project, which is what every preview
+# deployment reads. A merge to main applies to PRODUCTION.
+#
+# The two targets are two jobs with their own hard wired secrets rather than one
+# job choosing between them. A single job would need an expression to pick the
+# project ref, and an unset production secret would then quietly fall back to the
+# development one: a push to main would report success while having applied
+# nothing to production. Duplication is the cheaper mistake here.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+# Never cancel a migration part way through. Cancelling an ordinary check wastes
+# a minute; cancelling a half applied migration leaves a project in a state no
+# file describes.
+concurrency:
+  group: db-migrate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  development:
+    name: Apply migrations (development)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pinned to the same version as the `supabase` devDependency in
+      # package.json, so local and CI never apply migrations with two different
+      # CLI versions.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      - name: Push migrations to the development project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_DEV }}
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID_DEV }}
+        run: |
+          set -euo pipefail
+          test -n "$PROJECT_ID" || { echo "::error::SUPABASE_PROJECT_ID_DEV is not set"; exit 1; }
+          supabase link --project-ref "$PROJECT_ID"
+          supabase db push --yes
+
+      # The PostgreSQL server package on the runner image brings psql with it,
+      # but the runner image documents the server rather than the client, so this
+      # checks instead of assuming. An undocumented side effect is not a
+      # dependency worth resting a required check on.
+      - name: Make sure psql is available
+        run: |
+          set -euo pipefail
+          command -v psql >/dev/null || {
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          }
+          psql --version
+
+      # `supabase db push` does not run seed files, and `supabase db reset`
+      # would wipe the project first, which is not acceptable against a shared
+      # project even a development one. So the fixture is applied directly.
+      #
+      # ON_ERROR_STOP is load bearing: without it psql prints an error, carries
+      # on, and exits 0, so a broken seed would report success and the next
+      # person to prove the end to end thread would debug the wrong thing.
+      #
+      # A failing seed fails this workflow, the same as a failing migration. That
+      # is deliberate, and it is one of the two ways this workflow can turn an
+      # unrelated pull request red (the other is the development project having
+      # paused). Both are accepted: a seed that silently stopped applying would
+      # leave the development project without the two users AC-5 is proved with.
+      - name: Seed the development project
+        env:
+          SUPABASE_DB_URL_DEV: ${{ secrets.SUPABASE_DB_URL_DEV }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL_DEV" || { echo "::error::SUPABASE_DB_URL_DEV is not set"; exit 1; }
+          psql "$SUPABASE_DB_URL_DEV" -v ON_ERROR_STOP=1 -f supabase/seed.sql
+
+  production:
+    name: Apply migrations (production)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      # Production gets the schema and nothing else. No seed, no fake users, no
+      # scaffold row: production has no sign in path at all until feature 7, and
+      # creating fake users there to prove something would be worse than the
+      # problem it solves.
+      #
+      # Spec 0002, invariant 1: a migration may ADD in the same commit as the
+      # code that uses it, and may DROP only after a previous deploy has already
+      # stopped reading the thing being dropped. Vercel and this workflow build
+      # the same commit in parallel, so nothing here enforces that ordering. An
+      # additive migration arriving late causes a brief error that self heals; a
+      # drop arriving early breaks running code with nothing to catch it.
+      - name: Push migrations to the production project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PROD }}
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID_PROD }}
+        run: |
+          set -euo pipefail
+          test -n "$PROJECT_ID" || { echo "::error::SUPABASE_PROJECT_ID_PROD is not set"; exit 1; }
+          supabase link --project-ref "$PROJECT_ID"
+          supabase db push --yes
