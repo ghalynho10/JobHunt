@@ -37,13 +37,21 @@ select
 ```
 
 - [x] `service_role_select` and `service_role_schema_usage` are both true; `anon_select` and `authenticated_select` are both false. *Confirmed 2026-08-22 on the hosted development project: t, t, f, f, matching local exactly.*
-- [ ] **The isolating query, still owed.** The result above does not answer whether the Data API setting withholds privileges from `service_role`, because that grant is explicit in the migration. `public.scaffold_check` is the table that answers it: granted to `authenticated` only, never to `service_role`.
+- [x] **The isolating query.** The result above does not answer whether the Data API setting withholds privileges from `service_role`, because that grant is explicit in the migration. `public.scaffold_check` is the table that answers it: granted to `authenticated` only, never to `service_role`.
 
   ```sql
   select has_table_privilege('service_role', 'public.scaffold_check', 'select') as service_role_on_ungranted_table;
   ```
 
-  Locally this is **false**, which makes the explicit grant in the `app_settings` migration load bearing and invariant 6 real. Write the hosted answer into spec 0002's follow-up box: it decides how much else needs granting in feature 4 and after.
+  *Returned **false** on the hosted development project on 2026-08-22, matching local. The setting withholds from `service_role` too, so the `app_settings` grant was necessary and invariant 6 is load bearing. Recorded in spec 0002.*
+
+- [ ] **Regression guard for feature 4 and after.** For every table created from now on, confirm the reading role actually holds the privilege, rather than assuming a new table is reachable:
+
+  ```sql
+  select has_table_privilege('<role>', 'public.<table>', 'select');
+  ```
+
+  A missing grant produces a permission denial rather than an empty result, which is the failure shape this project wants, but only if someone recognises it as one.
 
 ### P-3 · AC-9, a user's token cannot read the settings row
 
