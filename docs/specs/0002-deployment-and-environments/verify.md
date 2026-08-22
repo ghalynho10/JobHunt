@@ -98,7 +98,9 @@ reset role;
 - [ ] Turn on Sentry spend notifications (Settings → Subscription → Manage spend notifications), at 80% of reserved volume, to an address that is read. → **AC-15**
 - [ ] Confirm the UptimeRobot monitor on `https://usejobhunt.vercel.app` has a **real check result**, not just a saved setting, and that the result reflects the application rather than a login page. → **AC-16**
 - [ ] Confirm Supabase's pause warning emails for **both** projects go to an address that is actually read. → **AC-16**
-- [ ] `main` cannot be pushed to directly; a merge needs a pull request and a green CI check. **Blocked**: GitHub does not offer branch protection on a private repository on the free plan. See spec 0002's first follow-up box. → **AC-12**
+- [x] `main` requires a pull request, requires `Lint, type check, build` green, includes administrators, and refuses force pushes and deletion. *Applied 2026-08-22, after the repository was made public; confirmed by reading the protection back from the API.* → **AC-12**
+- [ ] Attempt a real direct push to `main` and confirm GitHub refuses it. A `--dry-run` push does not prove this: the pack is never sent, so the server side rule never runs. → **AC-12**
+- [ ] Once the Actions secrets are set and P-1 has passed, add `Apply migrations (development)` to the required checks. Requiring it before then would block every pull request on a check that cannot pass. → **AC-12**
 - [ ] If the Supabase MCP server is connected: scoped to the **development** project, `read_only=true`, per call confirmation on, and no production project ref configured anywhere. → **AC-17**
 - [ ] Break production deliberately, promote the previous deployment, and confirm recovery. Confirm `docs/observability/README.md` says plainly that promoting does not undo a migration. → **AC-18**
 
