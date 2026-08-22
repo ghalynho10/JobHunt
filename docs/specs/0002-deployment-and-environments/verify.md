@@ -93,8 +93,10 @@ reset role;
 
 ### The feature 1 thread, on a real preview URL
 
-- [ ] Sign in on the preview as `dev-one@example.test` / `devpassword123` → `/health` shows dev one's row. → **AC-5**
-- [ ] Sign out, sign in as `dev-two@example.test` → `/health` shows a **different** row. Two users seeing the same note means the policy is not confining anyone. → **AC-5**
+- [x] Sign in on the preview as `dev-one@example.test` / `devpassword123` → `/health` shows dev one's row. *Proved 2026-08-22 on preview `f637586`: row `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`.* → **AC-5**
+- [x] Sign out, sign in as `dev-two@example.test` → `/health` shows a **different** row. Two users seeing the same note means the policy is not confining anyone. *Proved 2026-08-22: row `bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`, a different note, same page, same deployment.* → **AC-5**
+
+  **This is the whole point of feature 3.** Spec 0001 proved every leg of this thread locally and said plainly that the deployed leg could not be proved before a real URL existed. It now has been: framework, server client, session, row level security policy, deployment and error path, all connecting on real infrastructure, with two users confined to their own rows.
 - [ ] Load `/health` on the preview with no session → redirected to `/sign-in`, not an empty page. → **AC-5**
 - [ ] On **production**, load `/sign-in` → hard 404, because `DEV_SESSION_ENABLED` is absent there. → **AC-10**
 - [ ] On **production**, POST to the sign in Server Action directly (browser devtools, or a replayed request) → refused. The page guard alone is not the proof; the action has its own. → **AC-10**
