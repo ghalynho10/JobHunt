@@ -13,7 +13,8 @@ exactly the failure it exists to catch.
 |---|---|---|---|
 | `scaffold_check.read` | `db.query` | `src/features/scaffold-check/queries.ts` | No. Scaffold only; removed with the table in feature 4. |
 | `dev_session.sign_in` | `auth` | `src/features/dev-session/actions.ts` | No. Development only; removed by feature 7. |
+| `kill_switch.read` | `db.query` | `src/lib/kill-switch.ts` | Not yet. Feature 10 puts this read inside every gated call, and its failure rate is alerted on from there. |
 
-Neither span above is alerted on. They are registered because the convention
+None of the spans above is alerted on yet. They are registered because the convention
 starts at the first operation written, not at the first one that matters, and a
 convention adopted late is one nobody follows.
