@@ -95,7 +95,7 @@ These are load bearing and not open to per feature reinterpretation.
 **1. The secret key is constructible in exactly one file.** `src/lib/supabase/secret.ts` is the only module that may build a client with the secret key (`sb_secret_…`), which carries `BYPASSRLS` and skips every policy. Importing it from anywhere under `src/app` is forbidden and must be enforced by a lint rule. Every legitimate caller is listed here and this list is the allow list:
 
 - the development only test session mint (feature 8), hard blocked outside development
-- the kill switch read (feature 10)
+- the kill switch read, `src/lib/kill-switch.ts`. Built in feature 3, not feature 10 as first written: spec 0002 needs the switch to exist before the first external call, so feature 10 inherits this read rather than writing it. Corrected 2026-08-21 by spec 0002's build task 19, which this rule's own closing sentence requires.
 - the seeded demo account (feature 31)
 
 Adding a fourth caller means editing this spec.

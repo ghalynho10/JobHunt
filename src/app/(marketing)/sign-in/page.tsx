@@ -20,6 +20,14 @@ export default function SignInPage() {
    *
    * The variable defaults to false, so production, which never sets it, is
    * blocked by absence rather than by a label a build tool chooses.
+   *
+   * The two guards run at different times, which is worth knowing before
+   * testing either. This page is statically prerendered, so its guard is settled
+   * for each environment when that environment is built, and the route becomes a
+   * hard 404 on production. The Server Action's guard runs per request. Both are
+   * closed on production; only the action reacts to a variable changed after a
+   * deploy, so proving this half locally means rebuilding without the variable,
+   * not just restarting.
    */
   if (!env.DEV_SESSION_ENABLED) {
     notFound();

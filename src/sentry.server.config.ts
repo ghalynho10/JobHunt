@@ -14,11 +14,32 @@ Sentry.init({
   enabled: process.env.NODE_ENV !== "test",
 
   /**
-   * BINDING RULE 4: trace sampling must be 1.0 on any operation whose failure
-   * rate is alerted on. A sampled ratio at this traffic volume is noise, not a
-   * signal. Revisit only if volume ever grows.
+   * Spec 0002, AC-13. Every event carries the environment it came from, so a
+   * preview's noise never reads as a production incident. Absent means this is
+   * not a Vercel deployment, which is local work.
    */
-  tracesSampleRate: 1,
+  environment: env.NEXT_PUBLIC_VERCEL_ENV ?? "development",
+
+  /**
+   * The release is deliberately NOT set here.
+   *
+   * Checked on 2026-08-21 in the installed packages rather than assumed:
+   * `@sentry/node-core` 10.70.0 (`getSentryRelease`) and
+   * `@sentry/bundler-plugin-core` 5.3.0 both already fall back to
+   * `VERCEL_GIT_COMMIT_SHA`, which Vercel populates at build and at runtime. So
+   * a deployed event is tagged with the deployed commit without configuration.
+   * Setting it again by hand would be the same value written twice, with two
+   * chances to drift, which is what spec 0002's follow-up warned about.
+   */
+
+  /**
+   * BINDING RULE 4: trace sampling must be 1.0 on any operation whose failure
+   * rate is alerted on, and spec 0002 AC-14 reads it from validated
+   * configuration rather than hardcoding it in two files that can drift.
+   * Production and local are 1; Vercel Preview is 0.1 so hand driven previews do
+   * not compete for the quota the ratio alert depends on.
+   */
+  tracesSampleRate: env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
 
   /**
    * The database holds real resumes and personal details. Nothing personally
