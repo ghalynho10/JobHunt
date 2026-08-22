@@ -197,7 +197,26 @@ Stricter than a private window, since curl carries no session of any kind. Incid
 
 ---
 
-## 11. Why was CI red on `main` before any of this?
+## 11. Does each environment point at its own Supabase project?
+
+Run once the Vercel CLI was installed and the project linked, which made this checkable directly instead of by asking.
+
+```bash
+vercel env ls production ; vercel env ls preview
+vercel env pull "$TMP/preview.env" --environment=preview --yes
+```
+
+**Result.** The variable matrix matches spec 0002's Configuration required table, including the one that matters most: `DEV_SESSION_ENABLED` is present on Preview and **absent** from Production. Preview points at `serbucmdtvbspkbmxewl.supabase.co`, production at `fvaaebmjrrrjxxnaiyrb.supabase.co`. Two distinct projects.
+
+**A false alarm worth recording, because the method produced it rather than the system.** Fingerprinting `SUPABASE_SECRET_KEY` from both pulls gave an identical hash, which was read as preview holding production credentials, a direct AC-2 violation. It was not. That variable is marked **Sensitive** in Vercel, which makes it write only: `vercel env pull` returns the literal string `[SENSITIVE]`, eleven characters, for every sensitive variable. The same placeholder hashed twice is the same hash.
+
+The tell that something was wrong with the reading, before the shape was checked: the key failed to authenticate against **both** projects, while the kill switch had demonstrably read the development database from a preview an hour earlier. A result that contradicts a working system is usually a broken measurement.
+
+**What follows for verification.** Production's secret key cannot be checked by inspection at all. A key from the wrong project fails as `401 Invalid API key`, which the kill switch reports as `database_unavailable`, which invariant 3 renders as switched on. So it is provable only by behaviour, on the first production deploy, by confirming `/health` reads **running**.
+
+---
+
+## 12. Why was CI red on `main` before any of this?
 
 Found while checking whether the CI job was safe to make a required check.
 
@@ -211,7 +230,7 @@ Outside spec 0002's build plan, and fixed anyway: AC-12 asks for a green CI chec
 
 ---
 
-## 12. Can `main` actually be protected?
+## 13. Can `main` actually be protected?
 
 ```bash
 gh api repos/ghalynho10/JobHunt/rulesets
