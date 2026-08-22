@@ -13,7 +13,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 |---|---------|-------|--------|
 | 1 | Stack & architecture | Foundation | done |
 | 2 | Coding standards & tooling | Foundation | done |
-| 3 | Deployment & environments | Foundation | planned |
+| 3 | Deployment & environments | Foundation | in-progress |
 | 4 | Data model | Foundation | planned |
 | 5 | Design system & UI foundation | Foundation | planned |
 | 6 | Entry page & link metadata | Foundation | planned |
@@ -67,10 +67,19 @@ _tooling recorded in root [AGENTS.md](../../AGENTS.md) `## Tooling` · code in `
   - [x] CI: GitHub Actions on push and pull request running lint, format check, type check and build; no test job until feature 8
 - [ ] Verify it: `/check verify coding standards & tooling` · **skipped**, called done after the build. The build self checked every Done when clause and proved both binding rules fire; the durable steps are in [verify.md](../specs/0001-stack-and-architecture/verify.md) under the feature 2 heading.
 
-### 3. Deployment & environments · needs a decision
+### 3. Deployment & environments · in-progress
 Get the bare scaffold live on a real URL before auth exists, so hosting, environment variables, and the preview versus production split are solved while the app is tiny instead of at the end. The portfolio URL exists from week one, and later OAuth callback work has a known production origin to point at.
 **Done when:** a push deploys, the live URL serves the scaffold, secrets are set per environment and never committed, the global kill switch flag is readable from the deployed app, and the feature 1 thread is re run against the live URL so the deployed leg is proved rather than assumed (feature 1 proved every other leg locally).
-- [ ] Design it (spec): `/architect deployment & environments`
+_spec [0002](../specs/0002-deployment-and-environments/index.md) · code in `src/env.ts`, `src/lib/origin.ts`, `src/lib/kill-switch.ts`, `supabase/migrations/`, `.github/workflows/db-migrate.yml`_
+- [x] Design it (spec): `/architect deployment & environments`
+- [ ] Build it: `/develop deployment & environments`
+  - [ ] The live thread: two Supabase projects, the validated environment variables, the Vercel project, preview protection (AC-1 to AC-4) · **code done** (`src/env.ts`, proved to fail a deployed build by name with a DSN missing); the four dashboard confirmations are the engineer's and are listed in the build handover
+  - [ ] Schema delivery: prove the seed's write path by hand against the real project, then the migration workflow for both projects (AC-11) · **workflow written and the seed made idempotent** (proved by applying it three times to a real database with no duplication); the hand proof against the hosted development project is owed before the workflow is allowed to run
+  - [x] The deployed leg proved: both dev sign in guards moved off `NODE_ENV`, the origin resolver, the feature 1 thread re run on a real preview URL as two users (AC-5, AC-10) · both guards and the resolver done, a production shaped build proved `/sign-in` is a hard 404 with the flag absent, and on 2026-08-22 the feature 1 thread ran on preview `f637586` as both dev users, each seeing only their own row. AC-10's check against the real production URL waits for the merge and stays open in `verify.md`
+  - [ ] The kill switch: the single row table with no policies, the read module behind the secret key client, its value rendered live and flipped with no deploy (AC-6 to AC-9) · **table, read module and display done**, applied locally and proved: the secret key reads the row, a user facing key gets a hard permission denial, the trigger moves `updated_at`, a second row is refused; the hosted read and the dashboard flip are owed
+  - [ ] Guardrails: Sentry per environment with split sampling, quota and pause notifications, the uptime monitor, branch protection, the binding rule 1 correction, the rollback procedure (AC-12 to AC-18) · **Sentry wiring, the binding rule 1 correction, the rollback procedure, the monitoring record and branch protection done**; branch protection needed the repository made public first, since GitHub does not offer it on a private repository on the free plan, and the history was scanned for a committed secret before that happened. The notification settings in Sentry, Supabase and UptimeRobot are the engineer's
+- [ ] Verify it: `/check verify deployment & environments`
+- [ ] Test it: `/test deployment & environments`
 
 ### 4. Data model · needs a decision · GA
 The core entities every later feature reads and writes: users, profile with skills and flat work history, stated job preferences, application records and their captured answers. Search results deliberately do not persist. A wrong data model is the most expensive thing to redo, so it is decided once, explicitly, before any feature depends on it.
@@ -240,6 +249,8 @@ Out of scope for this build pass, kept so the plan stays honest.
 - **Scheduled push digest**: a genuinely different interaction model from the pull based app, worth real consideration once v1 is stable · needs a decision
 - **Supplementary remote jobs source**: only if the text heuristic for remote proves too weak in practice · needs a decision
 - **Retrieval tool over job search history**: a separate later project; its relationship to this app's multi user database is explicitly unresolved · needs a decision
+- **Custom domain**: the production URL is a free `vercel.app` subdomain, chosen on cost. Moving to a custom domain later means updating three redirect lists (Google, GitHub, Supabase) plus one Vercel setting, and is cheapest to do before feature 7 wires OAuth rather than after. `from spec 0002`
+- **Supabase Branching, a database per pull request**: the best isolation answer available, rejected in spec 0002 on cost alone since it needs a paid plan. Revisit if this project ever has a budget, or if the free projects pausing becomes a real drag. `from spec 0002`
 - **Alert rule drift detection**: a scheduled diff between Sentry's live alert rules and the definitions in `docs/observability/`, so a rule that is edited or deleted in the Sentry interface is caught. Blocks nothing in v1; the forced failure smoke test in feature 10 is the load bearing half. `from spec 0001`
 
 ## Legend

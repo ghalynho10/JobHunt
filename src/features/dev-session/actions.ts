@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { env } from "@/env";
 import { failure, success, type Result } from "@/lib/result";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,11 +47,19 @@ async function attemptSignIn(formData: FormData): Promise<Result<null>> {
   return Sentry.startSpan(
     { name: "dev_session.sign_in", op: "auth" },
     async (): Promise<Result<null>> => {
-      if (process.env.NODE_ENV !== "development") {
+      /**
+       * Spec 0002 AC-10. The guard reads a validated variable that defaults to
+       * false, not `NODE_ENV`. A preview is a production build by that label, so
+       * the old check made this action unreachable on the very deployment the
+       * end to end thread has to be proved on, while telling you nothing about
+       * whether production was actually safe. Absent means blocked, so the
+       * environment that never sets it fails closed.
+       */
+      if (!env.DEV_SESSION_ENABLED) {
         return failure({
           kind: "session_missing",
           severity: "unexpected",
-          message: "Password sign in is disabled outside development.",
+          message: "Password sign in is not enabled in this environment.",
         });
       }
 

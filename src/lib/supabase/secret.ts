@@ -19,7 +19,9 @@ import type { Database } from "./database.types";
  *
  *  1. the development only test session mint (feature 8), hard blocked outside
  *     development
- *  2. the kill switch read (feature 10)
+ *  2. the kill switch read, `src/lib/kill-switch.ts`, built in feature 3 rather
+ *     than feature 10: spec 0002 needs the switch to exist before the first
+ *     external call, so feature 10 inherits this read instead of writing it
  *  3. the seeded demo account (feature 31)
  *
  * Adding a fourth caller means editing spec 0001 first, not editing this file.

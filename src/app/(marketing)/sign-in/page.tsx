@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { env } from "@/env";
 import { SignInForm } from "@/features/dev-session/sign-in-form";
 
 /**
@@ -9,10 +10,26 @@ import { SignInForm } from "@/features/dev-session/sign-in-form";
  * replaces it.
  */
 export default function SignInPage() {
-  // Blocked in two places, not one: the page refuses to render outside
-  // development, and the Server Action refuses to run there as well. A page
-  // guard alone would leave the action callable on its own.
-  if (process.env.NODE_ENV !== "development") {
+  /**
+   * Spec 0002 AC-10: blocked in two places, not one. This page refuses to
+   * render, and the Server Action behind it refuses to run, each checking the
+   * same validated variable independently. A page guard alone would leave the
+   * action callable on its own, and an action guard alone would leave this page
+   * returning a not found on every preview, which is where the end to end
+   * thread has to be proved.
+   *
+   * The variable defaults to false, so production, which never sets it, is
+   * blocked by absence rather than by a label a build tool chooses.
+   *
+   * The two guards run at different times, which is worth knowing before
+   * testing either. This page is statically prerendered, so its guard is settled
+   * for each environment when that environment is built, and the route becomes a
+   * hard 404 on production. The Server Action's guard runs per request. Both are
+   * closed on production; only the action reacts to a variable changed after a
+   * deploy, so proving this half locally means rebuilding without the variable,
+   * not just restarting.
+   */
+  if (!env.DEV_SESSION_ENABLED) {
     notFound();
   }
 

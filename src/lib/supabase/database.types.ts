@@ -34,6 +34,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: number
+          kill_switch_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          kill_switch_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          kill_switch_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scaffold_check: {
         Row: {
           created_at: string
