@@ -84,8 +84,12 @@ reset role;
 ### The deployment itself
 
 - [ ] Merge to `main`, wait for the deploy, load `https://usejobhunt.vercel.app` over HTTPS with no manual step. → **AC-1**
-- [ ] Push this branch, open its preview URL in a **private window**: Vercel Authentication asks for a login. → **AC-3**
-- [ ] Load `https://usejobhunt.vercel.app` in a **private window**: it serves the page with no login. → **AC-3**
+- [x] Push this branch, open its preview URL in a **private window**: Vercel Authentication asks for a login. *Proved 2026-08-22 with an unauthenticated request carrying no cookies at all, which is stricter than a private window: the current preview returns `302` to `https://vercel.com/sso-api?url=…&nonce=…`, which is Vercel Authentication.* → **AC-3**
+- [x] Load `https://usejobhunt.vercel.app` in a **private window**: it serves the page with no login. *Proved 2026-08-22, `HTTP 200` with no session. Standard protection leaves the generated production URL reachable, so AC-1 and AC-3 do not conflict, which was a real risk in this design rather than a given.* → **AC-3**
+
+  Beware stale deployment URLs when checking this. A URL belonging to a deployment that failed to build returns `404`, which looks nothing like either expected answer and is easy to read as a broken protection setting. Take the URL from the deployment record of a **successful** build.
+
+  Incidental, and useful to feature 6: preview responses carry `x-robots-tag: noindex` from Vercel already.
 - [ ] In the Vercel project's environment variables, confirm the preview scope carries the **development** project's Supabase URL, publishable key and secret key, and that no production project value appears in any preview scoped variable. → **AC-2**
 - [ ] Confirm the variable matrix matches spec 0002's Configuration required table, per environment, and that `SKIP_ENV_VALIDATION` is set in no scope at all. → **AC-4**
 - [ ] Confirm both Supabase projects are in `us-east-1` and both have the Data API set **not** to expose new tables automatically. → **AC-2**
