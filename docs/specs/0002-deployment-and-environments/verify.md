@@ -14,8 +14,8 @@ The migration creates `scaffold_check` as `postgres` and forces row level securi
 
 Paste the whole of `supabase/seed.sql` into the SQL editor and run it. Then run it a second time.
 
-- [ ] First run succeeds → the workflow's seed step is sound. If it is **refused**, the fix is small (insert the rows through the secret key client, or add a narrowly scoped insert policy) but the workflow must not merge until it is made.
-- [ ] Second run succeeds and changes nothing. Confirm with the count below: it must read 2, 2, 2 both times, never 4.
+- [x] First run succeeds → the workflow's seed step is sound. *Proved 2026-08-22 on the hosted development project. The hosted `postgres` role does bypass row level security for this insert, so the risk this step guarded against did not materialise.*
+- [x] Second run succeeds and changes nothing: counts stayed at 2. *Proved 2026-08-22.*
 
 ```sql
 select
@@ -36,8 +36,14 @@ select
   has_table_privilege('authenticated', 'public.app_settings', 'select') as authenticated_select;
 ```
 
-- [ ] `service_role_select` and `service_role_schema_usage` are both true; `anon_select` and `authenticated_select` are both false. (Locally: t, t, f, f.)
-- [ ] Write the answer into spec 0002's follow-up box that asks for it, specifically whether the Data API setting withholds privileges from `service_role` as well as from `anon` and `authenticated`. It decides how much else needs granting in feature 4 and after.
+- [x] `service_role_select` and `service_role_schema_usage` are both true; `anon_select` and `authenticated_select` are both false. *Confirmed 2026-08-22 on the hosted development project: t, t, f, f, matching local exactly.*
+- [ ] **The isolating query, still owed.** The result above does not answer whether the Data API setting withholds privileges from `service_role`, because that grant is explicit in the migration. `public.scaffold_check` is the table that answers it: granted to `authenticated` only, never to `service_role`.
+
+  ```sql
+  select has_table_privilege('service_role', 'public.scaffold_check', 'select') as service_role_on_ungranted_table;
+  ```
+
+  Locally this is **false**, which makes the explicit grant in the `app_settings` migration load bearing and invariant 6 real. Write the hosted answer into spec 0002's follow-up box: it decides how much else needs granting in feature 4 and after.
 
 ### P-3 · AC-9, a user's token cannot read the settings row
 
