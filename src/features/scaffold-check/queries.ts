@@ -3,7 +3,13 @@ import "server-only";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 
-import { failure, success, type Result } from "@/lib/result";
+import {
+  attempt,
+  failure,
+  isFailure,
+  success,
+  type Result,
+} from "@/lib/result";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -40,6 +46,39 @@ export async function readScaffoldCheck(): Promise<Result<ScaffoldCheck>> {
     { name: "scaffold_check.read", op: "db.query" },
     async (): Promise<Result<ScaffoldCheck>> => {
       const supabase = await createClient();
+
+      /**
+       * The protected layout's redirect only changes the response it sends;
+       * this page still renders concurrently underneath it, so an
+       * unauthenticated request reaches this call regardless. Verifying the
+       * caller here, the same guarantee every Server Action already carries
+       * per binding rule 6, stops the pointless read and reports the outcome
+       * as the expected thing it is rather than as `database_unavailable`.
+       *
+       * BINDING RULE 5: `getClaims()` reaches out to Supabase's JWKS endpoint
+       * and can throw on a genuine service failure, distinct from the
+       * returned `error`, which means an invalid, expired, or absent session.
+       * Only the latter is an expected, everyday outcome.
+       */
+      const claimsAttempt = await attempt(
+        {
+          kind: "external_service_failed",
+          message: "Could not verify the session.",
+        },
+        () => supabase.auth.getClaims(),
+      );
+
+      if (isFailure(claimsAttempt)) return claimsAttempt;
+
+      const { data: claims, error: claimsError } = claimsAttempt.value;
+
+      if (claimsError || !claims) {
+        return failure({
+          kind: "session_missing",
+          severity: "expected",
+          message: "No session is present for this read.",
+        });
+      }
 
       const { data, error } = await supabase
         .from("scaffold_check")
