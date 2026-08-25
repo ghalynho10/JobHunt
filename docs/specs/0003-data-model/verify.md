@@ -14,10 +14,13 @@ successful write happens under a throwaway user that the last cascade test delet
 every refused write undoes itself. The final `clean` lines confirm the fixtures are
 untouched.
 
-**Still open, and deliberately so.** AC-13 and AC-16 are the drop of `scaffold_check`, and
-the drop may only be written after **production** is confirmed serving `readOwnProfile()`.
-A green preview is not that gate: previews read the development project, so they prove
-nothing about production's schema. Re run `verify.sql` against production after the merge.
+**Production, 2026-08-25. AC-16 and AC-13 closed, in that order and on purpose.**
+
+- Pull request #9 merged, its production migration run succeeded, and the production deployment built from that merge went live on `usejobhunt.vercel.app`. [verify-production.sql](verify-production.sql) confirmed the six tables, forced row level security, the twenty three policies and the privilege gate on the production database. That is **AC-16**, and only then was the drop written.
+- Pull request [#10](https://github.com/ghalynho10/JobHunt/pull/10) dropped `scaffold_check`, merged as `3a56243`, its production migration run succeeded, and `verify-production.sql` then reported `scaffold_check on this database: gone`. Local and development report the same. That is **AC-13**.
+
+All sixteen acceptance criteria are proved. Re run [verify-production.sql](verify-production.sql)
+against any environment at any time: it is read only and safe on production.
 
 Two acceptance criteria are deliberately **not** reachable in this pull request. AC-13 and
 AC-16 are the drop of `scaffold_check`, and the drop belongs in a second pull request that
