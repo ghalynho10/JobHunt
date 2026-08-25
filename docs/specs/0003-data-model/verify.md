@@ -2,14 +2,22 @@
 
 _Steps derived from spec 0003 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
-## What the build run already proved, and where
+## What has been proved, and where
 
-`/develop` proved everything in the **Commands** section below against the **local**
-database on 2026-08-25, on the same migration that will run on the hosted projects, and
-drove all three seeded users through the real page in a browser. That is not the same as
-proving it on the hosted development project or on a real preview URL, which is why every
-box below is still open. Re run them where the spec says they count, rather than trusting
-this paragraph.
+**Development, 2026-08-25, on pull request [#9](https://github.com/ghalynho10/JobHunt/pull/9). Everything below passed except the two criteria that belong to the second pull request.**
+
+- The whole **Commands** section ran as [verify.sql](verify.sql) against the **hosted development project**, one result set, zero failures. It had already passed identically against the local database.
+- The three **UI / manual** sign in steps were driven on the real preview deployment: dev-one and dev-two each saw only their own profile, and dev-three, who has no profile row on purpose, saw the named `record_not_found` failure rather than an empty page.
+
+`verify.sql` is safe to re run at any time. It does not depend on a rollback: every
+successful write happens under a throwaway user that the last cascade test deletes, and
+every refused write undoes itself. The final `clean` lines confirm the fixtures are
+untouched.
+
+**Still open, and deliberately so.** AC-13 and AC-16 are the drop of `scaffold_check`, and
+the drop may only be written after **production** is confirmed serving `readOwnProfile()`.
+A green preview is not that gate: previews read the development project, so they prove
+nothing about production's schema. Re run `verify.sql` against production after the merge.
 
 Two acceptance criteria are deliberately **not** reachable in this pull request. AC-13 and
 AC-16 are the drop of `scaffold_check`, and the drop belongs in a second pull request that
