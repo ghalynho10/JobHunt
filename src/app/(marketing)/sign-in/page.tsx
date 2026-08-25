@@ -37,10 +37,13 @@ export default function SignInPage() {
     <main className="mx-auto flex max-w-2xl flex-col gap-4 p-8">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <p>
-        Development only. Seeded users are <code>dev-one@example.test</code> and{" "}
-        <code>dev-two@example.test</code>, both with the password{" "}
-        <code>devpassword123</code>. Sign in as each in turn: they must see
-        different rows.
+        Development only. Seeded users are <code>dev-one@example.test</code>,{" "}
+        <code>dev-two@example.test</code> and{" "}
+        <code>dev-three@example.test</code>, all with the password{" "}
+        <code>devpassword123</code>. Sign in as each in turn: the first two must
+        see different profiles, and the third, who has no profile row on
+        purpose, must see a named failure rather than an empty page (spec 0003,
+        AC-3 and AC-14).
       </p>
       <SignInForm />
     </main>

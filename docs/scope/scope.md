@@ -14,7 +14,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 1 | Stack & architecture | Foundation | done |
 | 2 | Coding standards & tooling | Foundation | done |
 | 3 | Deployment & environments | Foundation | done |
-| 4 | Data model | Foundation | planned |
+| 4 | Data model | Foundation | in-progress |
 | 5 | Design system & UI foundation | Foundation | planned |
 | 6 | Entry page & link metadata | Foundation | planned |
 | 7 | Auth & per user isolation | Foundation | planned |
@@ -81,10 +81,21 @@ _spec [0002](../specs/0002-deployment-and-environments/index.md) · code in `src
 - [x] Verify it: `/check verify deployment & environments` · run across three sessions (2026-08-21 through 2026-08-23), see [verify.md](../specs/0002-deployment-and-environments/verify.md) for the full, evidenced checklist and its acceptance criteria coverage
 - [ ] Test it: `/test deployment & environments` · **skipped**, no test runner exists yet; feature 8 decides it, per root [AGENTS.md](../../AGENTS.md)
 
-### 4. Data model · needs a decision · GA
+### 4. Data model · in-progress · GA
 The core entities every later feature reads and writes: users, profile with skills and flat work history, stated job preferences, application records and their captured answers. Search results deliberately do not persist. A wrong data model is the most expensive thing to redo, so it is decided once, explicitly, before any feature depends on it.
 **Done when:** the schema, keys, constraints and per user row level policies are applied and live, a query as one user cannot return another user's rows, and every value is stored raw with formatting left to render time.
-- [ ] Design it (spec): `/architect data model`
+_spec [0003](../specs/0003-data-model/index.md) · code in `supabase/migrations/`, `supabase/seed.sql`, `src/features/profile/`, `src/lib/supabase/database.types.ts`_
+- [x] Design it (spec): `/architect data model`
+- [ ] Build it: `/develop data model`
+  - [x] The schema migration: the shared timestamp trigger, six tables with their checks and unique constraints, an explicit grant per table, and the twenty three policies (AC-1, AC-2, AC-4, AC-5, AC-6, AC-9 to AC-12)
+  - [x] Fixtures and types: the seed grows a profile for each of the two synthetic users plus a third carrying none, then `database.types.ts` is regenerated from the applied schema (AC-3, AC-14, AC-15)
+  - [x] The replacement read: `readOwnProfile()` with its named span and Zod parse, the span registered, the health page repointed off `scaffold_check` (AC-14, AC-15)
+  - [x] Proved against the real project: isolation both ways, the `with check` refusals, every constraint, the privilege check, and the preview confirmed as all three seeded users (AC-2 to AC-11, AC-14) · done 2026-08-25 on pull request [#9](https://github.com/ghalynho10/JobHunt/pull/9). The sweep in [verify.sql](../specs/0003-data-model/verify.sql) ran against the hosted development project with zero failures, and all three seeded users were driven through the preview page: dev-one and dev-two each saw only their own profile, dev-three saw the named `record_not_found` failure rather than an empty page
+  - [ ] Expand then contract: merge, confirm production is serving the new read, and only then drop `scaffold_check` in a second pull request (AC-13, AC-16)
+- [ ] Verify it: `/check verify data model`
+- [ ] Test it: `/test data model`
+- [ ] Review it (fresh model): `/check review data model`
+- [ ] Document it: `/document data model`
 
 ### 5. Design system & UI foundation · needs a decision
 Port the locked visual decisions (seven token palette, finalized logo, Space Grotesk and JetBrains Mono typography) into a real token layer and a set of base components. These are inherited decisions, not open questions. Sets the responsive posture and the accessibility floor for every screen built after this.

@@ -19,6 +19,12 @@
 -- the claim spec 0001 rests the whole isolation guarantee on. A seed with a
 -- single user would let a completely broken policy still look like it worked.
 --
+-- THREE users from spec 0003. The third carries an auth row and an identity but
+-- deliberately NO profile row, because AC-14 requires that a signed in user with
+-- no profile sees a visible expected failure naming the missing profile rather
+-- than an empty page. Proving that needs a real user who genuinely has no
+-- profile; a user who merely has not been looked at yet would not prove it.
+--
 -- Standing rule from the scope: fixtures never carry real personal data. These
 -- identifiers are obviously fake and the addresses use the reserved `.test`
 -- domain, which can never resolve to a real mailbox.
@@ -28,11 +34,18 @@
 --
 -- KNOWN AND DELIBERATELY LEFT: the two user ids below (`1111…`, `2222…`) are not
 -- valid UUIDs by RFC version and variant, so `z.uuid()` rejects them, the same
--- way it rejected the scaffold row ids until they were fixed. Nothing parses a
--- user id today, so nothing is broken. They are not changed here because these
--- users already exist on the hosted development project and changing an id would
--- insert a second pair rather than rename the first. Feature 8 owns the fixture
--- pool and should mint valid identifiers when it replaces this.
+-- way it rejected the scaffold row ids until they were fixed. They are not
+-- changed here because these users already exist on the hosted development
+-- project and changing an id would insert a second pair rather than rename the
+-- first. Feature 8 owns the fixture pool and should mint valid identifiers when
+-- it replaces this (spec 0003 follow-up).
+--
+-- SPEC 0003 MADE THIS REACH THE APPLICATION: `profile.id` IS the auth user id,
+-- and `readOwnProfile()` parses the row it reads. That parse therefore uses
+-- `z.guid()`, which checks the real 8-4-4-4-12 shape without the RFC version and
+-- variant nibbles these two ids violate. See the note in
+-- `src/features/profile/queries.ts`. The third user below is newly minted here
+-- and IS a valid version 4 UUID, so it is already what feature 8 should mint.
 
 insert into auth.users (
   instance_id,
@@ -86,6 +99,24 @@ values
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb,
     '', '', '', '', '', '', '', ''
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    -- A real version 4 UUID, unlike the two above: the `4` and the `8` are the
+    -- version and variant nibbles. This id is minted here for the first time, so
+    -- there is no hosted row to collide with and no reason to repeat the earlier
+    -- mistake.
+    '33333333-3333-4333-8333-333333333333',
+    'authenticated',
+    'authenticated',
+    'dev-three@example.test',
+    extensions.crypt('devpassword123', extensions.gen_salt('bf')),
+    now(),
+    now(),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    '', '', '', '', '', '', '', ''
   )
 on conflict (id) do nothing;
 
@@ -114,6 +145,15 @@ values
     '22222222-2222-2222-2222-222222222222',
     '22222222-2222-2222-2222-222222222222',
     '{"sub":"22222222-2222-2222-2222-222222222222","email":"dev-two@example.test","email_verified":true,"phone_verified":false}'::jsonb,
+    'email',
+    now(),
+    now(),
+    now()
+  ),
+  (
+    '33333333-3333-4333-8333-333333333333',
+    '33333333-3333-4333-8333-333333333333',
+    '{"sub":"33333333-3333-4333-8333-333333333333","email":"dev-three@example.test","email_verified":true,"phone_verified":false}'::jsonb,
     'email',
     now(),
     now(),
@@ -165,5 +205,54 @@ values
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '22222222-2222-2222-2222-222222222222',
     'Row belonging to dev-two. If dev-one can see this line, row level security is broken.'
+  )
+on conflict (id) do nothing;
+
+-- SPEC 0003: the real profile fixture, which replaces the scaffold rows above.
+--
+-- The scaffold rows deliberately stay for now. This seed has to keep the current
+-- health page working right up until the deploy that repoints it lands, and the
+-- table they live in is dropped in a later pull request, after production is
+-- confirmed serving the new read (spec 0002 invariant 1, spec 0003 AC-16).
+--
+-- No `updated_at` is set anywhere below. Invariant 10: application code, and a
+-- fixture, never write that column. The default and the trigger own it.
+
+-- DEV-THREE MUST HAVE NO PROFILE ROW, and this delete is what keeps that true.
+--
+-- It is the fixture AC-14's missing profile path is proved against, and this
+-- file runs against a shared development project that is never wiped. Without
+-- the delete, one person creating a profile for this user by hand would quietly
+-- destroy the fixture, and the next run of AC-14 would pass for the wrong
+-- reason: a page showing a profile instead of the expected failure. Scoped to
+-- the one synthetic user by id, so it can never touch anything else. The cascade
+-- takes any subtree with it.
+delete from public.profile
+where id = '33333333-3333-4333-8333-333333333333';
+
+-- One profile each for the other two. Same claim as the scaffold rows made, now
+-- against the real table: signed in as dev-one you must see only the first, and
+-- signing in as dev-two must change what the page shows.
+--
+-- Obviously fake, and holding no real personal data, per the standing rule. They
+-- are subject to exactly the same check constraints a real write is, so a
+-- fixture that the database would refuse fails here rather than in production.
+--
+-- Fully idempotent without a self healing delete: the primary key IS the auth
+-- user id, so a re-run can only ever collide with the same single row rather
+-- than accumulate a second one.
+insert into public.profile (id, full_name, location, summary)
+values
+  (
+    '11111111-1111-1111-1111-111111111111',
+    'Dev One',
+    'Remote, Test Country',
+    'Synthetic fixture profile for dev-one. Read through the real server client, under a real policy.'
+  ),
+  (
+    '22222222-2222-2222-2222-222222222222',
+    'Dev Two',
+    'Also Remote, Test Country',
+    'Synthetic fixture profile for dev-two. If dev-one can see this line, row level security is broken.'
   )
 on conflict (id) do nothing;
