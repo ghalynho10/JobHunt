@@ -1,0 +1,26 @@
+-- Spec 0003, AC-13: remove the scaffold table.
+--
+-- THIS IS THE CONTRACT HALF OF EXPAND THEN CONTRACT, AND ITS TIMING IS THE
+-- WHOLE POINT (spec 0002 invariant 1, spec 0003 AC-16).
+--
+-- The create migration merged to `main` in pull request #9. Its production
+-- migration run succeeded, and the production deployment built from that merge
+-- is live on `usejobhunt.vercel.app`, serving `readOwnProfile()`. Nothing
+-- running anywhere reads `scaffold_check` any more. Only then is this file
+-- written.
+--
+-- Why the wait, rather than dropping it in the same commit that stopped reading
+-- it: Vercel and GitHub Actions build the same commit in parallel and nothing
+-- sequences them. An additive migration arriving late causes a brief visible
+-- error that heals itself once it lands. A drop arriving early breaks running
+-- code, and nothing catches it. That asymmetry is why this is a second pull
+-- request and not a tidy up at the end of the first.
+--
+-- `restrict` is the default and is deliberately not overridden to `cascade`.
+-- Nothing should depend on this table by now, and if something does, this
+-- migration must fail loudly rather than quietly removing whatever it is.
+--
+-- The original create migration (20260820041006) stays in the tree. It is
+-- history, and a fresh database still replays create then drop in order.
+
+drop table public.scaffold_check;

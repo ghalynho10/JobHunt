@@ -16,11 +16,11 @@ import { createClient } from "@/lib/supabase/server";
  * Spec 0003: the caller's own profile, read through the real server client under
  * a real policy.
  *
- * This is the read that replaces `readScaffoldCheck()` as the deployed end to
- * end proof. It proves the same six things connect (the framework, the client,
- * the session, row level security, the deployment, the error path), but against
- * a real product table rather than a scaffold one, so the proof survives the
- * removal of the scaffold instead of going dark until feature 9.
+ * This is the deployed end to end proof. It proves six things connect at once
+ * (the framework, the client, the session, row level security, the deployment,
+ * the error path), against a real product table. It took that job over from a
+ * throwaway scaffold read, which is why the proof never went dark when the
+ * scaffold was removed.
  */
 
 /**
