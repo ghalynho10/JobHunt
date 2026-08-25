@@ -11,10 +11,9 @@ import { readKillSwitch } from "@/lib/kill-switch";
  * deployment, and the error path. It sits at Foundation rather than waiting for
  * feature 11, so a break in any of them is found now.
  *
- * It reads `profile` rather than `scaffold_check`, so the proof rests on a real
- * product table and survives the removal of the scaffold one (spec 0003, AC-14).
- * The repoint ships and reaches production BEFORE that table is dropped, which
- * is the whole reason this feature lands in two pull requests.
+ * It reads `profile`, a real product table, so the proof rests on something the
+ * product actually uses (spec 0003, AC-14). It used to read a throwaway scaffold
+ * table, which was removed once this repoint had reached production.
  *
  * It also displays the kill switch, which proves a seventh: that the secret key
  * client can reach a table no user token can (spec 0002, AC-6). This page is

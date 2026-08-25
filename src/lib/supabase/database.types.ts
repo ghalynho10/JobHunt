@@ -252,27 +252,6 @@ export type Database = {
           },
         ]
       }
-      scaffold_check: {
-        Row: {
-          created_at: string
-          id: string
-          note: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          note: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          note?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       work_experience: {
         Row: {
           company: string

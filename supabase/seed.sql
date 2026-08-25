@@ -163,57 +163,20 @@ values
 -- generated primary key would differ on every run and infer nothing.
 on conflict (provider_id, provider) do nothing;
 
--- One row each. Signed in as dev-one you must see only the first, and signing in
--- as dev-two must change what the page shows. If both users see the same note,
--- the policy is not doing its job and the scaffold has proved nothing.
+-- SPEC 0003: the profile fixture.
 --
--- The identifiers are fixed rather than generated so a re-run collides instead
--- of accumulating a third and fourth row, which would break exactly the claim
--- this fixture exists to make.
+-- This replaced a pair of `scaffold_check` rows, which were removed once the
+-- table was dropped in the second pull request of feature 4. The claim they
+-- made is now made against a real product table instead.
 --
--- THEY ARE ALSO REAL VERSION 4 UUIDs, and that is not decoration. Postgres will
--- accept any hex in the right shape into a `uuid` column, but Zod 4's `z.uuid()`
--- checks the RFC version and variant nibbles, so the `4` and the `8` below are
--- load bearing. An earlier version of this file used `aaaaaaaa-aaaa-aaaa-…`,
--- which Postgres stored happily and the application then refused to parse,
--- rendering `response_malformed` on a deployed page. A fixture that the real
--- code cannot read proves nothing. Any identifier invented by hand for this
--- project has to survive `z.uuid()`, not just `::uuid`.
---
--- Self healing, deliberately: this file runs against a shared development
--- project that is never wiped, so it removes any stale fixture row for these two
--- users before inserting. The delete is scoped to the two synthetic users by id
--- and can never touch anything else.
-delete from public.scaffold_check
-where user_id in (
-    '11111111-1111-1111-1111-111111111111',
-    '22222222-2222-2222-2222-222222222222'
-  )
-  and id not in (
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
-  );
-
-insert into public.scaffold_check (id, user_id, note)
-values
-  (
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
-    'Row belonging to dev-one. Read through the real server client, under a real policy.'
-  ),
-  (
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-    '22222222-2222-2222-2222-222222222222',
-    'Row belonging to dev-two. If dev-one can see this line, row level security is broken.'
-  )
-on conflict (id) do nothing;
-
--- SPEC 0003: the real profile fixture, which replaces the scaffold rows above.
---
--- The scaffold rows deliberately stay for now. This seed has to keep the current
--- health page working right up until the deploy that repoints it lands, and the
--- table they live in is dropped in a later pull request, after production is
--- confirmed serving the new read (spec 0002 invariant 1, spec 0003 AC-16).
+-- A LESSON KEPT FROM THOSE ROWS, because it costs nothing to keep and cost real
+-- time to learn. Postgres will accept any hex in the right shape into a `uuid`
+-- column, but Zod 4's `z.uuid()` also checks the RFC version and variant
+-- nibbles. An earlier fixture used `aaaaaaaa-aaaa-aaaa-…`, which Postgres stored
+-- happily and the application then refused to parse, rendering
+-- `response_malformed` on a deployed page. A fixture the real code cannot read
+-- proves nothing. Any identifier invented by hand here has to survive the parser
+-- it will meet, not just `::uuid`.
 --
 -- No `updated_at` is set anywhere below. Invariant 10: application code, and a
 -- fixture, never write that column. The default and the trigger own it.
@@ -230,9 +193,10 @@ on conflict (id) do nothing;
 delete from public.profile
 where id = '33333333-3333-4333-8333-333333333333';
 
--- One profile each for the other two. Same claim as the scaffold rows made, now
--- against the real table: signed in as dev-one you must see only the first, and
--- signing in as dev-two must change what the page shows.
+-- One profile each for the other two. Signed in as dev-one you must see only
+-- the first, and signing in as dev-two must change what the page shows. If both
+-- users see the same profile, the policy is not doing its job and this fixture
+-- has proved nothing.
 --
 -- Obviously fake, and holding no real personal data, per the standing rule. They
 -- are subject to exactly the same check constraints a real write is, so a
