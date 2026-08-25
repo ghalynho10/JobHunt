@@ -52,6 +52,206 @@ export type Database = {
         }
         Relationships: []
       }
+      application: {
+        Row: {
+          applied_at: string
+          company_name: string
+          created_at: string
+          id: string
+          job_description: string | null
+          job_location: string | null
+          job_title: string
+          job_url: string
+          posted_at: string | null
+          profile_id: string
+          salary_currency: string | null
+          salary_max: number | null
+          salary_min: number | null
+          source: string
+          source_job_id: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          company_name: string
+          created_at?: string
+          id?: string
+          job_description?: string | null
+          job_location?: string | null
+          job_title: string
+          job_url: string
+          posted_at?: string | null
+          profile_id: string
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          source: string
+          source_job_id: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          company_name?: string
+          created_at?: string
+          id?: string
+          job_description?: string | null
+          job_location?: string | null
+          job_title?: string
+          job_url?: string
+          posted_at?: string | null
+          profile_id?: string
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          source?: string
+          source_job_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_answer: {
+        Row: {
+          answer: string
+          application_id: string
+          created_at: string
+          id: string
+          profile_id: string
+          question_key: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          application_id: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          question_key: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          application_id?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          question_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_answer_application_fkey"
+            columns: ["application_id", "profile_id"]
+            isOneToOne: false
+            referencedRelation: "application"
+            referencedColumns: ["id", "profile_id"]
+          },
+        ]
+      }
+      job_preference: {
+        Row: {
+          created_at: string
+          desired_locations: string[]
+          desired_titles: string[]
+          minimum_pay: number | null
+          minimum_pay_currency: string | null
+          profile_id: string
+          remote_preference: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          desired_locations?: string[]
+          desired_titles?: string[]
+          minimum_pay?: number | null
+          minimum_pay_currency?: string | null
+          profile_id: string
+          remote_preference?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          desired_locations?: string[]
+          desired_titles?: string[]
+          minimum_pay?: number | null
+          minimum_pay_currency?: string | null
+          profile_id?: string
+          remote_preference?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_preference_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          location: string | null
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id: string
+          location?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          location?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_skill: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_skill_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scaffold_check: {
         Row: {
           created_at: string
@@ -72,6 +272,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      work_experience: {
+        Row: {
+          company: string
+          created_at: string
+          description: string | null
+          ended_on: string | null
+          id: string
+          location: string | null
+          profile_id: string
+          started_on: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: string
+          location?: string | null
+          profile_id: string
+          started_on: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: string
+          location?: string | null
+          profile_id?: string
+          started_on?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_experience_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
