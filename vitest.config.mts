@@ -85,6 +85,12 @@ export default defineConfig({
           include: ["test/integration/**/*.test.ts"],
           setupFiles,
           /**
+           * AC-12: a stack that is not running has to say so once, clearly,
+           * naming the command that fixes it, rather than surfacing as a wall
+           * of `fetch failed` from every test at once.
+           */
+          globalSetup: ["./test/setup/require-stack.ts"],
+          /**
            * These talk to a real database over a real socket. The default 5s is
            * enough until the stack is cold, and a timeout there reads as a test
            * failure rather than as the slow start it is.

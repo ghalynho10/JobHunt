@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
