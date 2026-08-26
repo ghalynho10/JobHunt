@@ -1,7 +1,7 @@
 # 0004. Test foundation
 
 **Date**: 2026-08-25
-**Status**: Accepted
+**Status**: In Progress
 
 ## Summary
 
