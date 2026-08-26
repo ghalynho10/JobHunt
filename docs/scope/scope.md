@@ -18,7 +18,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 5 | Design system & UI foundation | Foundation | planned |
 | 6 | Entry page & link metadata | Foundation | planned |
 | 7 | Auth & per user isolation | Foundation | planned |
-| 8 | Test foundation | Foundation | planned |
+| 8 | Test foundation | Foundation | in-progress |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -112,10 +112,19 @@ OAuth sign in only (Google and GitHub), plus real per user data isolation enforc
 **Done when:** a user can sign in and out with either provider on the deployed URL, an authenticated request only ever reaches its own rows, an unauthenticated request to a protected route fails visibly rather than returning empty data that looks like success, and the development only password sign in from feature 1 is deleted, not merely blocked.
 - [ ] Design it (spec): `/architect auth & per user isolation`
 
-### 8. Test foundation · needs a decision
+### 8. Test foundation · in-progress
 The fixtures every later test depends on, built once rather than improvised per feature: a development only path that mints a real session without driving a browser, a fixed pool of obviously fake users for proving isolation, and a way to record and replay real responses from external services. This exists because the reference project's worst bug survived six passing tests that all mocked the same wrong assumption.
-**Done when:** a test can sign in as user A, write data, switch to user B and prove B cannot see it; an external service can be exercised against a real recorded response rather than a hand written mock; the session path is hard blocked outside development; and no fixture contains a real personal identifier.
-- [ ] Design it (spec): `/architect test foundation`
+**Done when:** a test can sign in as user A, write data, switch to user B and prove B cannot see it; an external service can be exercised against a real recorded response rather than a hand written mock; the session path is hard blocked outside development; no fixture contains a real personal identifier; and no recorded fixture carries a credential.
+_spec [0004](../specs/0004-test-foundation/index.md)_
+- [x] Design it (spec): `/architect test foundation` · accepted 2026-08-26, after a fresh model review whose findings were folded back into the spec
+- [ ] Build it: `/develop test foundation`
+  - [ ] Vitest scaffolded as two projects (unit, and integration on `node`), the `server-only` alias, `.env.test`, the in memory Sentry transport, and `pnpm test` (AC-5, AC-10)
+  - [ ] The fixture pool re-minted with valid version 4 UUIDs, the old rows deleted before the new ones are inserted, and the profile parser tightened from `z.guid()` to `z.uuid()` (AC-4, AC-6)
+  - [ ] The session thread: an optional cookie adapter on `createClient()`, the development only mint behind `DEV_SESSION_ENABLED`, and the isolation test proving it against the real local stack (AC-1, AC-3)
+  - [ ] Record and replay with redaction at write time, plus the on demand fixture user mint (AC-2, AC-8, AC-9, AC-11, AC-13)
+  - [ ] The command split and the CI job running the stack in Docker (AC-7, AC-12)
+- [ ] Verify it: `/check verify test foundation`
+- [ ] Test it: `/test test foundation`
 
 ## Slice 1: Core loop thread
 
@@ -123,7 +132,7 @@ The thinnest real thread through the whole product, touching every layer and act
 
 ### 9. Profile entry · needs a decision
 A form for the flat profile: personal details, skills, one layer of work history, and stated job preferences. Typed by hand, with no resume upload and no extraction, so it makes no external call at all. Scoring cannot function without this, and the completion test does not start without a way to get profile data in.
-**Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, and the saved shape is exactly what scoring will later read.
+**Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, the saved shape is exactly what scoring will later read, and the profile form's Server Action is driven once from a test with no browser. That last clause is spec 0001's third runner constraint, deferred to here by spec 0004 because there was no real write path to drive at feature 8; the technique is recorded in that spec's follow up list.
 - [ ] Design it (spec): `/architect profile entry`
 
 ### 10. Usage gating & kill switch · needs a decision · GA
