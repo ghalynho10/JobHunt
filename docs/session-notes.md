@@ -5,7 +5,7 @@ Written by /checkpoint save, read by /checkpoint restore.
 
 ## Open threads
 
-- **How to drive a Server Action with no browser, worth keeping for feature 8.** Fetch the page, read the hidden fields React renders on the form (`$ACTION_REF_1`, `$ACTION_1:0` carrying the action id, `$ACTION_1:1`, `$ACTION_KEY`), then post those plus the real form fields as multipart to the same route. A `303` with the session cookie means it ran. The `Next-Action` header path is fiddlier and silently loses the form fields. Action ids come from `.next/server/server-reference-manifest.json`, and **an id is only valid for a build made at that same directory path**, so an id read locally is the wrong id on Vercel. Feature 8 wants a session without a browser, and this is that path.
+- **Spec 0004 (test foundation) is drafted but not accepted.** The engineer will have a different model review it before accepting. Until then, keep Status Proposed, leave scope feature 8 as needs a decision, and do not run /develop. On acceptance, follow the architect after flow: tick the feature 8 decision box, link the spec, add the build milestones.
 
 ## Ruled out
 

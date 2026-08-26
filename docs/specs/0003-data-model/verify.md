@@ -14,10 +14,13 @@ successful write happens under a throwaway user that the last cascade test delet
 every refused write undoes itself. The final `clean` lines confirm the fixtures are
 untouched.
 
-**Still open, and deliberately so.** AC-13 and AC-16 are the drop of `scaffold_check`, and
-the drop may only be written after **production** is confirmed serving `readOwnProfile()`.
-A green preview is not that gate: previews read the development project, so they prove
-nothing about production's schema. Re run `verify.sql` against production after the merge.
+**Production, 2026-08-25. AC-16 and AC-13 closed, in that order and on purpose.**
+
+- Pull request #9 merged, its production migration run succeeded, and the production deployment built from that merge went live on `usejobhunt.vercel.app`. [verify-production.sql](verify-production.sql) confirmed the six tables, forced row level security, the twenty three policies and the privilege gate on the production database. That is **AC-16**, and only then was the drop written.
+- Pull request [#10](https://github.com/ghalynho10/JobHunt/pull/10) dropped `scaffold_check`, merged as `3a56243`, its production migration run succeeded, and `verify-production.sql` then reported `scaffold_check on this database: gone`. Local and development report the same. That is **AC-13**.
+
+All sixteen acceptance criteria are proved. Re run [verify-production.sql](verify-production.sql)
+against any environment at any time: it is read only and safe on production.
 
 Two acceptance criteria are deliberately **not** reachable in this pull request. AC-13 and
 AC-16 are the drop of `scaffold_check`, and the drop belongs in a second pull request that
@@ -28,18 +31,18 @@ closing them from a green preview has misread the gate.
 
 Run against the target database. Locally: `docker exec -i supabase_db_jobhunt psql -U postgres -d postgres`.
 
-- [ ] All six tables exist in `public` with the specced columns, types and nullability → `select table_name, column_name, data_type, is_nullable from information_schema.columns where table_schema='public' and table_name in ('profile','profile_skill','work_experience','job_preference','application','application_answer') order by 1,2;` matches the spec's data model sketch → AC-1
-- [ ] Row level security is enabled **and forced** on all six → `select relname, relrowsecurity, relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public';` every one is `t/t` → AC-2
-- [ ] Twenty three policies, four per table and three on `profile_skill` → `select tablename, count(*) from pg_policies where schemaname='public' group by 1;` → AC-2
-- [ ] Each policy carries the clause its action permits: `select`/`delete` have `using` only, `insert` has `with check` only, `update` has both → `select tablename, cmd, qual is not null as has_using, with_check is not null as has_with_check from pg_policies where schemaname='public' order by 1,2;` → AC-4
-- [ ] `authenticated` holds exactly the specced privileges and `anon` and `service_role` hold **nothing** on all six → `has_table_privilege` sweep over the three roles and six tables → AC-2
-- [ ] A query as `anon` is refused with a hard permission denial, not an empty result → `set local role anon; select 1 from public.profile;` raises `42501 permission denied for table profile` → AC-2
-- [ ] The constraint sweep below is refused at every line → AC-4, AC-7, AC-8, AC-9, AC-10, AC-11
-- [ ] `updated_at` is the trigger's, not the caller's → `update public.profile set full_name='x', updated_at='2000-01-01' where id=<a user>;` then read it back: it holds the transaction time, not the year 2000 → AC-12
-- [ ] Deleting the auth user empties all six for that user → seed a row in each of the six, `delete from auth.users where id=<user>`, then count across all six: zero → AC-5
-- [ ] A user deleting their own `profile` empties the same subtree while the auth account remains → as that user `delete from public.profile where id=<self>`, count across the six is zero and `auth.users` still holds them → AC-6
-- [ ] `pnpm db:types` output matches the applied schema and the tree typechecks → `pnpm db:types && pnpm typecheck` clean, no diff left in `src/lib/supabase/database.types.ts` → AC-15
-- [ ] `scaffold_check` is gone from local, development and production, nothing references it in code, its seed rows are gone and its span line is off the registry → `select to_regclass('public.scaffold_check');` is null in all three, and `grep -r scaffold_check` finds nothing → AC-13 · **second pull request only**
+- [x] All six tables exist in `public` with the specced columns, types and nullability → `select table_name, column_name, data_type, is_nullable from information_schema.columns where table_schema='public' and table_name in ('profile','profile_skill','work_experience','job_preference','application','application_answer') order by 1,2;` matches the spec's data model sketch → AC-1
+- [x] Row level security is enabled **and forced** on all six → `select relname, relrowsecurity, relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public';` every one is `t/t` → AC-2
+- [x] Twenty three policies, four per table and three on `profile_skill` → `select tablename, count(*) from pg_policies where schemaname='public' group by 1;` → AC-2
+- [x] Each policy carries the clause its action permits: `select`/`delete` have `using` only, `insert` has `with check` only, `update` has both → `select tablename, cmd, qual is not null as has_using, with_check is not null as has_with_check from pg_policies where schemaname='public' order by 1,2;` → AC-4
+- [x] `authenticated` holds exactly the specced privileges and `anon` and `service_role` hold **nothing** on all six → `has_table_privilege` sweep over the three roles and six tables → AC-2
+- [x] A query as `anon` is refused with a hard permission denial, not an empty result → `set local role anon; select 1 from public.profile;` raises `42501 permission denied for table profile` → AC-2
+- [x] The constraint sweep below is refused at every line → AC-4, AC-7, AC-8, AC-9, AC-10, AC-11
+- [x] `updated_at` is the trigger's, not the caller's → `update public.profile set full_name='x', updated_at='2000-01-01' where id=<a user>;` then read it back: it holds the transaction time, not the year 2000 → AC-12
+- [x] Deleting the auth user empties all six for that user → seed a row in each of the six, `delete from auth.users where id=<user>`, then count across all six: zero → AC-5
+- [x] A user deleting their own `profile` empties the same subtree while the auth account remains → as that user `delete from public.profile where id=<self>`, count across the six is zero and `auth.users` still holds them → AC-6
+- [x] `pnpm db:types` output matches the applied schema and the tree typechecks → `pnpm db:types && pnpm typecheck` clean, no diff left in `src/lib/supabase/database.types.ts` → AC-15
+- [x] `scaffold_check` is gone from local, development and production, nothing references it in code, its seed rows are gone and its span line is off the registry → `select to_regclass('public.scaffold_check');` is null locally; on production, the engineer ran [verify-production.sql](verify-production.sql) directly and its last line reads `scaffold_check on this database: gone`; GitHub Actions confirms the same drop migration also succeeded against development at 2026-08-25T19:00:08Z; `grep -r scaffold_check` finds nothing outside migration history and historical prose → AC-13 · **second pull request only**
 
 ### The constraint sweep
 
@@ -95,32 +98,32 @@ victim row's contents, never just the absence of an exception.
 Run on a real preview deployment, which reads the hosted development project. A local run
 proves the code; only the preview proves the deployment.
 
-- [ ] Sign in as `dev-one@example.test` → `/health` shows that user's own profile (name, location, summary) and their auth user id → AC-3, AC-14
-- [ ] Sign in as `dev-two@example.test` → `/health` shows a **different** profile, and never dev-one's line → AC-3, AC-14
-- [ ] Sign in as `dev-three@example.test`, who has no profile row on purpose → `/health` shows a named failure, kind `record_not_found`, severity `expected`, in a `role="alert"` block, and never an empty page → AC-14
-- [ ] The failure block above is reachable by keyboard and announced: it carries `role="alert"` and readable text, not colour alone → AC-14
-- [ ] Production is serving `readOwnProfile()` and its migration run succeeded, confirmed on the production URL and in the migration workflow, **before** the drop migration is written → AC-16
+- [x] Sign in as `dev-one@example.test` → `/health` shows that user's own profile (name, location, summary) and their auth user id → AC-3, AC-14
+- [x] Sign in as `dev-two@example.test` → `/health` shows a **different** profile, and never dev-one's line → AC-3, AC-14
+- [x] Sign in as `dev-three@example.test`, who has no profile row on purpose → `/health` shows a named failure, kind `record_not_found`, severity `expected`, in a `role="alert"` block, and never an empty page → AC-14
+- [x] The failure block above is reachable by keyboard and announced: it carries `role="alert"` and readable text, not colour alone → AC-14
+- [x] Production is serving `readOwnProfile()` and its migration run succeeded, confirmed on the production URL and in the migration workflow, **before** the drop migration is written → AC-16 · migration ordering confirmed via GitHub Actions: `Apply migrations (production)` succeeded for pull request #9's merge commit `8fcb672` at 2026-08-25T17:36:19Z, and pull request #10 (the drop) was not built until after, its own head commit only reaching `Apply migrations (development)` success at 19:00:08Z. Schema confirmed directly: the engineer ran [verify-production.sql](verify-production.sql) against production and pasted the result on 2026-08-25, all lines `pass`, zero `FAIL`. No signed in click through exists to add on top of this: production carries 0 profile rows (confirmed in the same query output) because feature 7 (real auth) is not built yet, so no account exists to sign in with. The schema query plus the migration record is the achievable ceiling for this gate today, and matches exactly what pull request #10's own body names as the three conditions it waited on.
 
 ## Value sourcing
 
 One per row of the spec's Value sourcing table, so a value that is sourced from the wrong
 place is caught even when the shape is right.
 
-- [ ] `profile.id` comes from `auth.uid()` and never a supplied value → as dev-one, `insert into public.profile (id, full_name) values ('<dev-two>', 'X')` is refused `42501` → AC-4
-- [ ] `full_name`, `location`, `summary` on a real write come from feature 9's form, parsed by Zod first, with the Zod rules mirroring the check constraints → **feature 9 owns this**; today assert only that the database refuses what Zod would: a blank or whitespace `full_name`, and a `full_name` over 200 characters, are both `23514` → AC-1
-- [ ] The seed fixture's profile values are literal strings in `supabase/seed.sql`, obviously fake, and subject to the same checks a real write is → `pnpm db:reset` succeeds with the fixture in place, and no fixture value is a real personal identifier → AC-3
-- [ ] `created_at` and `updated_at` come from the database default and the shared trigger, never from a caller → insert with no timestamps supplied and both are populated; see also the AC-12 command above → AC-12
-- [ ] The profile the health page shows is selected **by policy**, not by an application filter → confirm `src/features/profile/queries.ts` carries no `eq` on the caller's id, then re run the two user isolation steps above. If a filter is ever added, AC-3 stops proving anything → AC-3, AC-14
-- [ ] The "no profile yet" state comes from `record_not_found`, returned when the select matches no row → the dev-three step above → AC-14
-- [ ] An application's `profile_id` comes from `auth.uid()` → covered by the AC-4 sweep → AC-4
-- [ ] An application's `source` is the constant `adzuna`, set server side and never by the browser → any other value is refused `23514`; **feature 11 owns setting it** → AC-1
+- [x] `profile.id` comes from `auth.uid()` and never a supplied value → as dev-one, `insert into public.profile (id, full_name) values ('<dev-two>', 'X')` is refused `42501` → AC-4
+- [x] `full_name`, `location`, `summary` on a real write come from feature 9's form, parsed by Zod first, with the Zod rules mirroring the check constraints → **feature 9 owns this**; today assert only that the database refuses what Zod would: a blank or whitespace `full_name`, and a `full_name` over 200 characters, are both `23514` → AC-1
+- [x] The seed fixture's profile values are literal strings in `supabase/seed.sql`, obviously fake, and subject to the same checks a real write is → `pnpm db:reset` succeeds with the fixture in place, and no fixture value is a real personal identifier → AC-3
+- [x] `created_at` and `updated_at` come from the database default and the shared trigger, never from a caller → insert with no timestamps supplied and both are populated; see also the AC-12 command above → AC-12
+- [x] The profile the health page shows is selected **by policy**, not by an application filter → confirm `src/features/profile/queries.ts` carries no `eq` on the caller's id, then re run the two user isolation steps above. If a filter is ever added, AC-3 stops proving anything → AC-3, AC-14
+- [x] The "no profile yet" state comes from `record_not_found`, returned when the select matches no row → the dev-three step above → AC-14
+- [x] An application's `profile_id` comes from `auth.uid()` → covered by the AC-4 sweep → AC-4
+- [x] An application's `source` is the constant `adzuna`, set server side and never by the browser → any other value is refused `23514`; **feature 11 owns setting it** → AC-1
 - [ ] The listing snapshot fields come from the listing object feature 11 parsed → **feature 11 and 12 own this**; today assert only that all of `source_job_id`, `job_title`, `company_name`, `job_location`, `job_url`, `job_description`, `posted_at`, `salary_min`, `salary_max`, `salary_currency` exist and accept a full listing → AC-1
-- [ ] `applied_at` comes from the database default, and is distinct from `created_at` → insert with neither supplied, both populate, and the column pair is genuinely two columns → AC-1
-- [ ] The duplicate refusal comes from the unique constraint, not from a caller side check → the AC-7 line above, run with no prior select → AC-7
+- [x] `applied_at` comes from the database default, and is distinct from `created_at` → insert with neither supplied, both populate, and the column pair is genuinely two columns → AC-1
+- [x] The duplicate refusal comes from the unique constraint, not from a caller side check → the AC-7 line above, run with no prior select → AC-7
 - [ ] `question_key` comes from feature 20's preset set → **feature 20 owns the check constraint**; today the column only refuses blank → AC-1
-- [ ] An answer's `profile_id` is the parent application's, and any other value is refused by the composite foreign key → the second AC-8 line above → AC-8
-- [ ] Scoring reads `profile_skill.name` rows for the caller → **feature 14 owns this**; today assert a user sees only their own skills → AC-3
-- [ ] The privacy notice's list of stored personal fields matches the spec's data model sketch → **feature 21 owns this**; today assert the sketch and the applied schema agree, which is the AC-1 command above → AC-1
+- [x] An answer's `profile_id` is the parent application's, and any other value is refused by the composite foreign key → the second AC-8 line above → AC-8
+- [x] Scoring reads `profile_skill.name` rows for the caller → **feature 14 owns this**; today assert a user sees only their own skills → AC-3
+- [x] The privacy notice's list of stored personal fields matches the spec's data model sketch → **feature 21 owns this**; today assert the sketch and the applied schema agree, which is the AC-1 command above → AC-1
 
 ## Acceptance-criteria coverage
 
