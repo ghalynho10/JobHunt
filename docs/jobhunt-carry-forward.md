@@ -140,6 +140,71 @@ automated fetching of it, before designing around this option. Many
 careers pages are also JS-rendered, the same open question already flagged
 for lite company research.
 
+**Job descriptions are untrusted input reaching a model.**
+
+Verified in MadsLorentzen/ai-job-search (MIT): postings are treated as
+untrusted input — the workflow follows no instructions embedded in them
+and fetches no links from their body. Their own README notes the defense
+is instruction-level, not a sandbox.
+
+This is the same attack shape as the Supabase MCP disclosure recorded
+under feature 3, without the MCP: attacker-controlled text reaching an
+agent's context. The difference is that JobHunt is multi-user and the
+text arrives automatically from a job board, not from a user pasting it.
+A posting containing scoring instructions is the obvious case; a posting
+that exfiltrates profile content into its own reasoning output is worse.
+
+Belongs in the spec as a named risk with a stated mitigation, not as a
+prompt-engineering preference.
+
+**Stale postings leak from ATS feeds.**
+
+Verified in santifer/career-ops (MIT): some companies leave closed roles
+in their public API, so expired entries reach the pipeline. Their fix is
+a `--verify` flag that runs Playwright after the API pass, sequentially
+and only against new offers after dedup, so cost stays bounded.
+
+The bounding pattern is the transferable part. Whether Adzuna has the
+same staleness problem is unverified — check against real results at
+feature 14 alongside the ten-result snippet test already planned.
+
+**Legitimacy as a separate signal, never folded into the score.**
+
+Verified in career-ops: Block G is a posting-legitimacy assessment that
+never affects the score, and a Work-Auth signal flags an explicit
+no-sponsorship JD as a hard blocker. Same shape as the sponsorship signal
+already planned here.
+
+Open question for the spec, not answered by either repo: what evidence
+justifies flagging a real posting as suspect. A wrong flag costs a user
+an application.
+
+**Two-tier ranking — an idea, not an inherited one.**
+
+A cheap ranking pass over all results, then deep scoring only on what the
+user selects. This was suggested as coming from ai-job-search's `/rank`,
+but `/rank` dispatches parallel agents that fetch each posting and score
+five dimensions — a full fetch per job, not a cheap pass. The idea may
+still be right for the snippet-versus-full-posting split above. It is not
+proven by either repo and should not be written up as though it were.
+
+---
+
+## Feature 25 — Resume tailoring (v1.5)
+
+**Verify the rendered PDF's text layer, not the source.**
+
+Verified in ai-job-search: the compiled CV's text layer is extracted with
+`pdftotext` and checked the way an ATS parser sees it — contact details
+present as literal text, no garbled glyphs, sane reading order — then
+keyword coverage is scored against that extraction rather than the
+source. Their honesty rule: a keyword the profile does not support is
+acknowledged as a gap, never stuffed in.
+
+Same standard as this project's rule that every external dependency gets
+a test that really calls it. Checking the source assumes the renderer
+behaves; checking the output proves it.
+
 ---
 
 ## Feature 19 — Listing data quality
@@ -203,8 +268,10 @@ is spent: binding rule 7 in spec 0001 states all five conditions, and
 `/audit` wrote them into root `AGENTS.md`. What remains is feature 3's
 half — **which project the connection points at**, since feature 3 owns
 the environment split and secrets. The fifth condition ("never pointed at
-real user data") is only enforceable once a dev project distinct from
-production actually exists.
+real user data") is now satisfiable: `jobhunt-dev` and `jobhunt-prod`
+exist as separate hosted projects in `us-east-1`, both created with the
+Data API "automatically expose new tables" setting off. What is left is
+the deliberate choice of which `project_ref` the connection carries.
 
 The 2026 server uses OAuth rather than a pasted personal access token:
 `claude mcp add --transport http supabase https://mcp.supabase.com/mcp`,
