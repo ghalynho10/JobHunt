@@ -115,14 +115,14 @@ OAuth sign in only (Google and GitHub), plus real per user data isolation enforc
 ### 8. Test foundation · in-progress
 The fixtures every later test depends on, built once rather than improvised per feature: a development only path that mints a real session without driving a browser, a fixed pool of obviously fake users for proving isolation, and a way to record and replay real responses from external services. This exists because the reference project's worst bug survived six passing tests that all mocked the same wrong assumption.
 **Done when:** a test can sign in as user A, write data, switch to user B and prove B cannot see it; an external service can be exercised against a real recorded response rather than a hand written mock; the session path is hard blocked outside development; no fixture contains a real personal identifier; and no recorded fixture carries a credential.
-_spec [0004](../specs/0004-test-foundation/index.md)_
+_spec [0004](../specs/0004-test-foundation/index.md) · code in `vitest.config.mts`, `test/`, `src/lib/supabase/server.ts`, `supabase/seed.sql`, `.github/workflows/ci.yml`_
 - [x] Design it (spec): `/architect test foundation` · accepted 2026-08-26, after a fresh model review whose findings were folded back into the spec
-- [ ] Build it: `/develop test foundation`
-  - [ ] Vitest scaffolded as two projects (unit, and integration on `node`), the `server-only` alias, `.env.test`, the in memory Sentry transport, and `pnpm test` (AC-5, AC-10)
-  - [ ] The fixture pool re-minted with valid version 4 UUIDs, the old rows deleted before the new ones are inserted, and the profile parser tightened from `z.guid()` to `z.uuid()` (AC-4, AC-6)
-  - [ ] The session thread: an optional cookie adapter on `createClient()`, the development only mint behind `DEV_SESSION_ENABLED`, and the isolation test proving it against the real local stack (AC-1, AC-3)
-  - [ ] Record and replay with redaction at write time, plus the on demand fixture user mint (AC-2, AC-8, AC-9, AC-11, AC-13)
-  - [ ] The command split and the CI job running the stack in Docker (AC-7, AC-12)
+- [x] Build it: `/develop test foundation` · built 2026-08-26 on branch `feat/test-foundation`; all 13 acceptance criteria covered by 24 unit and 9 integration tests, green against the real local stack
+  - [x] Vitest scaffolded as two projects (unit, and integration on `node`), the `server-only` alias, `.env.test`, the in memory Sentry transport, and `pnpm test` (AC-5, AC-10)
+  - [x] The fixture pool re-minted with valid version 4 UUIDs, the old rows deleted before the new ones are inserted, and the profile parser tightened from `z.guid()` to `z.uuid()` (AC-4, AC-6) · the delete then insert ordering was proved by staging the old pool locally and replaying the seed with `ON_ERROR_STOP=1`, the way db-migrate runs it
+  - [x] The session thread: an optional cookie adapter on `createClient()`, the development only mint behind `DEV_SESSION_ENABLED`, and the isolation test proving it against the real local stack (AC-1, AC-3) · the isolation test was checked for vacuousness by disabling row level security on `public.profile`, which failed all four of its assertions, then restored
+  - [x] Record and replay with redaction at write time, plus the on demand fixture user mint (AC-2, AC-8, AC-9, AC-11, AC-13) · the GitHub stand in was recorded once from the live API and survives the pre commit hook byte for byte; redaction is proved through a real capture rather than by calling the redactor directly
+  - [x] The command split and the CI job running the stack in Docker (AC-7, AC-12) · CI runs the unit suite before the stack starts, so a unit test that grows a database dependency fails there rather than passing on a warm stack
 - [ ] Verify it: `/check verify test foundation`
 - [ ] Test it: `/test test foundation`
 
