@@ -3,10 +3,6 @@
 Short lived context that does not belong in scope, a spec, or AGENTS.md yet.
 Written by /checkpoint save, read by /checkpoint restore.
 
-## Open threads
-
-- **Spec 0004 (test foundation) is drafted but not accepted.** The engineer will have a different model review it before accepting. Until then, keep Status Proposed, leave scope feature 8 as needs a decision, and do not run /develop. On acceptance, follow the architect after flow: tick the feature 8 decision box, link the spec, add the build milestones.
-
 ## Ruled out
 
 - **Switching off Supabase's Data API for about a minute**, on a project that was not identified afterward, considered as the cause of the escalating `database_unavailable` issue on production. Rejected: the specific error, a Postgres grant hint naming the `anon` role on one table, does not match what a disabled Data API would produce, and the timing does not clearly line up.
