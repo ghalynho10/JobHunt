@@ -43,5 +43,81 @@ jobs:
         env:
           SKIP_ENV_VALIDATION: "true"
 
-# The test job waits for feature 8, which chooses the test runners and builds the
-# fixtures. Adding one before that would pick the runner by accident.
+  # Spec 0004, AC-7 and AC-12. A separate job from `check` on purpose: this one
+  # needs Docker and pulls Supabase images, so it is slower, and keeping it apart
+  # means a lint or type error still reports in under a minute.
+  test:
+    name: Test (unit, then integration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # AC-12, ENFORCED RATHER THAN ASSERTED: the unit suite runs BEFORE the
+      # stack is started, so a unit test that quietly grew a dependency on the
+      # database fails here rather than passing forever because the stack
+      # happened to be up.
+      #
+      # The values below are placeholders, and every one of them is a shape that
+      # `src/env.ts` accepts and nothing here ever dials. They exist because that
+      # module validates the whole contract at import, which is separate from
+      # whether anything connects.
+      - name: Unit tests, with no stack running
+        run: pnpm test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_unit_tests_never_connect
+          SUPABASE_SECRET_KEY: sb_secret_unit_tests_never_connect
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
+          DEV_SESSION_ENABLED: "true"
+
+      # Pinned to the same version as the `supabase` devDependency in
+      # package.json and as db-migrate.yml, so nothing applies migrations with a
+      # different CLI version than the one used locally.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      # Only the containers these tests actually reach: the database, the API
+      # gateway, GoTrue for the session mint, and PostgREST for the reads. The
+      # rest are excluded because each one is an image to pull and a service to
+      # wait for, and none of them is exercised here.
+      - name: Start the local Supabase stack
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      # Read back from the stack that is actually running rather than hardcoded.
+      # The local keys are fixed development values, not secrets, but reading
+      # them means a CLI that ever changes them cannot silently break this job.
+      - name: Export the stack's own connection values
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
+            echo "SUPABASE_SECRET_KEY=$SECRET_KEY"
+          } >> "$GITHUB_ENV"
+
+      # Against the real stack with the real row level security policies
+      # applied, which is the entire point: a mock would be free to agree with a
+      # wrong assumption in the code it is meant to be checking.
+      - name: Integration tests, against the real stack
+        run: pnpm test:integration
+        env:
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
+          DEV_SESSION_ENABLED: "true"
+
+      # `supabase start` applies migrations and the seed, so a seed that broke
+      # would already have failed the step above. This says so out loud, because
+      # the fixture pool is what the isolation proof rests on.
+      - name: Show what the fixture pool holds
+        if: always()
+        run: supabase status
