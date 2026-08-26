@@ -20,7 +20,7 @@ Finally, `failure()` reports to Sentry inside its constructor (binding rule 2, s
 
 **Option 1: Unit only, integration stays manual.** Vitest for unit tests; the real policy and session proofs remain manual against the hosted development project as they are today. Pros: fastest CI, least setup. Cons: the real isolation and session claims are never proven automatically, which is exactly the gap the reference bug exposed.
 
-**Option 2 (chosen): Vitest integration against the real local stack, Playwright scaffolded.** Vitest drives unit and integration tests against the local Supabase stack in Docker with real policies. Playwright is scaffolded but unused until a feature needs a browser. Pros: real sessions, real policies, real isolation, matching every constraint spec 0001 named; CI runs the real stack via the Supabase CLI. Cons: CI needs Docker and pulls images; two test commands.
+**Option 2 (chosen): Vitest integration against the real local stack.** Vitest drives unit and integration tests against the local Supabase stack in Docker with real policies. Playwright is named as the end to end runner and installed later, by the feature that first needs a browser. Pros: real sessions, real policies, real isolation, matching the constraints spec 0001 named that can be met now; CI runs the real stack via the Supabase CLI. Cons: CI needs Docker and pulls images; two test commands.
 
 **Option 3: Playwright end to end proves the isolation thread now.** A real browser test signs in and reads. Pros: the done when proved through the real UI. Cons: heaviest to stand up at foundation time; the isolation claim is provable more cheaply at the integration layer, and no feature needs a browser yet.
 
@@ -69,6 +69,30 @@ The mint has to leave a session somewhere a later read will find it, and `src/li
 **Option 1 (chosen): the integration project runs `node`, and jsdom appears only where a unit test renders a component.** Pros: `@t3-oss/env-nextjs` hands out a server variable only when it believes it is on the server, so the mint can read the secret key; an integration suite has no reason to want a DOM. Cons: two project configurations rather than one.
 
 **Option 2: jsdom everywhere, as Next.js's own Vitest guide suggests.** Pros: one configuration, and it matches the published guide. Cons: the guide is written for component unit tests, not for this. Under jsdom `env.SUPABASE_SECRET_KEY` is unreachable, so the mint cannot be built at all, and the failure arrives as a confusing environment error rather than as a design decision.
+
+### Where test files live
+
+**Option 1 (chosen): unit tests colocated, everything else in a top level `test/` tree.** Unit tests sit beside the code they prove, following the folder by feature rule, since a feature's tests are that feature's code. Integration tests, the helpers and the fixture store go to `test/`. Pros: the helpers leave `src/` entirely, so the mint is not in the application's module graph and no module under `src/app` can reach the secret key client through it, which closes a hole in binding rule 1's enforcement structurally rather than by extending a lint pattern list; integration tests that span features get a home that does not pretend they belong to one. Cons: two conventions to learn rather than one.
+
+**Option 2: everything under a top level `test/` tree, mirroring `src/`.** Pros: the same structural benefit for the helpers, and nothing test shaped anywhere in `src/`. Cons: a unit test for `queries.ts` lives four directories from it, and colocation is what most people reach for first.
+
+**Option 3: everything colocated, helpers stay at `src/lib/testing`.** Pros: the most literal reading of the folder by feature rule, and no change to the mint's location. Cons: the mint stays inside the application's module graph, so `src/app/**` can import the secret key client transitively through it, and the only defence available is adding patterns to `@typescript-eslint/no-restricted-imports` and keeping that list complete forever. A rule you must remember to extend is weaker than a path that cannot exist.
+
+### The stand in endpoint for the first recording
+
+The recorder has to be proved on something before Adzuna exists. The candidate has to be real, free, unauthenticated, and stable enough that a committed fixture stays meaningful.
+
+**Option 1 (chosen): GitHub's public REST API.** Pros: genuinely external, free, no credential, extremely stable, and it answers with a real header set including rate limit and caching headers, so redaction is exercised against real headers rather than invented ones. Cons: record mode reaches the internet once, and a public API can rate limit an unauthenticated caller.
+
+**Option 2: the local Supabase stack's own REST endpoint.** Pros: no third party at all, and always available whenever the integration suite runs. Cons: it is not really external, so it proves the least of the three about the thing the recorder exists for. No unfamiliar headers, no real latency, no service that can change shape underneath you.
+
+**Option 3: Adzuna now, the service the recorder actually exists for.** Pros: the most honest fixture, and it would be reused rather than thrown away at feature 11. Cons: it pulls feature 11's credential setup forward into feature 8, so this feature could not finish until an Adzuna account existed.
+
+### Whether to scaffold Playwright here
+
+**Option 1 (chosen): name Playwright and install it later.** The first feature that needs a browser installs, configures and writes the first real test together. Pros: nothing inert in the tree, no dependency carried unused across several features, no empty suite for CI to reason about, and the runner decision is binding because it is written here rather than because a config file exists. Cons: someone reading the tree rather than the spec cannot see the choice.
+
+**Option 2: scaffold the config now with no test.** Pros: the decision is visible in the repository, and the later feature adds a test rather than standing up a tool. Cons: a config nothing runs is a config nothing keeps current, and it will be stale by the time it is first used.
 
 ## Rationale
 

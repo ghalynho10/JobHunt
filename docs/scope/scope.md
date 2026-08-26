@@ -122,7 +122,7 @@ _spec [0004](../specs/0004-test-foundation/index.md)_
   - [ ] The fixture pool re-minted with valid version 4 UUIDs, the old rows deleted before the new ones are inserted, and the profile parser tightened from `z.guid()` to `z.uuid()` (AC-4, AC-6)
   - [ ] The session thread: an optional cookie adapter on `createClient()`, the development only mint behind `DEV_SESSION_ENABLED`, and the isolation test proving it against the real local stack (AC-1, AC-3)
   - [ ] Record and replay with redaction at write time, plus the on demand fixture user mint (AC-2, AC-8, AC-9, AC-11, AC-13)
-  - [ ] The command split, the CI job running the stack in Docker, and Playwright scaffolded (AC-7, AC-12)
+  - [ ] The command split and the CI job running the stack in Docker (AC-7, AC-12)
 - [ ] Verify it: `/check verify test foundation`
 - [ ] Test it: `/test test foundation`
 

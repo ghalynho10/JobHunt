@@ -8,11 +8,12 @@ Steps `/check verify` runs against the acceptance criteria in index.md. Each ste
 2. Run `pnpm test:integration`. The isolation test must pass: it mints a session for dev one, writes a profile, mints for dev two, and asserts dev two cannot read dev one's profile.
 3. Confirm the suite ran against the local stack, not a mock, and confirm it precisely. The test calls `createClient()` from `src/lib/supabase/server.ts` itself, passing an in memory cookie jar where the `next/headers` store normally goes, so the module under test is the same one every page and Server Action uses. The policies are the real ones and the URL is the local stack's. Grep the test tree: no second Supabase client is constructed anywhere in it.
 4. Confirm the adapter's default changed nothing for the application: `pnpm build` passes, and the health page still reads a profile through `createClient()` called with no argument.
-5. Run `pnpm test` with the stack down. Unit tests pass; `pnpm test:integration` fails with the named message telling the engineer the stack is not running.
+5. Confirm the test helpers are outside the application's module graph: `test/helpers/` holds the mint, nothing under `src/` imports from `test/`, and a grep for `lib/testing` finds nothing. This is what stands in for a lint rule on the transitive path to the secret key client.
+6. Run `pnpm test` with the stack down. Unit tests pass; `pnpm test:integration` fails with the named message telling the engineer the stack is not running.
 
 ## AC-2, AC-8, AC-9: record and replay
 
-1. Inspect `test/fixtures/` in git: it holds a real recorded response from the stand in endpoint (status, headers, body), not a hand written stub.
+1. Inspect `test/fixtures/` in git: it holds a real recorded response from GitHub's public REST API (status, headers, body), not a hand written stub.
 2. Run the replay test. It passes without touching the network.
 3. Delete one fixture file, run the replay test again. It fails loudly, naming the missing file and the command that records it. Restore the file.
 4. Confirm record mode is an explicit opt in (`TEST_FIXTURE_MODE=record`) and that it warns; normal runs are replay only.
