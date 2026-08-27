@@ -69,7 +69,7 @@ Installed and green on the scaffold (feature 2).
 ## Git
 
 - integration: on
-- branch prefix: `feat/`
+- branch prefix: matches the commit type (`feat/`, `docs/`, `test/`, `chore/`)
 - commit: per-milestone
 
 Messages are conventional (`feat:`, `fix:`, `docs:`, `chore:`). Push and pull requests always confirm with the engineer first.
