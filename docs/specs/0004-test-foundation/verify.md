@@ -59,7 +59,7 @@ Added by `/develop` after the build, alongside the steps above rather than repla
 - [x] `pnpm test:integration` · 9 tests pass against the local stack → AC-1, AC-4, AC-5, AC-6, AC-11
 - [x] `pnpm db:start` then `pnpm db:reset`, then `pnpm test:integration` · green from a clean seed → AC-6
 - [x] Stop the stack, run `pnpm test:integration` · fails before any test runs, naming `pnpm db:start` → AC-12
-- [ ] `TEST_FIXTURE_MODE=record` is the only way to reach the network, and it warns on the way → AC-8 · **NOT MET on 2026-08-27.** The mode gate half holds: replay never reaches the network. The warning half does not reach a human. `console.warn` in `record()` does fire, but Vitest's default console interception swallows it, so a normal `TEST_FIXTURE_MODE=record` run prints only the pass summary. Visible only with `--disableConsoleIntercept`. Not a security hole, redaction still runs at write time, but the prompt to review the file before committing never arrives
+- [x] `TEST_FIXTURE_MODE=record` is the only way to reach the network, and it warns on the way → AC-8 · Found NOT MET on 2026-08-27 and fixed the same day. Vitest intercepts `console.log`, `console.warn` and `console.error` alike and prints none of them for a passing test, so the warning was written and then swallowed: a normal record run showed only the pass summary. The warning now goes to `process.stderr`, which Vitest does not intercept, and a real record run against `api.github.com` was observed printing it. `test/helpers/recorder.test.ts` now asserts the warning and its channel, and reverting to `console.warn` fails that test, so this cannot regress silently again. Re-run `/check verify` for the formal close
 
 ### The isolation test is not vacuous
 

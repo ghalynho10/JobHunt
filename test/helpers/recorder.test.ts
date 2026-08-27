@@ -6,6 +6,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -120,6 +121,29 @@ describe("record mode redaction (AC-13)", () => {
   const NAME = "redaction-probe";
   const path = fixturePath(CREDENTIAL_CARRYING, NAME);
 
+  /**
+   * These tests deliberately drive record mode, which now writes its warning
+   * straight to `process.stderr` so a human cannot miss it. Captured here
+   * rather than left to print, for two reasons. It keeps `pnpm test` output
+   * clean, and more importantly the warning says the recording "reached the
+   * live network", which is true of a real capture and false of these: they
+   * reach a local server on 127.0.0.1. A warning that cries wolf on every
+   * ordinary test run is how a real one stops being read.
+   */
+  let stderrOut: string[] = [];
+
+  beforeEach(() => {
+    stderrOut = [];
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      stderrOut.push(String(chunk));
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   afterEach(async () => {
     // This recording is written by the test and must never be committed, unlike
     // the GitHub one, which is evidence and is.
@@ -200,6 +224,28 @@ describe("record mode redaction (AC-13)", () => {
     // for anything that has to parse a real response.
     expect(written.response.headers["content-type"]).toBe("application/json");
     expect(written.response.headers["cache-control"]).toBe("max-age=60");
+  });
+
+  it("warns on the way out, somewhere a human will actually see it", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    /**
+     * AC-8's warning half, and the reason this test exists at all: the warning
+     * was being written and then swallowed, because Vitest intercepts every
+     * `console.*` call and prints none of them for a passing test. Nothing
+     * asserted the warning, so nothing noticed. This asserts the CHANNEL as
+     * well as the text, since a warning nobody sees is not a warning.
+     */
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/search`,
+    });
+
+    const warning = stderrOut.join("");
+
+    expect(warning).toContain("RECORDED a real response");
+    expect(warning).toContain("reached the live network");
+    // Names the file, so the human knows which one to go and read.
+    expect(warning).toContain(NAME);
   });
 
   it("redacts a header the allow list has never heard of", async () => {

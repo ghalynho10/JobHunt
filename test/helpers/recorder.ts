@@ -270,22 +270,41 @@ async function record(
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(safe, null, 2)}\n`, "utf8");
 
-  /**
-   * AC-8: record mode warns. A recording is a real response from a real
-   * service committed into git, so a human has to look at it before it merges.
-   * The redaction above is a floor, not a substitute for that look.
-   */
-  console.warn(
+  warnRecorded(service.name, path);
+
+  return safe;
+}
+
+/**
+ * AC-8: record mode warns, and the warning actually reaches a human.
+ *
+ * WRITTEN TO `process.stderr` RATHER THAN THROUGH `console.warn`, AND THAT IS
+ * THE WHOLE POINT OF THIS FUNCTION. Vitest intercepts `console.log`, `console.warn`
+ * and `console.error` alike and prints none of them for a passing test under the
+ * default reporter, so the warning this criterion asks for was being written and
+ * then swallowed: a normal `TEST_FIXTURE_MODE=record` run showed only the pass
+ * summary. `process.stderr.write` is not intercepted and goes straight out.
+ *
+ * Fixing it here rather than by turning on `disableConsoleIntercept` in
+ * `vitest.config.mts` is deliberate. That switch is global: it would push every
+ * `console.*` call in every test straight to the terminal, which is a lot of
+ * noise to buy one message. This is the one message that must not be missed, so
+ * it is the one message that opts out.
+ *
+ * A recording is a real response from a real service, committed into git. The
+ * redaction is a floor, not a substitute for a human reading the file.
+ */
+function warnRecorded(serviceName: string, path: string): void {
+  process.stderr.write(
     [
       "",
-      `RECORDED a real response from ${service.name} into ${path}.`,
+      `RECORDED a real response from ${serviceName} into ${path}.`,
       "This reached the live network and is about to be committed.",
       "Read the file before you commit it: check that nothing in the body is a",
       "credential or a real personal identifier. Header values are already",
       `replaced with "${REDACTED}" unless the service allows them.`,
       "",
+      "",
     ].join("\n"),
   );
-
-  return safe;
 }
