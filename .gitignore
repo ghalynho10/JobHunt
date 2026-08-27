@@ -32,8 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-# The template carries no secrets and is the only record of what has to be set.
+# The templates carry no secrets and are the only record of what has to be set.
+# .env.test.example is the exception that looks like one: it holds the Supabase
+# CLI's fixed local development keys, which are identical on every machine and
+# reach nothing but a stack running on localhost.
 !.env.example
+!.env.test.example
 
 # vercel
 .vercel

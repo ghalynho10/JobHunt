@@ -9,6 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
@@ -45,7 +47,8 @@
     "prettier": "^3.9.6",
     "supabase": "2.115.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "4.1.11"
   },
   "packageManager": "pnpm@11.22.0"
 }

@@ -21,3 +21,11 @@ docs/
 .claude/
 supabase/.temp/
 supabase/.branches/
+
+# Recorded responses from real external services (spec 0004). A recording is
+# evidence: it exists to be byte for byte what the service actually sent.
+# .lintstagedrc.json runs `prettier --write` on every staged *.json and
+# `pnpm format:check` runs in CI, so without this a recording would be rewritten
+# on commit and would fail the check until it was, and the one property the
+# store exists to hold would be gone.
+test/fixtures/

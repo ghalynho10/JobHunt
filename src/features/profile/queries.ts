@@ -28,19 +28,19 @@ import { createClient } from "@/lib/supabase/server";
  * unparsed. The row is parsed rather than type asserted, because a wrong
  * declared type is exactly what the compiler cannot catch (AC-15).
  *
- * `z.guid()` AND NOT `z.uuid()`, DELIBERATELY. `profile.id` is the auth user id,
- * and the two synthetic users on the hosted development project carry ids whose
- * RFC version and variant nibbles are wrong (`1111…`, `2222…`). Postgres stores
- * them happily; `z.uuid()` checks those nibbles and would refuse them, which
- * would render `response_malformed` on the deployed page for exactly the
- * fixtures AC-14 is proved against. `z.guid()` checks the real 8-4-4-4-12 shape
- * and still refuses anything that is not an identifier. `supabase/seed.sql`
- * records why those two ids cannot simply be changed, and spec 0003's follow-up
- * gives feature 8 the job of minting valid ones; this line tightens to
- * `z.uuid()` on the day it does.
+ * `z.uuid()`, TIGHTENED FROM `z.guid()` BY SPEC 0004 (AC-6). `profile.id` is the
+ * auth user id, and the two synthetic users used to carry ids whose RFC version
+ * and variant nibbles were wrong (`1111-1111-…`, `2222-2222-…`). Postgres stored
+ * them happily and `z.uuid()` would have refused them, rendering
+ * `response_malformed` on the deployed page for exactly the fixtures AC-14 is
+ * proved against, so this had to stay at the looser `z.guid()` until the pool
+ * was re-minted. Feature 8 re-minted it, so this now checks the version and
+ * variant nibbles too and a malformed id can no longer reach the application
+ * unnoticed. `test/integration/fixtures.test.ts` holds the pool to the same
+ * standard, against the real rows, so the two can never drift apart again.
  */
 const profileSchema = z.object({
-  id: z.guid(),
+  id: z.uuid(),
   full_name: z.string().min(1),
   /**
    * Both are nullable columns, and both are mapped to `undefined` here rather
