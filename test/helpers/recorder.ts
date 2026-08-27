@@ -109,16 +109,85 @@ function redactUrl(url: string, service: ServiceDeclaration): string {
       parsed.searchParams.set(param, REDACTED);
   }
 
+  /**
+   * The fragment is dropped whole, rather than scanned. A fragment is never
+   * sent to the server, so it is not part of what the service received and
+   * nothing legitimate is lost by removing it. It is also where the OAuth
+   * implicit grant puts `access_token`, and `secretQueryParams` has no
+   * equivalent for it, so scanning would need a second declaration to keep
+   * correct. Dropping needs none and cannot be incomplete.
+   */
+  parsed.hash = "";
+
   return parsed.toString();
+}
+
+/**
+ * Thrown when a body cannot be scanned for the credentials its service declares.
+ *
+ * A named class so a caller can tell this apart from a transport failure. It is
+ * thrown, not returned: being unable to honour a redaction declaration is a
+ * programmer level mistake in the service declaration, not an expected outcome
+ * of recording.
+ */
+export class UnscannableBodyError extends Error {
+  constructor(serviceName: string, reason: string) {
+    super(
+      `Refusing to write a recording for "${serviceName}": ${reason}. This service declares credential carrying body fields, and a body that cannot be parsed cannot be scanned for them, so writing it would commit an unchecked body to git. Either widen the service's declaration to describe this body, or record this response by hand after removing the credential.`,
+    );
+    this.name = "UnscannableBodyError";
+  }
+}
+
+/**
+ * Replaces every declared credential field, AT ANY DEPTH, in a parsed body.
+ *
+ * REBUILT RATHER THAN MUTATED IN PLACE, per the project's immutability rule.
+ * The earlier version assigned into the parsed object, which also meant the
+ * caller's value changed under it.
+ *
+ * Matching is by key name wherever it appears, not by a path. A path would have
+ * to be declared per service and would silently miss the one shape nobody
+ * predicted, which is the failure this function exists to prevent. Matching by
+ * name can only ever redact MORE than strictly needed, and over redaction costs
+ * a reviewer some context while under redaction commits a credential.
+ */
+function redactValue(value: unknown, fields: ReadonlySet<string>): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactValue(entry, fields));
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        fields.has(key) ? REDACTED : redactValue(entry, fields),
+      ]),
+    );
+  }
+
+  return value;
 }
 
 /**
  * Blanks the declared credential carrying body fields.
  *
- * A body that is not JSON is left alone rather than mangled: the declaration
- * names JSON fields, so a non JSON body has nothing here to match. It is still
- * the author's job not to record a form post carrying a password, which is why
- * record mode warns and a human reviews the file.
+ * FAILS LOUDLY RATHER THAN SILENTLY PASSING A BODY THROUGH. The earlier version
+ * returned the body untouched whenever it was not a flat top level object: a
+ * top level array, a non JSON body, or a credential nested one level down all
+ * came out unredacted, with no signal that nothing had been scanned. The
+ * warning printed the same words either way, so a reviewer skimming a large
+ * payload had no way to tell a scanned body from an unscanned one. That is the
+ * silent failure the project's own rule forbids, and it undoes AC-13 for
+ * exactly the response shapes a real service is most likely to send.
+ *
+ * Arrays and nesting are now handled by `redactValue`. A body that is not JSON
+ * at all still cannot be scanned, so this refuses to produce a recording rather
+ * than pretend, the same way `fixtureMode()` refuses an unrecognised mode
+ * instead of guessing at `replay`.
+ *
+ * A service that declares no credential carrying fields is saying its bodies
+ * never hold one, so its bodies are returned untouched and unparsed.
  */
 function redactBody(bodyText: string, service: ServiceDeclaration): string {
   if (service.secretBodyFields.length === 0) return bodyText;
@@ -127,19 +196,13 @@ function redactBody(bodyText: string, service: ServiceDeclaration): string {
   try {
     parsed = JSON.parse(bodyText);
   } catch {
-    return bodyText;
+    throw new UnscannableBodyError(
+      service.name,
+      "the response body is not JSON, so its declared credential fields cannot be found",
+    );
   }
 
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return bodyText;
-  }
-
-  const body = parsed as Record<string, unknown>;
-  for (const field of service.secretBodyFields) {
-    if (field in body) body[field] = REDACTED;
-  }
-
-  return JSON.stringify(body);
+  return JSON.stringify(redactValue(parsed, new Set(service.secretBodyFields)));
 }
 
 /**

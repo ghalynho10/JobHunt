@@ -37,6 +37,30 @@ let origin: string;
 
 beforeAll(async () => {
   server = createServer((request, response) => {
+    // Routes for the body shapes `redactBody()` has to cope with.
+    if (request.url?.startsWith("/v1/nested")) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({ data: { auth: { password: "nested-secret-value" } } }),
+      );
+      return;
+    }
+    if (request.url?.startsWith("/v1/array")) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify([
+          { refresh_token: "array-secret-value", id: 1 },
+          { refresh_token: "another-one", id: 2 },
+        ]),
+      );
+      return;
+    }
+    if (request.url?.startsWith("/v1/plain")) {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("not json at all");
+      return;
+    }
+
     response.writeHead(200, {
       "content-type": "application/json",
       // The three things AC-13 names, on their way back out.
@@ -246,6 +270,95 @@ describe("record mode redaction (AC-13)", () => {
     expect(warning).toContain("reached the live network");
     // Names the file, so the human knows which one to go and read.
     expect(warning).toContain(NAME);
+  });
+
+  /**
+   * The shapes the first version of `redactBody()` passed through untouched,
+   * each with no signal that nothing had been scanned. Found by a fresh model
+   * review on 2026-08-27. These are the tests that would have caught it.
+   */
+  it("redacts a credential nested below the top level", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/nested`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // The old version only checked top level keys, so this survived to disk.
+    expect(written).not.toContain("nested-secret-value");
+    const body = JSON.parse(
+      (JSON.parse(written) as { response: { bodyText: string } }).response
+        .bodyText,
+    ) as { data: { auth: { password: string } } };
+    expect(body.data.auth.password).toBe(REDACTED);
+  });
+
+  it("redacts inside a top level array", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/array`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // A search API returning a bare array of results is an ordinary shape, and
+    // the old version skipped it entirely because it was not an object.
+    expect(written).not.toContain("array-secret-value");
+    const body = JSON.parse(
+      (JSON.parse(written) as { response: { bodyText: string } }).response
+        .bodyText,
+    ) as { refresh_token: string }[];
+    expect(body[0]?.refresh_token).toBe(REDACTED);
+    // The rest of the array survives, or the recording would be useless.
+    expect(body).toHaveLength(2);
+  });
+
+  it("refuses to write at all when a declared body cannot be scanned", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    // Not JSON, so the declared fields cannot be located. The old version wrote
+    // the body verbatim and said nothing.
+    await expect(
+      recordedFetch(CREDENTIAL_CARRYING, NAME, { url: `${origin}/v1/plain` }),
+    ).rejects.toThrow(/cannot be scanned|not JSON/);
+
+    // No file, rather than a file nobody checked. Refusing loudly beats writing
+    // something that looks redacted and is not.
+    await expect(readFile(path, "utf8")).rejects.toThrow();
+  });
+
+  it("leaves a body alone when the service declares no credential fields", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    // GITHUB declares none, so its bodies are never parsed and never refused.
+    // Without this, the refusal above would break every service that has no
+    // credential in its body, which is most of them.
+    const recording = await recordedFetch(GITHUB, "plain-text-probe", {
+      url: `${origin}/v1/plain`,
+    });
+
+    expect(recording.response.bodyText).toContain("not json at all");
+    await rm(fixturePath(GITHUB, "plain-text-probe"), { force: true });
+  });
+
+  it("strips a credential carrying url fragment", async () => {
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/search#access_token=fragment-secret-value`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // The OAuth implicit grant puts a token here, and `secretQueryParams` has
+    // no equivalent for the fragment, so it is dropped whole.
+    expect(written).not.toContain("fragment-secret-value");
+    expect(new URL(JSON.parse(written).recordedFrom.url as string).hash).toBe(
+      "",
+    );
   });
 
   it("redacts a header the allow list has never heard of", async () => {
