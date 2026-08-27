@@ -1,0 +1,10 @@
+{
+  "tool": "vitest",
+  "gate": null,
+  "additionalTools": [],
+  "e2eTool": "none",
+  "testDir": "beside the source for unit (src/**/*.test.ts, test/helpers/**/*.test.ts); test/integration/ for tests that span features",
+  "filePattern": "*.test.ts",
+  "packageManager": "pnpm",
+  "notes": "Recorded by spec 0004 (accepted). Two Vitest projects: `pnpm test` is unit and needs nothing running, `pnpm test:integration` drives the real local Supabase stack and needs `pnpm db:start`. Playwright is the recorded end to end choice but is deliberately not installed until a feature needs a browser."
+}
