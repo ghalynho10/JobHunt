@@ -14,7 +14,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 1 | Stack & architecture | Foundation | done |
 | 2 | Coding standards & tooling | Foundation | done |
 | 3 | Deployment & environments | Foundation | done |
-| 4 | Data model | Foundation | in-progress |
+| 4 | Data model | Foundation | done |
 | 5 | Design system & UI foundation | Foundation | planned |
 | 6 | Entry page & link metadata | Foundation | planned |
 | 7 | Auth & per user isolation | Foundation | planned |
@@ -81,7 +81,7 @@ _spec [0002](../specs/0002-deployment-and-environments/index.md) · code in `src
 - [x] Verify it: `/check verify deployment & environments` · run across three sessions (2026-08-21 through 2026-08-23), see [verify.md](../specs/0002-deployment-and-environments/verify.md) for the full, evidenced checklist and its acceptance criteria coverage
 - [x] Test it: `/test deployment & environments` · done 2026-08-27, once feature 8 removed the reason it was skipped. Twenty two tests over the code half: [src/lib/kill-switch.test.ts](../../src/lib/kill-switch.test.ts) (fail closed, invariant 3, every failure kind), [src/lib/origin.test.ts](../../src/lib/origin.test.ts) (the four branches plus the preview that throws rather than guessing), [src/env.test.ts](../../src/env.test.ts) (AC-13 both ways, AC-14, the contract failing by name, the CI escape hatch) and [test/integration/kill-switch.test.ts](../../test/integration/kill-switch.test.ts) (AC-8 and AC-9 against the real stack). Three claims were checked for vacuousness rather than trusted: inverting the fail closed line fails four tests across both projects, and disabling the AC-13 requirement fails its test. **This box covers the code and nothing else, deliberately.** Most of this feature is configuration, so AC-1 to AC-6, AC-10 to AC-12 and AC-15 to AC-18 stay manual in [verify.md](../specs/0002-deployment-and-environments/verify.md) permanently, and no suite can ever lock them. **AC-7 (a dashboard flip read live, with no deploy) is the one automatable looking criterion still not covered**: the migration grants `service_role` `select` only, so the application's own client cannot write the row, and flipping it would need a privileged database connection the test layer does not have.
 
-### 4. Data model · in-progress · GA
+### 4. Data model · done · GA
 The core entities every later feature reads and writes: users, profile with skills and flat work history, stated job preferences, application records and their captured answers. Search results deliberately do not persist. A wrong data model is the most expensive thing to redo, so it is decided once, explicitly, before any feature depends on it.
 **Done when:** the schema, keys, constraints and per user row level policies are applied and live, a query as one user cannot return another user's rows, and every value is stored raw with formatting left to render time.
 _spec [0003](../specs/0003-data-model/index.md) · code in `supabase/migrations/`, `supabase/seed.sql`, `src/features/profile/`, `src/lib/supabase/database.types.ts`_
