@@ -18,7 +18,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 5 | Design system & UI foundation | Foundation | planned |
 | 6 | Entry page & link metadata | Foundation | planned |
 | 7 | Auth & per user isolation | Foundation | planned |
-| 8 | Test foundation | Foundation | in-progress |
+| 8 | Test foundation | Foundation | done |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -112,7 +112,7 @@ OAuth sign in only (Google and GitHub), plus real per user data isolation enforc
 **Done when:** a user can sign in and out with either provider on the deployed URL, an authenticated request only ever reaches its own rows, an unauthenticated request to a protected route fails visibly rather than returning empty data that looks like success, and the development only password sign in from feature 1 is deleted, not merely blocked.
 - [ ] Design it (spec): `/architect auth & per user isolation`
 
-### 8. Test foundation · in-progress
+### 8. Test foundation · done
 The fixtures every later test depends on, built once rather than improvised per feature: a development only path that mints a real session without driving a browser, a fixed pool of obviously fake users for proving isolation, and a way to record and replay real responses from external services. This exists because the reference project's worst bug survived six passing tests that all mocked the same wrong assumption.
 **Done when:** a test can sign in as user A, write data, switch to user B and prove B cannot see it; an external service can be exercised against a real recorded response rather than a hand written mock; the session path is hard blocked outside development; no fixture contains a real personal identifier; and no recorded fixture carries a credential.
 _spec [0004](../specs/0004-test-foundation/index.md) · code in `vitest.config.mts`, `test/`, `src/lib/supabase/server.ts`, `supabase/seed.sql`, `.github/workflows/ci.yml`_
