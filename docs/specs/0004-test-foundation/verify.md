@@ -55,19 +55,19 @@ Added by `/develop` after the build, alongside the steps above rather than repla
 
 ### Commands, as they actually are
 
-- [ ] `pnpm test` · 24 unit tests pass, with the stack stopped and no network reached → AC-5, AC-10, AC-12
-- [ ] `pnpm test:integration` · 9 tests pass against the local stack → AC-1, AC-4, AC-5, AC-6, AC-11
-- [ ] `pnpm db:start` then `pnpm db:reset`, then `pnpm test:integration` · green from a clean seed → AC-6
-- [ ] Stop the stack, run `pnpm test:integration` · fails before any test runs, naming `pnpm db:start` → AC-12
-- [ ] `TEST_FIXTURE_MODE=record` is the only way to reach the network, and it warns on the way → AC-8
+- [x] `pnpm test` · 24 unit tests pass, with the stack stopped and no network reached → AC-5, AC-10, AC-12
+- [x] `pnpm test:integration` · 9 tests pass against the local stack → AC-1, AC-4, AC-5, AC-6, AC-11
+- [x] `pnpm db:start` then `pnpm db:reset`, then `pnpm test:integration` · green from a clean seed → AC-6
+- [x] Stop the stack, run `pnpm test:integration` · fails before any test runs, naming `pnpm db:start` → AC-12
+- [ ] `TEST_FIXTURE_MODE=record` is the only way to reach the network, and it warns on the way → AC-8 · **NOT MET on 2026-08-27.** The mode gate half holds: replay never reaches the network. The warning half does not reach a human. `console.warn` in `record()` does fire, but Vitest's default console interception swallows it, so a normal `TEST_FIXTURE_MODE=record` run prints only the pass summary. Visible only with `--disableConsoleIntercept`. Not a security hole, redaction still runs at write time, but the prompt to review the file before committing never arrives
 
 ### The isolation test is not vacuous
 
 The one check that separates a real isolation proof from a test that would pass against a broken policy. A green suite proves nothing on its own here: it has to go red when the thing it guards is removed.
 
-- [ ] `alter table public.profile disable row level security;` against the local database, then `pnpm test:integration` → AC-1
-- [ ] All four isolation assertions fail (the write leaks, the second user reads four rows instead of none, the cross user insert is no longer refused)
-- [ ] `alter table public.profile enable row level security;` to restore, then confirm green again
+- [x] `alter table public.profile disable row level security;` against the local database, then `pnpm test:integration` → AC-1
+- [x] Five tests fail across both integration files, not four as first written here (the write leaks, the second user reads four rows instead of none, the cross user insert is no longer refused, dev three finds rows, and the fixtures test's `maybeSingle()` then errors `PGRST116` on multiple rows). Count corrected 2026-08-27 from an observed run
+- [x] `alter table public.profile enable row level security;` to restore, then confirm green again
 
 Run this again whenever the isolation test is edited. A test that stays green with the policy off has stopped proving anything and needs fixing rather than trusting.
 
@@ -75,21 +75,21 @@ Run this again whenever the isolation test is edited. A test that stays green wi
 
 `.lintstagedrc.json` runs `prettier --write` on every staged `*.json`, so the store's one property (byte for byte what the service sent) is one config change away from being lost silently.
 
-- [ ] Hash `test/fixtures/github/repos-vercel-next-js.json`, commit it, hash it again · identical → AC-2, AC-13
-- [ ] `pnpm format:check` passes with the recording present, so CI does not demand a rewrite
+- [x] Hash `test/fixtures/github/repos-vercel-next-js.json`, commit it, hash it again · identical → AC-2, AC-13
+- [x] `pnpm format:check` passes with the recording present, so CI does not demand a rewrite
 
 ### Value sourcing, one step per row
 
 Each row of the spec's Value sourcing table, exercised at the edge that breaks if the source is wrong.
 
-- [ ] A's written row comes from `public.profile`, written by A's own session, not by the admin client · the isolation test writes through `createClient()` and the write fails if the insert policy is wrong → AC-1
-- [ ] The proof B cannot read A's row comes from the policy, not from a filter · there is no `eq` on the reading select, and a targeted `eq` on A's id also returns nothing → AC-1
-- [ ] The session comes from `generateLink` then `verifyOtp`, not from a hand built token · `mintSession()` throws if no cookie reaches the jar, so a session that never persisted cannot pass as one that did → AC-1
-- [ ] The refusal comes from `env.DEV_SESSION_ENABLED` defaulting to false · proved with the variable absent, not merely set to `"false"`, since absent is the state production is actually in → AC-3
-- [ ] The replayed response comes from the committed file, never the network · a missing fixture fails loudly and no `fetch` is made on the way → AC-2, AC-9
-- [ ] The fixture ids are valid version 4 UUIDs · checked against the real rows with the same `z.uuid()` the application parses with, not by reading the seed as text → AC-6
-- [ ] No fixture carries a real personal identifier · every seeded and minted address ends in the reserved `.test` domain → AC-4
+- [x] A's written row comes from `public.profile`, written by A's own session, not by the admin client · the isolation test writes through `createClient()` and the write fails if the insert policy is wrong → AC-1
+- [x] The proof B cannot read A's row comes from the policy, not from a filter · there is no `eq` on the reading select, and a targeted `eq` on A's id also returns nothing → AC-1
+- [x] The session comes from `generateLink` then `verifyOtp`, not from a hand built token · `mintSession()` throws if no cookie reaches the jar, so a session that never persisted cannot pass as one that did → AC-1
+- [x] The refusal comes from `env.DEV_SESSION_ENABLED` defaulting to false · proved with the variable absent, not merely set to `"false"`, since absent is the state production is actually in → AC-3
+- [x] The replayed response comes from the committed file, never the network · a missing fixture fails loudly and no `fetch` is made on the way → AC-2, AC-9
+- [x] The fixture ids are valid version 4 UUIDs · checked against the real rows with the same `z.uuid()` the application parses with, not by reading the seed as text → AC-6
+- [x] No fixture carries a real personal identifier · every seeded and minted address ends in the reserved `.test` domain → AC-4
 
 ### Still manual, and still owed
 
-- [ ] The missing profile path for dev three, by hand in a browser. Unchanged and still manual: the page is an async Server Component, which Vitest does not support, and this feature deliberately installs no browser runner. Feature 9 onward owns it, with Playwright.
+- [x] The missing profile path for dev three, DRIVEN IN A REAL BROWSER on 2026-08-27 via the Playwright MCP, not left owed. Signed in as dev three at `/sign-in`, landed on `/health`, and the page rendered the `role="alert"` block reading "Could not read your profile. / No profile exists for this user yet. / Kind `record_not_found`, severity `expected`", rather than an empty page. Dev one and dev two were driven the same way and each saw only their own profile, carrying the re-minted ids `1111...-4111-8111-...` and `2222...-4222-8222-...`, which also proves the tightened `z.uuid()` parser accepts the new pool in the real application. An automated version still waits on Playwright: the page is an async Server Component, which Vitest does not support, and this feature deliberately installs no browser runner. Feature 9 onward owns it, with Playwright.
