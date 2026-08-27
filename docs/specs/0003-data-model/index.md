@@ -1,7 +1,7 @@
 # 0003. Data model for the v1 loop
 
 **Date**: 2026-08-24
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
