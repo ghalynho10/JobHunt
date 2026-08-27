@@ -1,7 +1,7 @@
 # 0002. Deployment and environments
 
 **Date**: 2026-08-21
-**Status**: In Progress
+**Status**: Accepted
 **Updated**: 2026-08-21, after the accounts and projects were set up. The decision is unchanged. What changed is that described values became recorded ones, and one build task was corrected.
 
 ## Summary
