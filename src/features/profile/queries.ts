@@ -58,6 +58,21 @@ const profileSchema = z.object({
     .transform((value) => value ?? undefined),
 });
 
+/**
+ * The caller's own profile, as it exists AFTER the parse above.
+ *
+ * INFERRED FROM THE SCHEMA RATHER THAN WRITTEN OUT, and that is the load
+ * bearing part. A hand written shape can drift from what is actually parsed,
+ * and a wrong declared type is precisely what no strictness flag disagrees
+ * with: it is the shape of the reference project's anchor bug that spec 0001
+ * names, and the reason spec 0003 AC-15 asks for a parse at the boundary rather
+ * than a type assertion. Inferring it means this type cannot disagree with the
+ * parse that produces it.
+ *
+ * Being the output side of the transform, `location` and `summary` are
+ * `string | undefined` here and never `null`, so a caller handles one kind of
+ * absent rather than two.
+ */
 export type Profile = z.infer<typeof profileSchema>;
 
 /**
