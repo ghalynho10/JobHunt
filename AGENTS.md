@@ -104,6 +104,9 @@ Read [docs/reflexes.md](docs/reflexes.md) before making changes: standing rules 
 done here, one line each, written by /reflex. A rule that has become a plain convention belongs in
 this file instead; /reflex flags it and the engineer moves it.
 
+- **Verify before you recommend.** When recommending anything about something that already exists, read it first and name what you read: a file, migration, config, or current behaviour in the repo, and the vendor's own docs for limits, terms, API shape, or version outside it. Mark each substantive claim verified (naming the file or source) or inferred, and when you cannot verify something that matters, say what you would need rather than filling the gap.
+- **Confirm the specific action.** When beginning a multi step skill, confirm the engineer agreed to that specific action rather than to a summary or a suggestion in passing.
+
 ## Context files
 
 <!-- Nested AGENTS.md files are listed here as they are created -->
