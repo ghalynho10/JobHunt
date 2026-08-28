@@ -61,7 +61,7 @@ Reasoning, the options weighed, and the finding by finding adjudication of the c
 | Route | Method | Key inputs | Key outputs | Auth | Key errors |
 |---|---|---|---|---|---|
 | `/` | GET | none | the page | public, no session | none; a non 200 is what the uptime monitor from spec 0002 reports on |
-| `/opengraph-image` | GET | none | 1200 by 630 PNG | public | build fails loudly if the font file is missing, which is the wanted behaviour |
+| `/opengraph-image` | GET | none | 1200 by 630 PNG | public | a missing font file throws, naming the file and how to get it. That is **the explicit guard in `opengraph-image.tsx`, not Next.js behaviour**: `next/og` bundles `Geist-Regular.ttf` and silently falls back to it, so without the guard the build succeeds and ships an off brand card. See that file's own header comment. Do not remove the guard on the belief that the framework already fails here |
 
 **Value sourcing**:
 
@@ -132,6 +132,7 @@ The four strings below are user facing product voice rather than technical value
 - Nothing appears under `working` in the status card that is not `done` in `docs/scope/scope.md`. The page's own About copy makes this a promise, not a preference.
 - Nothing on the page that cannot work is a link. That covers the two sign in controls and the apply control alike; the header's anchors and the footer are the only real links, and both go somewhere real.
 - The elevated card idiom appears exactly once on this page, on the hero result card.
+- The font guard in `opengraph-image.tsx` stays. It looks like a redundant `try`/`catch` around a file read and it is not: it is the only thing standing between a missing font and a silently off brand preview card, because `next/og` falls back to its bundled Geist rather than failing. Removing it does not surface an error, it removes one.
 
 **Security model**: The page is public and reads nothing. No session check, no Supabase client, no Server Action, no user data of any kind. It renders no personal data, so no compliance scope applies. Binding rule 6 is untouched: no route handler under `src/app/api/` is added, and the image generator is a metadata file convention, not a data endpoint.
 
