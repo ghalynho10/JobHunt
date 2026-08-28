@@ -80,6 +80,39 @@ export default defineConfig([
     },
   },
 
+  /**
+   * SPEC 0005 (`## Standard definition`): the base components in
+   * `src/components/ui` are the only sanctioned way to render a container. The
+   * composition review's Tell #8 was a `rounded-2xl border border-line` box
+   * hand composed per instance, which is exactly what `Card` now owns.
+   *
+   * This is deliberately one narrow rule, not a general purpose "use the design
+   * system" check: at this project's size the component API plus code review is
+   * the enforcement mechanism, and a broad rule would cost more in false
+   * positives than it catches. Spec 0005's `## Follow-up` records when to
+   * revisit that.
+   *
+   * The selector matches a rounded corner class and a border class in the same
+   * `className` string literal, anywhere outside the base components themselves.
+   * It reaches a plain `className="..."` and a `className={cn("...")}` argument
+   * alike, because both are string literals under the attribute.
+   */
+  {
+    files: ["src/**/*.tsx"],
+    ignores: ["src/components/ui/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXAttribute[name.name='className'] Literal[value=/(?=.*\\brounded-(2xl|xl)\\b)(?=.*\\bborder\\b)/]",
+          message:
+            "Spec 0005: a rounded, bordered container is what `Card` is for. Import it from @/components/ui/card instead of hand composing the box.",
+        },
+      ],
+    },
+  },
+
   prettier,
 
   globalIgnores([
