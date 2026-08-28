@@ -61,7 +61,7 @@ Spec [0001](docs/specs/0001-stack-and-architecture/index.md) is accepted and its
 
 Installed and green on the scaffold (feature 2).
 
-- **Lint and format**: ESLint flat config in [eslint.config.mjs](eslint.config.mjs), Next core web vitals plus TypeScript, `eslint-config-prettier` last, with Prettier in [.prettierrc.json](.prettierrc.json). `jsx-a11y` strict is raised to errors, above the eight warnings `eslint-config-next` ships. A `@typescript-eslint/no-restricted-imports` override blocks `src/lib/supabase/secret.ts` from `src/app/**` per binding rule 1, and catches relative and type only imports too.
+- **Lint and format**: ESLint flat config in [eslint.config.mjs](eslint.config.mjs), Next core web vitals plus TypeScript, `eslint-config-prettier` last, with Prettier in [.prettierrc.json](.prettierrc.json). `jsx-a11y` strict is raised to errors, above the eight warnings `eslint-config-next` ships. A `@typescript-eslint/no-restricted-imports` override blocks `src/lib/supabase/secret.ts` from `src/app/**` per binding rule 1, and catches relative and type only imports too. A second override, one `no-restricted-syntax` rule, flags a rounded and bordered container composed by hand outside `src/components/ui/`, per spec 0005's `## Standard definition`; it is deliberately narrow, because the component API plus review is the primary mechanism at this project's size.
 - **Before commit**: husky plus lint-staged, see [.husky/pre-commit](.husky/pre-commit) and [.lintstagedrc.json](.lintstagedrc.json). ESLint and Prettier run on staged files, then `tsc --noEmit` on the whole project.
 - **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) on push to `main` and every pull request, running lint, format check, typecheck and build. A second job runs the unit suite before the stack exists, so a unit test that grows a database dependency fails there, then starts Supabase in Docker and runs the integration suite.
 - **Two constraints worth knowing.** ESLint stays on 9 until the react, `jsx-a11y` and import plugins accept 10 as a peer. Prettier ignores `docs/` and every `*.md`, so specs and scope tables are never rewrapped, and it skips the generated `src/lib/supabase/database.types.ts`.
@@ -84,6 +84,7 @@ Messages are conventional (`feat:`, `fix:`, `docs:`, `chore:`). Push and pull re
 - [vitest](.agents/skills/vitest/): `antfu/skills`, Vitest config, mocking, fixtures, filtering and multi project workspaces, which is the shape `vitest.config.mts` uses. CAVEAT: it is generated from Vitest 5.x beta and this project pins 4.1.11, so check any call shape against the installed version before trusting it.
 
 Declined: `vercel-labs@web-design-guidelines`, `vercel-labs@vercel-composition-patterns`, `addyosmani@accessibility`.
+Declined: `dobroslavradosavljevic@tailwind-variants`, offered when feature 5 added the library. It covers `twMergeConfig` and Tailwind v4 pairing, which is exactly the trap this project hit, but it comes from an individual's 84 skill collection rather than a vendor, and the one non-obvious behaviour is already documented in `src/components/ui/tv.ts` and locked by its test.
 Declined, no search run: ESLint, Prettier, husky and lint-staged. Their config files plus the `## Tooling` section above are the conventions.
 Reconsider at slice 2: `vercel/ai@ai-sdk`, since spec 0001 picks AI SDK 7 and nothing uses it yet.
 MCP servers: none connected. The Supabase MCP is permitted only under all five conditions of spec 0001 binding rule 7; feature 3 owns the environment half of that decision.
@@ -109,6 +110,6 @@ this file instead; /reflex flags it and the engineer moves it.
 
 ## Context files
 
-<!-- Nested AGENTS.md files are listed here as they are created -->
+- [src/components/ui/AGENTS.md](src/components/ui/AGENTS.md): the design system, its token layer, and the rules that are easy to break by accident
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
