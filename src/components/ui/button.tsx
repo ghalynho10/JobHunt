@@ -69,24 +69,9 @@ const button = tv({
   },
 });
 
-type ButtonProps = VariantProps<typeof button> & {
+type ButtonCommon = VariantProps<typeof button> & {
   readonly children: ReactNode;
   readonly className?: string;
-  /**
-   * Present means this renders as a link, absent means a real `<button>`. There
-   * is no third state: a control that navigates is an anchor so it works with
-   * middle click, and a control that acts is a button so it works with space.
-   */
-  readonly href?: string;
-  /** Only meaningful without `href`. Defaults to `button`, never `submit`. */
-  readonly type?: "button" | "submit";
-  readonly disabled?: boolean;
-  /**
-   * Appends an external link marker and the security attributes. Set it
-   * explicitly rather than sniffing the URL, so a relative href that proxies
-   * offsite is still marked correctly.
-   */
-  readonly external?: boolean;
   /**
    * Overrides the accessible name when the visible label alone would not say
    * where the control goes ("Apply" on a card among twenty cards).
@@ -95,37 +80,78 @@ type ButtonProps = VariantProps<typeof button> & {
 };
 
 /**
+ * The acting shape: a real `<button>`, because a control that acts has to
+ * respond to the space bar.
+ */
+type ButtonAsButton = ButtonCommon & {
+  readonly href?: undefined;
+  /** Defaults to `button`, never `submit`, so a stray control cannot post a form. */
+  readonly type?: "button" | "submit";
+  readonly disabled?: boolean;
+  /** Nothing to leave the product for without an `href`. */
+  readonly external?: never;
+};
+
+/**
+ * The navigating shape: an anchor, because a control that navigates has to work
+ * with middle click, copy link, and open in new tab.
+ *
+ * `disabled` IS FORBIDDEN HERE ON PURPOSE, and this is the whole reason the
+ * props are a union rather than one flat object. HTML has no disabled anchor:
+ * there is no attribute, `disabled:` styling never matches, and the link stays
+ * clickable and in the tab order. The earlier flat type accepted `disabled`
+ * beside `href`, type checked, and then dropped it, so a disabled "Apply" link
+ * on an expired posting would have compiled, rendered as a live link, and
+ * looked right in review. That is the silent failure AGENTS.md forbids.
+ *
+ * `never` makes the combination a compile error instead. A caller who wants a
+ * link the reader cannot follow does not want a disabled link: they want no
+ * link, so render the label as `Text` and say why it is unavailable.
+ */
+type ButtonAsLink = ButtonCommon & {
+  readonly href: string;
+  /**
+   * Appends an external link marker and the security attributes. Set it
+   * explicitly rather than sniffing the URL, so a relative href that proxies
+   * offsite is still marked correctly.
+   */
+  readonly external?: boolean;
+  readonly disabled?: never;
+  /** `type` is a button attribute; an anchor has no use for it. */
+  readonly type?: never;
+};
+
+type ButtonProps = ButtonAsButton | ButtonAsLink;
+
+/**
  * A button, or a link that looks like one.
  *
  * Server component: it takes no `onClick`, because a click handler would drag
  * every page rendering it across the client boundary, and BINDING RULE 7 keeps
  * writes in Server Actions. A form submit uses `type="submit"` inside a form.
  */
-export function Button({
-  variant,
-  size,
-  href,
-  type = "button",
-  disabled = false,
-  external = false,
-  label,
-  className,
-  children,
-}: ButtonProps) {
+export function Button(props: ButtonProps) {
+  const { variant, size, label, className, children } = props;
   const classes = button({ variant, size, className });
 
   const content = (
     <>
       {children}
-      {external ? <ExternalLinkIcon /> : undefined}
+      {props.external === true ? <ExternalLinkIcon /> : undefined}
     </>
   );
 
-  if (href === undefined) {
+  /**
+   * `href` is the discriminant, so this narrows to `ButtonAsButton` and makes
+   * `type` and `disabled` reachable. On the other side of the branch they are
+   * `never`, which is what stops the anchor from being handed a state it cannot
+   * express.
+   */
+  if (props.href === undefined) {
     return (
       <button
-        type={type}
-        disabled={disabled}
+        type={props.type ?? "button"}
+        disabled={props.disabled ?? false}
         aria-label={label}
         className={classes}
       >
@@ -133,6 +159,8 @@ export function Button({
       </button>
     );
   }
+
+  const { href, external = false } = props;
 
   /**
    * `rel="noopener noreferrer"` on every external link: `noopener` closes the

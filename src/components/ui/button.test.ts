@@ -102,6 +102,71 @@ describe("Button accessible name", () => {
   });
 });
 
+/**
+ * The fix for the one major finding of the 2026-08-28 fresh model review.
+ *
+ * `disabled` beside `href` used to type check and then be dropped: the anchor
+ * branch never read it, and the `disabled:` utilities in the base styles key off
+ * the CSS `:disabled` pseudo class, which an anchor can never match. So a
+ * disabled "Apply" link on an expired posting would have compiled, rendered as a
+ * live link with no visual difference, and looked correct in review.
+ *
+ * These are compile time assertions, not runtime ones, because the fix is in the
+ * type. `@ts-expect-error` fails `tsc --noEmit` if the error it expects STOPS
+ * happening, so this suite goes red the moment the props are flattened back into
+ * one object. That is the only way to test a combination that can no longer be
+ * written.
+ */
+describe("Button forbids the states an element cannot express", () => {
+  /**
+   * Props are hoisted so every call below fits on ONE line. A
+   * `@ts-expect-error` suppresses only the line directly beneath it, so a call
+   * Prettier wraps would move the error out from under its directive and this
+   * suite would then assert the opposite of what it means. The first draft of
+   * this file did exactly that, and `pnpm typecheck` caught it.
+   */
+  const LINK = { children: "x", href: "/j" } as const;
+
+  it("rejects disabled on a link, which HTML has no way to render", () => {
+    // covers: AC-13
+    // @ts-expect-error `disabled` is `never` on the link shape, see ButtonAsLink
+    const call = () => Button({ ...LINK, disabled: true });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects disabled on an external link too", () => {
+    // @ts-expect-error same rule, whichever anchor branch it would have taken
+    const call = () => Button({ ...LINK, external: true, disabled: true });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects external on a control that goes nowhere", () => {
+    // @ts-expect-error `external` is `never` with no `href` to be external to
+    const call = () => Button({ children: "x", external: true });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects a form type on a link, which is a button attribute", () => {
+    // @ts-expect-error `type` is `never` on the link shape
+    const call = () => Button({ ...LINK, type: "submit" });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("still allows every legitimate combination", () => {
+    // The guard is worthless if it also blocks ordinary use, so pin that too.
+    expect(Button({ children: "Save", disabled: true }).type).toBe("button");
+    expect(Button({ children: "Save", type: "submit" }).type).toBe("button");
+    expect(
+      Button({ children: "Go", href: "https://x.test", external: true }).type,
+    ).toBe("a");
+    expect(Button({ children: "Go", href: "/jobs" }).type).not.toBe("a");
+  });
+});
+
 describe("Button disabled state", () => {
   it("disables the real button, which keeps it out of the tab order", () => {
     const el = Button({ children: "Save", disabled: true });
