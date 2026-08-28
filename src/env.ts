@@ -34,6 +34,20 @@ export const env = createEnv({
      * the wrong shape: the variable would look set and not be.
      */
     DEV_SESSION_ENABLED: z.stringbool().default(false),
+
+    /**
+     * Spec 0005: the design system preview at `/ui-preview` renders every base
+     * component at every variant, which is what the keyboard, contrast and
+     * responsive passes are run against. It ships no data and reads no session,
+     * but it is not product surface, so it renders only where this is
+     * explicitly true and fails closed everywhere else.
+     *
+     * It is deliberately NOT tied to `DEV_SESSION_ENABLED`: feature 7 deletes
+     * that variable along with the development only sign in, and this page
+     * outlives it. It is deliberately not tied to `NODE_ENV` either, for the
+     * reason recorded above.
+     */
+    UI_PREVIEW_ENABLED: z.stringbool().default(false),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -85,6 +99,7 @@ export const env = createEnv({
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     SENTRY_DSN: process.env.SENTRY_DSN,
     DEV_SESSION_ENABLED: process.env.DEV_SESSION_ENABLED,
+    UI_PREVIEW_ENABLED: process.env.UI_PREVIEW_ENABLED,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
