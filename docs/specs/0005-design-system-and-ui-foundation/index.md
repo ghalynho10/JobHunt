@@ -64,12 +64,18 @@ Every component below lives at `src/components/ui/<kebab-case-name>.tsx`, one fi
 |---|---|---|
 | `Text` | `variant`: `eyebrow` \| `monoLabel` \| `monoData` \| `body` \| `muted` | retires `.eyebrow`/`.mono-label`; `eyebrow`/labels are sans tracked caps, `monoData` is the reasoning register |
 | `Heading` | `level`: `1` \| `2` \| `3` (maps to the locked type scale) | server component, `tailwind-variants` for the size mapping |
-| `Button` | `variant`: `primary` \| `secondary` \| `tertiary`; `href?: string` | renders `<a href>` (with `rel="noopener noreferrer"` when external) when `href` is given, `<button type="button">` otherwise; primary = filled `primary-800`, secondary = outline, tertiary = text link with icon |
+| `Button` | `variant`: `primary` \| `secondary` \| `tertiary`; `size`: `md` \| `sm`; `href?: string`; `external?: boolean`; `label?: string`; and `disabled` / `type`, button shape only | renders `<a href>` (with `rel="noopener noreferrer"` when external) when `href` is given, `<button type="button">` otherwise; primary = filled `primary-800`, secondary = outline, tertiary = text link with icon |
 | `Card`, `Card.Header`, `Card.Body`, `Card.Footer(attribution?: ReactNode)` | `tone`: `elevated` \| `flat` | elevated = shadow led, minimal border, `p-6 sm:p-7`; flat = border led, no shadow, `bg-paper` when its section background is `sunken`; `Card.Footer` lays its children and `attribution` out `flex flex-wrap items-center justify-between gap-4`, wrapping to a stacked layout below `sm` |
 | `Chip` | `state`: `matched` \| `missing` \| `status` | matched = teal fill + `CheckIcon`; missing = outline + dashed `GapIcon`; status = the "SOON" pattern, one definition |
 | `MatchBar` | `matched: number`, `total: number` | derives segment counts itself; the cell stagger uses a `style={{ "--i": i }}` custom property with `animation-delay: calc(var(--i) * 50ms)`, not a fixed `nth-child` list, so it stays correct at any `total` |
 | `Section` | `weight`: `compact` \| `standard` \| `generous`; `background`: `paper` \| `sunken`; `divider`: `hairline` \| `none` | composes rhythm, background alternation, and the divider rule; `divider` is set explicitly by the caller per the adjacency rule (hairline only between two sections of the same background) |
 | Icon set | `CheckIcon`, `GapIcon`, `GitHubIcon`, `GoogleIcon`, `ExternalLinkIcon` | plain SVG, no client boundary |
+
+**Component API rules the table above cannot carry in a cell**:
+
+- **`Button` props are a union, not one flat object, and `disabled` is forbidden on the link shape.** HTML has no disabled anchor: no attribute, `disabled:` styling never matches, and the link stays clickable and in the tab order. So `disabled` beside `href` is a COMPILE ERROR, not a prop that gets dropped. A caller who wants a link the reader cannot follow does not want a disabled link; they want no link, so render the label with `Text` and say why it is unavailable. `external` is likewise forbidden without an `href`, and `type` is forbidden with one. (This rule was added after the 2026 08 28 review found the earlier flat prop type accepted `disabled` beside `href` and silently discarded it.)
+- **`Card` takes an `as` prop** (`div` \| `article` \| `section` \| `li`, default `div`) so a card that is a real landmark, such as one job result in a list, says so in the markup rather than being a styled `div`.
+- **Accessible name overrides.** `Button` and `MatchBar` each take an optional `label`, and `Section` takes an optional `label` plus an `id`. These exist for AC-13: twenty result cards all reading "Apply" need distinct names, a bar beside text that already states the score should not read it twice, and a section whose heading does not identify it needs one in the landmark list. `Section`'s `id` is the anchor target for an in page link.
 
 **Value sourcing**:
 
@@ -80,14 +86,22 @@ Every component below lives at `src/components/ui/<kebab-case-name>.tsx`, one fi
 | `Card` footer apply link | the real posting URL | sourced from the job listing entity feature 11 defines; not decided by this spec |
 
 **Key invariants**:
-- A `Card` never mixes the elevated and flat idioms on the same instance (no shadow plus border together).
+- A `Card` is one idiom or the other, never a blend: the flat idiom's full strength `border-line` never appears together with a shadow. The elevated card's low opacity edge hint (`border-line/25`) IS part of the elevated idiom, and is what **AC-3** permits as "minimal or no border" (the component inventory table below records the shipped form of that, "minimal border", since the elevated card always carries the hint and never zero border); it is not a border led treatment and does not breach this rule. The shape being ruled out is the one Tell #8 named, a full hairline box that has also been given a shadow.
 - Two adjacent `Section`s with the same `background` render a `hairline` divider; two adjacent sections with different backgrounds render `none`.
 - `MatchBar` never renders with a hand written cell count; `matched` and `total` are always the only inputs.
 - No component ships a default entrance animation.
 
 **Security model**: Not applicable. This feature ships no data access, no authentication, and no Server Actions; every component here is presentational.
 
-**Configuration required**: None. No new environment variables or credentials.
+**Configuration required**: One variable, `UI_PREVIEW_ENABLED`, declared in `src/env.ts` and defaulting to false. It gates the component preview route at `/ui-preview` (see the `## Build plan` step 12), which renders every base component at every variant so the keyboard, focus, contrast and responsive passes have a real surface to run against, now and on every later re-check. The route calls `notFound()` when the variable is not explicitly true, so production, which never sets it, is blocked by absence rather than by a label a build tool chooses. It is deliberately NOT tied to `DEV_SESSION_ENABLED`, which feature 7 deletes along with the development only sign in, nor to `NODE_ENV`, which a Vercel Preview build labels `production` and where the page is genuinely wanted. No credentials.
+
+Set in **Vercel**, per environment, in the same shape spec 0002 uses:
+
+| Variable | Production | Preview | Local `.env.local` | Purpose |
+|---|---|---|---|---|
+| `UI_PREVIEW_ENABLED` | **not set** | `true` | `true` | Renders the component preview at `/ui-preview`. Defaults to false, so production is blocked by absence |
+
+The Local column is committed as an example in `.env.example`. **The Preview column records the intended value, not a confirmed one**: see `## Follow-up`.
 
 **Critical test scenarios**:
 - Keyboard only pass over every base component (`Button`, `Card`'s interactive regions, `Chip`, `Section` anchors) confirms focus order and visible focus, verifies **AC-13**.
@@ -139,7 +153,7 @@ Never: `<div className="border-t border-line"><div className="rounded-2xl border
 9. Build the `Chip` component (matched, missing, status variants), collapsing the three hand written "SOON" class strings into one, satisfies **AC-15**
 10. Build the `MatchBar` component with `matched`/`total` props and the custom property based cell stagger, satisfies **AC-7**, **AC-9**
 11. Build the `Section` component (rhythm, background, divider) and the 60/40 asymmetric grid utility, satisfies **AC-4**, **AC-5**, **AC-8**, **AC-15**
-12. Keyboard, focus, `prefers-reduced-motion`, and responsive pass over every component built above, satisfies **AC-13**, **AC-14**
+12. Build the gated preview route at `src/app/(marketing)/ui-preview/page.tsx`, rendering every component above at every variant behind `UI_PREVIEW_ENABLED` (see `## Configuration required`), then run the keyboard, focus, `prefers-reduced-motion`, and responsive pass against it, satisfies **AC-13**, **AC-14**. The same surface is what step 3's `forced-colors` and `prefers-contrast` checks are exercised against too; those remain **AC-12**'s and are not re-tagged here
 
 ## Consequences
 
@@ -161,6 +175,7 @@ Never: `<div className="border-t border-line"><div className="rounded-2xl border
 
 ## Follow-up
 
+- [ ] Set `UI_PREVIEW_ENABLED=true` in the Vercel **Preview** environment, or confirm it is already set. The table under `## Configuration required` records the intended value; nobody has verified the dashboard. Until then a preview deployment 404s on `/ui-preview`, which fails safe but means the surface AC-13 and AC-14 are re-verified against is not reachable on a deployed preview, only locally.
 - [ ] Feature 6 (entry page and link metadata) ports `docs/design/JobHuntLanding.tsx` onto this system, including collapsing the step 02 hand copied `MatchBar` (Weakness #1) onto the real component and removing the shadow from the "JobHunt" comparison card (Tell #6) so both comparison cards share the flat idiom identically.
 - [ ] Confirm the exact Adzuna "Jobs by Adzuna" attribution image asset and link targets when feature 11 (job search and results list) builds the first real results card using the `Card.Footer` `attribution` slot.
 - [ ] Logo mark integration is out of scope for this feature per the engineer's explicit constraint; revisit when that work is scheduled.
