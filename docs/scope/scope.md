@@ -16,7 +16,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 3 | Deployment & environments | Foundation | done |
 | 4 | Data model | Foundation | done |
 | 5 | Design system & UI foundation | Foundation | done |
-| 6 | Entry page & link metadata | Foundation | planned |
+| 6 | Entry page & link metadata | Foundation | in-progress |
 | 7 | Auth & per user isolation | Foundation | planned |
 | 8 | Test foundation | Foundation | done |
 | 9 | Profile entry | Slice 1 | planned |
@@ -111,10 +111,19 @@ _spec [0005](../specs/0005-design-system-and-ui-foundation/index.md) · code in 
 - [x] Verify it: `/check verify design system & UI foundation` · PASS on 2026-08-27, all 15 acceptance criteria met against the running app at `/ui-preview`. Measured, not eyeballed: the full type scale, both card idioms, both match bar proportions, the 3fr/2fr grid, the three rhythm tiers, the divider adjacency rule across four sections, 8 of 8 controls keyboard reachable with an instant teal ring, zero overflow at 320px with the attribution at exactly 116 by 23, and `prefers-contrast` / `forced-colors` / `prefers-reduced-motion` each confirmed by computed style. One step in `verify.md` was found to be a bad check and is flagged there for replacement; the fact it was meant to prove holds under a corrected canary. Same model wrote the code and ran this, so a fresh model `/check review` is still worth doing.
 - [x] Test it: `/test design system & UI foundation` · done 2026-08-28. 113 unit tests across eight files beside the components, all passing. Written in the `node` project with no jsdom and no testing library: every base component here is a stateless server component, so calling it IS its behaviour and the element it returns is its whole output, which keeps spec 0004's just in time install rule intact. The load bearing one is [tv.test.ts](../../src/components/ui/tv.test.ts): it reads the type scale out of `globals.css` and checks the merger keeps each size beside a colour, so a seventh size added to the scale and forgotten in `tv.ts` fails on its own. Three claims were checked for vacuousness rather than trusted: adding `--text-huge` to the scale fails the drift guard, flipping the block to `@theme inline` fails the inline guard, and the stock `tv` straight from the package is asserted to DROP the size, which is the bug the config exists to prevent. What is deliberately not here: anything needing a browser (computed sizes, focus rings, media queries, layout, overflow) stays in [verify.md](../specs/0005-design-system-and-ui-foundation/verify.md), proved by `/check verify`, rather than being faked in jsdom.
 
-### 6. Entry page & link metadata · Alpha
+### 6. Entry page & link metadata · in-progress
 Port the already built and reviewed landing page onto the design token layer. It is the front door for three audiences: the author, a few friends, and recruiters opening a link. Not a public marketing page, but a pasted link has to render as a real product.
-**Done when:** the page renders on the real tokens at phone and desktop width, sign in is reachable from it, page title, description and a social preview image are set, and crawlers are told not to index.
+**Done when:** the page renders on the real tokens at phone and desktop width; the sign in band is reachable from the header and says plainly that accounts are not open yet, rather than offering a control that leads nowhere (feature 7 turns those into real sign in, and spec 0006 AC-7 holds this on every environment, not just production); page title, description and a social preview image are set; and crawlers are told not to index.
+_spec [0006](../specs/0006-entry-page-and-link-metadata/index.md)_
+- [x] Design it (spec): `/architect entry page & link metadata` · written 2026-08-28, 17 acceptance criteria. It carries spec 0005's already deliberated composition decisions forward rather than re deciding them, settles the four that spec left open (the match bar count, the over signalled sign in band, what the sign in controls do before feature 7, and where the social preview image comes from), and corrects three untruths found in the prototype while tracing value sources. A cross check on a different model found seven unnamed values, one mis-carried decision and three soundness problems; all were verified against the files and folded in
 - [ ] Build it: `/develop entry page & link metadata`
+  - [ ] The thin thread: the `Logo` base component, the committed Space Grotesk file and its licence, the generated `opengraph-image.tsx`, page title and description off `canonicalSiteUrl`, a header and footer shell, then a real preview deployment whose link card is confirmed to unfurl, plus the token drift guard, satisfies AC-1, AC-10, AC-11, AC-12, AC-13, AC-15, AC-16
+  - [ ] The hero: a `<figure>` wrapping the one elevated `Card`, the example label, `MatchBar` at 8 of 11, the chip clusters, and every dead control rendered inert rather than linked, satisfies AC-5, AC-7, AC-9, AC-17
+  - [ ] The argument sections: how it works at `compact` on `sunken` with the hand copied bar collapsed onto the component, and the reasoning at `generous` on `sunken` with both comparison cards flat and identical, carrying the page's single hairline, satisfies AC-1, AC-2, AC-3, AC-5
+  - [ ] About and the sign in band: the status card rewritten so nothing claims to work that does not, and the band stripped of its centred and narrow axes while keeping dark, satisfies AC-5, AC-6, AC-8
+  - [ ] Compose and pass: replace the scaffold placeholder, then run the keyboard, focus, responsive and reduced motion pass at 320 and 1440 pixels and prove no client JavaScript ships, satisfies AC-1, AC-2, AC-4, AC-14
+- [ ] Verify it: `/check verify entry page & link metadata`
+- [ ] Test it: `/test entry page & link metadata`
 
 ### 7. Auth & per user isolation · needs a decision · GA
 OAuth sign in only (Google and GitHub), plus real per user data isolation enforced at the database rather than in application code. OAuth is kept over email and password for v1 because a linked real account is harder to fake for abuse than a burner address, and it removes the need for any transactional email in v1.
@@ -141,7 +150,7 @@ The thinnest real thread through the whole product, touching every layer and act
 
 ### 9. Profile entry · needs a decision
 A form for the flat profile: personal details, skills, one layer of work history, and stated job preferences. Typed by hand, with no resume upload and no extraction, so it makes no external call at all. Scoring cannot function without this, and the completion test does not start without a way to get profile data in.
-**Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, the saved shape is exactly what scoring will later read, and the profile form's Server Action is driven once from a test with no browser. That last clause is spec 0001's third runner constraint, deferred to here by spec 0004 because there was no real write path to drive at feature 8; the technique is recorded in that spec's follow up list.
+**Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, the saved shape is exactly what scoring will later read, and the profile form's Server Action is driven once from a test with no browser. That last clause is spec 0001's third runner constraint, deferred to here by spec 0004 because there was no real write path to drive at feature 8; the technique is recorded in that spec's follow up list. Also, this feature moves its own claim (`profile`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**).
 - [ ] Design it (spec): `/architect profile entry`
 
 ### 10. Usage gating & kill switch · needs a decision · GA
@@ -151,12 +160,12 @@ Per account caps on the call types the app actually makes, checked atomically so
 
 ### 11. Job search & results list · needs a decision
 Search real listings by title and location and render them. Deliberately narrow for this slice: the structured filters and the data quality fixes come in Slice 3, and ranking comes in Slice 2. Results are fresh per search and never persist, which is what removes the need for any staleness or expiry state machine.
-**Done when:** a signed in user runs a search and sees real listings; the search call goes through the gate from feature 10; a failed or empty search renders a visible state rather than a silent blank; and every screen showing listings carries the required attribution label at no less than 116 by 23 pixels with both the word and the logo linked as the source's terms require.
+**Done when:** a signed in user runs a search and sees real listings; the search call goes through the gate from feature 10; a failed or empty search renders a visible state rather than a silent blank; and every screen showing listings carries the required attribution label at no less than 116 by 23 pixels with both the word and the logo linked as the source's terms require. Also, this feature moves its own claim (`filtered search`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**).
 - [ ] Design it (spec): `/architect job search & results list`
 
 ### 12. Apply redirect & application record
 Click a result through to the real posting on the source site, and record that you applied. No auto fill and nothing submitted on the user's behalf. Minimal here: the guided capture questions arrive in Slice 4. This closes the thread and makes the application record the only place a job persists.
-**Done when:** a result links out to the real posting in a new tab, marking it applied writes a record tied to that user, the record survives a reload, and the same job applied to twice does not silently create a duplicate.
+**Done when:** a result links out to the real posting in a new tab, marking it applied writes a record tied to that user, the record survives a reload, and the same job applied to twice does not silently create a duplicate. Also, this feature moves its own claim (`application tracking`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**).
 - [ ] Build it: `/develop apply redirect & application record`
 
 ## Slice 2: Ranking
@@ -170,7 +179,7 @@ One thin client every AI call routes through: tier in, response out, with model 
 
 ### 14. Fit scoring with shown reasoning · needs a decision · GA
 Score a listing against the profile and stated preferences, and show the work: the skills that matched and the skills that are missing, not just a number. The shown reasoning is both the usability point and a built in sanity check against the constant score failure mode. The spec defines the scoring bands, which is what makes the eval ranges in feature 15 meaningful.
-**Done when:** scoring uses an anchored band rubric rather than an open numeric range; results across genuinely different listings spread across bands instead of clustering; every score displays its matched and missing skills; a scoring failure is visible and never writes a record that reports success; and an optional sponsorship signal is scored when the posting states one.
+**Done when:** scoring uses an anchored band rubric rather than an open numeric range; results across genuinely different listings spread across bands instead of clustering; every score displays its matched and missing skills; a scoring failure is visible and never writes a record that reports success; and an optional sponsorship signal is scored when the posting states one. Also, this feature moves its own claim (`ranked results with reasoning`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**).
 - [ ] Design it (spec): `/architect fit scoring with shown reasoning`
 
 ### 15. Eval ground truth set · needs a decision
