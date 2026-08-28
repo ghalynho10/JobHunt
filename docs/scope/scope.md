@@ -108,7 +108,7 @@ _spec [0005](../specs/0005-design-system-and-ui-foundation/index.md) · code in 
   - [x] `Card` (elevated/flat, the compound slots, the attribution slot), `Chip`, `MatchBar`, satisfies AC-3, AC-7, AC-9, AC-10
   - [x] `Section` (rhythm, background alternation, divider) and the 60/40 grid utility, satisfies AC-4, AC-5, AC-8
   - [x] Keyboard, focus, and responsive verification pass across every component, satisfies AC-13, AC-14 · run 2026-08-27 in a real browser at 1440px and 320px: all 8 controls keyboard reachable with a 2px teal `:focus-visible` ring and a real name, zero horizontal overflow at 320px, `prefers-contrast: more` / `forced-colors: active` / `prefers-reduced-motion` each confirmed by measured computed style
-- [ ] Verify it: `/check verify design system & UI foundation`
+- [x] Verify it: `/check verify design system & UI foundation` · PASS on 2026-08-27, all 15 acceptance criteria met against the running app at `/ui-preview`. Measured, not eyeballed: the full type scale, both card idioms, both match bar proportions, the 3fr/2fr grid, the three rhythm tiers, the divider adjacency rule across four sections, 8 of 8 controls keyboard reachable with an instant teal ring, zero overflow at 320px with the attribution at exactly 116 by 23, and `prefers-contrast` / `forced-colors` / `prefers-reduced-motion` each confirmed by computed style. One step in `verify.md` was found to be a bad check and is flagged there for replacement; the fact it was meant to prove holds under a corrected canary. Same model wrote the code and ran this, so a fresh model `/check review` is still worth doing.
 - [ ] Test it: `/test design system & UI foundation`
 
 ### 6. Entry page & link metadata · Alpha
