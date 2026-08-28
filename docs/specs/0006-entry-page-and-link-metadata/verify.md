@@ -10,7 +10,11 @@ _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `
 
 - [ ] On an unprotected URL (production after merge, or a bypassed preview), paste it into Slack **and** into iMessage → both render a 1200 by 630 card showing the JobHunt lockup, the headline "Shows its work, not just a score." and the amber `8 / 11` chip → AC-11
 - [ ] In that same paste → the card appears at all, despite `robots: index false` in `layout.tsx`. Spec 0006 records this as inferred rather than verified, so this step is what settles it. Rule out the protection redirect first (above), then treat noindex as the next suspect → AC-12
-- [ ] View source on a **preview** deployment (not production), in a browser where you are signed in to Vercel so protection lets you through → `og:image` is an absolute URL on the **production** origin, not the branch preview URL → AC-10. This is the value sourcing edge: `metadataBase` reads `canonicalSiteUrl`, and a build wired to `currentOrigin()` instead would look correct on production, where the two are equal, and be wrong everywhere else
+> **`og:image` is expected to point at whatever host built it, including a preview host. That is correct, not a bug.** Next.js overrides `metadataBase` for a static metadata route file, which `opengraph-image.tsx` is, whatever `metadataBase` is set to. Verified in the installed source at `node_modules/next/dist/lib/metadata/resolvers/resolve-opengraph.js`, the `isRelativeUrl && (!metadataBase || isStaticMetadataRouteFile)` branch, whose comment states the intent: the image should be "properly discovered across different environments" without per environment `process.env` checks. It has to work this way, because production does not serve this route at all until the branch merges. **Do not "fix" `opengraph-image.tsx` or `src/lib/origin.ts` over this.**
+
+- [ ] View source on a **preview** deployment, in a browser where you are signed in to Vercel so protection lets you through → `og:image` is a fully qualified absolute URL ending `/opengraph-image`, on **that deployment's own host**. What is being checked is that the route resolves to a real absolute URL on the host serving it, not that it names any particular origin → AC-11
+- [ ] Open that `og:image` URL directly in the same signed in browser → it returns the 1200 by 630 PNG, showing the JobHunt lockup, the headline and the amber `8 / 11` chip. This is the check that the route actually produces an image, independent of any unfurler → AC-11
+- [ ] Repeat both after merge, on production → the same, resolved to the production host → AC-11
 - [ ] Same source view → `<title>` is `JobHunt`, the description is the one in the spec's `## Copy`, and `twitter:card` is `summary_large_image` → AC-10
 - [ ] Load the page at 320 pixels wide → the header shows the lockup and the Sign in control and no nav anchors; nothing overflows horizontally → AC-4, AC-14
 - [ ] At 320 pixels, activate Sign in → the page jumps to the sign in band. It is a real link and must not 404 → AC-4, AC-7
@@ -28,11 +32,14 @@ _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `
 - [ ] Change `--accent-300` in `src/app/globals.css` only, then `pnpm test` → `og-tokens.test.ts` fails. Revert → AC-16
 - [ ] Change one rectangle in `docs/design/logo/mark.svg`, then `pnpm test` → `logo.test.ts` fails the drift guard. Revert → AC-1
 - [ ] `grep -rn "use client" src/app src/features src/components` → no match anywhere in the entry page's tree → AC-4
+- [ ] `grep -n "metadataBase" src/app/layout.tsx` → it reads `canonicalSiteUrl` from `src/lib/origin.ts`, never `currentOrigin()` and never a literal → AC-10. This is a source read rather than a browser check on purpose: for the generated image route Next overrides `metadataBase` (see the note above), so the rendered `og:image` cannot evidence this wiring either way. What `metadataBase` does govern is every other absolute URL the app will emit, such as the canonical links and `og:url` that feature 21's Terms and Privacy pages will need, so it still has to be right
 - [ ] `pnpm lint` → clean at `--max-warnings=0`, which is what enforces the no hand composed container rule → AC-1
 - [ ] `pnpm test` → all unit tests pass → AC-1, AC-16
 
 ## Acceptance-criteria coverage
 
 Covered by the steps above: AC-1 (partly, lint plus the logo drift guard) · AC-3 (partly, the header boundary only) · AC-4 · AC-7 (partly, the header's jump link only) · AC-10 · AC-11 · AC-12 · AC-13 · AC-14 (partly, header and footer only) · AC-15 · AC-16.
+
+**A note on how AC-10 is proved.** Its two halves are checked in different ways on purpose. The title, description and Twitter card are read off the rendered page. The `metadataBase` half is proved by reading `layout.tsx`, because Next overrides `metadataBase` for the generated image route, so no amount of looking at `og:image` can tell a correct wiring from an incorrect one. An earlier version of this file asked for exactly that impossible check.
 
 **Not yet covered, because the code is not built** (build plan steps 4 to 11): AC-2 (section rhythm tiers), AC-3 in full (the single hairline across all five sections), AC-5 (card idioms), AC-6 (the sign in band's axes), AC-7 in full (the provider controls and the band), AC-8 (the status card's two lists), AC-9 (the hero card's example label), AC-17 (the apply control). Append their steps when those milestones land.
