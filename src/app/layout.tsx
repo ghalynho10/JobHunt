@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
+import { canonicalSiteUrl } from "@/lib/origin";
+
 import "./globals.css";
 
 /**
@@ -31,14 +33,33 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 /**
- * Feature 6 owns the real page title, description and social preview image.
- * Nothing here should pre-empt it.
+ * The site's link identity (spec 0006, AC-10 and AC-12).
+ *
+ * `metadataBase` is `canonicalSiteUrl`, which is the PRODUCTION origin in every
+ * environment including locally, never `currentOrigin()`. That is spec 0002's
+ * split: a canonical link or a preview image URL pointing at a branch
+ * deployment is wrong, so a metadata check run on a preview shows production
+ * links and is meant to.
+ *
+ * Set here rather than on the page because these are site wide defaults every
+ * later route should inherit; `template` gives those routes the suffix for free
+ * without each one restating the product name. The page at `/` takes the
+ * `default`.
+ *
+ * `robots` stays off. This is a link people are sent, not a page search engines
+ * should index, and it will stay that way at least until accounts open. The
+ * social preview card is unaffected, because unfurlers read `og:` tags and are
+ * not search crawlers; that is checked by hand on a real deployment rather than
+ * assumed (spec 0006's follow up list).
  */
 export const metadata: Metadata = {
-  title: "JobHunt",
-  description: "Job search with the ranking reasoning shown.",
-  /** Not a public site. Feature 6 confirms this alongside the real metadata. */
+  metadataBase: new URL(canonicalSiteUrl),
+  title: { default: "JobHunt", template: "%s · JobHunt" },
+  description:
+    "Ranks real job openings against your profile and shows which skills matched, which are missing, and why. Not a score you have to take on trust.",
   robots: { index: false, follow: false },
+  /** The card is 1200 by 630, so it should render large rather than as a thumbnail. */
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

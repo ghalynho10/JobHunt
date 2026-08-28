@@ -1,23 +1,32 @@
-import Link from "next/link";
+import { EntryFooter } from "@/features/entry-page/entry-footer";
+import { EntryHeader } from "@/features/entry-page/entry-header";
+import { Heading } from "@/components/ui/heading";
+import { Section } from "@/components/ui/section";
 
 /**
- * A public route: no session required, so it lives in the `(marketing)` group
- * whose layout does not check one.
+ * The entry page (spec 0006). A public route: no session required, so it lives
+ * in the `(marketing)` group whose layout does not check one.
  *
- * Deliberately bare. Feature 6 ports the real entry page onto feature 5's design
- * tokens; this is a scaffold placeholder and should not grow.
+ * STATE OF THE BUILD: this is the Tracer Bullet thread from spec 0006's build
+ * plan, step 2. Header, footer and metadata are real; the five body sections
+ * arrive in steps 4 through 9. The point of landing it this thin is that the
+ * whole link path (page renders, metadata resolves, the generated preview image
+ * builds and unfurls) is proved on a real deployment before five sections are
+ * stacked on top of it.
+ *
+ * No `"use client"` anywhere in this tree, and nothing added here may introduce
+ * one (AC-4).
  */
 export default function HomePage() {
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-8">
-      <h1 className="text-2xl font-semibold">JobHunt</h1>
-      <p>
-        Scaffold. The one thread proved here is a protected page reading a row
-        from Supabase through the real server client, under a real policy.
-      </p>
-      <Link href="/sign-in" className="underline">
-        Sign in
-      </Link>
-    </main>
+    <>
+      <EntryHeader />
+      <main className="flex-1">
+        <Section weight="generous" background="paper" divider="none">
+          <Heading level={1}>Job search that shows its work.</Heading>
+        </Section>
+      </main>
+      <EntryFooter />
+    </>
   );
 }
