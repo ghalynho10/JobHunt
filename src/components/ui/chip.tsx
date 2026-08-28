@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
+
+import { tv } from "./tv";
 
 import { CheckIcon, GapIcon } from "./icons";
 

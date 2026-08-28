@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
+
+import { tv } from "./tv";
 
 /**
  * The register rule, as code (spec 0005, AC-6).

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { tv, type VariantProps } from "tailwind-variants";
+import type { VariantProps } from "tailwind-variants";
+
+import { tv } from "./tv";
 
 import { ExternalLinkIcon } from "./icons";
 
@@ -19,7 +21,16 @@ const button = tv({
   base: [
     "inline-flex items-center justify-center gap-2 rounded-lg",
     "font-sans font-medium whitespace-nowrap",
-    "transition-colors motion-reduce:transition-none",
+    /**
+     * NOT `transition-colors`. Tailwind v4 includes `outline-color` in that
+     * shorthand, which fades the `:focus-visible` ring in over 150ms: a
+     * keyboard user watches their focus indicator arrive instead of seeing it.
+     * Measured in the browser, `transition-colors` resolves to a list ending
+     * `outline-color, text-decoration-color, fill, stroke`. Naming the
+     * properties keeps the hover fade and makes focus instant.
+     */
+    "transition-[color,background-color,border-color] duration-150",
+    "motion-reduce:transition-none",
     "disabled:cursor-not-allowed disabled:opacity-55",
     /**
      * Forced colour modes strip author backgrounds, which would leave the
