@@ -33,6 +33,20 @@ export const tv = createTV({
   twMergeConfig: {
     extend: {
       classGroups: {
+        /**
+         * THIS LIST MUST MATCH THE `--text-*` SIZES IN `globals.css`.
+         *
+         * Add a size to the scale there and not here, and `tailwind-merge` has
+         * no way to know it is a size, so it files it as a text COLOUR. The new
+         * size then shares a conflict group with whatever colour sits beside it
+         * and one of the two is dropped, with no error, no warning, and no
+         * failing build. The page just renders at the wrong size or in the wrong
+         * colour, and it looks deliberate.
+         *
+         * That is not a hypothetical: it is the bug this file was written to
+         * fix. See the header comment for what it did to `Text` and `Button`.
+         * `tv.test.ts` fails if this list and the scale ever drift apart.
+         */
         "font-size": [
           {
             text: ["display", "h2", "h3", "body", "small", "caption"],
