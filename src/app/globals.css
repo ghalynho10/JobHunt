@@ -1,31 +1,284 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
 /**
- * Placeholder only. Feature 5 replaces this with the seven token palette and the
- * real type scale, ported through Tailwind v4's `@theme` directive.
+ * Scan `src` and nothing else (spec 0005 build plan step 4, the `@source`
+ * wiring; Tailwind v4 replaced v3's JavaScript `content` array with this).
+ *
+ * The scoping is not cosmetic. Tailwind v4's automatic detection scans the
+ * whole project root except what git ignores, which pulled
+ * `docs/design/JobHuntLanding.tsx` and `docs/design/jobhunt-landing_3.html`
+ * into the build: the shipped stylesheet was carrying utilities for a prototype
+ * that is deliberately unbuilt until feature 6 ports it, including the class
+ * shapes spec 0005 exists to retire. Verified by finding `bg-primary-300` and
+ * `bg-accent-300` in the compiled CSS while no file under `src` used either.
+ *
+ * `src` is the whole surface by AGENTS.md's folder by feature rule: routes live
+ * only in `src/app`, feature code in `src/features`, shared components in
+ * `src/components/ui`. `tailwind-variants` needs no entry of its own, because it
+ * emits no class names itself; every class literal it composes is written in our
+ * own files, which are covered here.
+ */
+@source "../../src";
+
+/**
+ * The JobHunt token layer (spec 0005, AC-1, AC-2, AC-5, AC-12).
+ *
+ * Two structural rules govern this file, both from spec 0005 and both load
+ * bearing:
+ *
+ * 1. Raw values live in `:root`; `@theme` only maps them. The `@theme` block is
+ *    deliberately NOT `@theme inline`. Inline bakes each value into every
+ *    utility at build time, which would break runtime theme switching if dark
+ *    mode is ever added, and would break the three responsive and accessibility
+ *    overrides below, which work by redefining a raw variable and letting every
+ *    utility that reads it follow.
+ * 2. Colour values are the verified anchors from `docs/design/brand-tokens.md`,
+ *    written in the same notation that document verified them in, so a reader
+ *    can check them against it line by line. `--surface-sunken` is the one
+ *    exception, written in OKLCH because spec 0005 AC-5 defines it in OKLCH and
+ *    nowhere else; converting it here would invent a value the spec never
+ *    stated.
  */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* The settled seven. Do not add to this list; see AC-1. */
+  --paper: #fffafb;
+  --surface: #ffffff;
+  --ink: #1a1a1a;
+  --muted: #6b717e;
+  --secondary: #474a51;
+  --line: #6b717e;
+
+  /**
+   * The one token added beyond the settled seven (spec 0005, AC-5). About 3.5%
+   * darker than paper, which is a gap the eye actually reads; the 1% paper to
+   * surface gap is the one the composition review flagged as unable to separate
+   * anything.
+   */
+  --surface-sunken: oklch(0.965 0.006 3);
+
+  /* Teal: evidence. Anchors 300 / 600 / 800 are the verified hex values. */
+  --primary-50: #f0f6f6;
+  --primary-100: #deeeee;
+  --primary-200: #c2e1e1;
+  --primary-300: #98dada;
+  --primary-400: #66baba;
+  --primary-500: #429a9a;
+  --primary-600: #297373;
+  --primary-700: #205b5b;
+  --primary-800: #194646;
+  --primary-900: #123434;
+
+  /* Amber: the score, and nothing else. */
+  --accent-50: #fff9ec;
+  --accent-100: #fdf1d3;
+  --accent-200: #fbe4ab;
+  --accent-300: #fcd581;
+  --accent-400: #f7c55c;
+  --accent-500: #edab33;
+  --accent-600: #d58f1e;
+  --accent-700: #af7017;
+  --accent-800: #8c5718;
+  --accent-900: #714617;
+
+  /**
+   * Body size is a raw variable rather than a fixed theme value because AC-2
+   * asks for 16px below `sm` and 17px at `sm` and above. Redefining it in the
+   * media query below moves every `text-body` utility at once, so no component
+   * carries a `text-body sm:text-body-lg` pair.
+   */
+  --size-body: 1rem;
+
+  /**
+   * The three tier section rhythm (AC-4). Each tier is a responsive pair, so it
+   * is raw here and bumped at `sm` below, giving one class per tier rather than
+   * a base and `sm:` pair at every call site.
+   */
+  --space-section-compact: 3rem;
+  --space-section-standard: 5rem;
+  --space-section-generous: 8rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
+/* `sm`, matching Tailwind v4's own 40rem breakpoint. */
+@media (width >= 40rem) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --size-body: 1.0625rem;
+    --space-section-compact: 4rem;
+    --space-section-standard: 6rem;
+    --space-section-generous: 10rem;
+  }
+}
+
+@theme {
+  /**
+   * Not `@theme inline`, on purpose. See the header comment: the responsive and
+   * accessibility overrides in this file depend on utilities resolving their
+   * variable at use time rather than at build time.
+   */
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-secondary: var(--secondary);
+  --color-line: var(--line);
+
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+
+  /**
+   * Two faces, locked (brand-tokens.md). The `--font-jetbrains-mono` and
+   * `--font-space-grotesk` variables are defined by `next/font/google` in
+   * `src/app/layout.tsx`, on the `<html>` element, which is `:root`, so these
+   * references resolve for everything on the page.
+   */
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /**
+   * The type scale (AC-2), ratio 1.25, concrete values rather than open ranges.
+   * Each size carries its own line height and tracking so a caller never has to
+   * remember the pairing.
+   */
+  --text-display: clamp(2.5rem, 5vw, 4rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+
+  --text-h2: 1.875rem;
+  --text-h2--line-height: 1.2;
+  --text-h2--letter-spacing: -0.015em;
+
+  --text-h3: 1.25rem;
+  --text-h3--line-height: 1.35;
+  --text-h3--letter-spacing: -0.01em;
+
+  --text-body: var(--size-body);
+  --text-body--line-height: 1.65;
+
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.6;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-caption--letter-spacing: 0.08em;
+
+  /* The three tier rhythm, as spacing utilities: `py-section-standard`. */
+  --spacing-section-compact: var(--space-section-compact);
+  --spacing-section-standard: var(--space-section-standard);
+  --spacing-section-generous: var(--space-section-generous);
+}
+
+/**
+ * The 60/40 asymmetric grid (AC-8), for a primary and a secondary column. It is
+ * deliberately not an equal fraction grid: those stay reserved for genuinely
+ * equal peer content. Apply it at a breakpoint over a single column base, for
+ * example `grid grid-cols-1 gap-10 lg:grid-split`.
+ */
+@utility grid-split {
+  grid-template-columns: 3fr 2fr;
+}
+
+/**
+ * The match cell stagger (AC-9). This is the only sanctioned default motion in
+ * the system; any future entrance animation has to be justified against it. The
+ * delay reads an `--i` custom property the component sets per cell, rather than
+ * a fixed `nth-child` list, so the stagger stays correct at any total.
+ */
+@keyframes match-cell-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@utility match-cell {
+  transform-origin: left center;
+  animation: match-cell-in 0.5s both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+/**
+ * WCAG 2.2 AA focus visibility (AC-12, AC-13). `:focus-visible` rather than
+ * `:focus`, so a mouse click on a button does not draw a ring the pointer user
+ * did not ask for, while every keyboard user always gets one.
+ */
+:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/**
+ * Windows high contrast and similar forced palettes strip author colours,
+ * backgrounds and shadows. An elevated card, whose boundary is a shadow, would
+ * lose its edge entirely, so the focus ring is restated in a system colour here
+ * and the components restore their borders with the `forced-colors:` variant.
+ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/**
+ * `prefers-contrast: more`. Redefining the raw variables is the whole reason
+ * `@theme` above is not inline: every utility reading `--line` or `--muted`
+ * darkens at once, with no component level override anywhere.
+ *
+ * `--muted` (4.74:1 on paper) and `--line` both become `--secondary` (8.59:1),
+ * a value already verified in brand-tokens.md rather than invented here.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #474a51;
+    --line: #474a51;
+  }
+}
+
+/**
+ * Motion is opt out at the system level, not per component (AC-9, AC-12). This
+ * covers the match cell stagger and anything added later, so a future animation
+ * cannot forget to respect the preference.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.65;
 }
