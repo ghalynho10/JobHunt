@@ -1,7 +1,7 @@
 # 0006. Entry page and link metadata
 
 **Date**: 2026-08-28
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
