@@ -101,7 +101,7 @@ Set in **Vercel**, per environment, in the same shape spec 0002 uses:
 |---|---|---|---|---|
 | `UI_PREVIEW_ENABLED` | **not set** | `true` | `true` | Renders the component preview at `/ui-preview`. Defaults to false, so production is blocked by absence |
 
-The Local column is committed as an example in `.env.example`. **The Preview column records the intended value, not a confirmed one**: see `## Follow-up`.
+The Local column is committed as an example in `.env.example`. The Preview value was confirmed set in the Vercel dashboard by the engineer on 2026 08 28, which is how it is known: no automated check reads that dashboard, so this line is the record.
 
 **Critical test scenarios**:
 - Keyboard only pass over every base component (`Button`, `Card`'s interactive regions, `Chip`, `Section` anchors) confirms focus order and visible focus, verifies **AC-13**.
@@ -175,7 +175,6 @@ Never: `<div className="border-t border-line"><div className="rounded-2xl border
 
 ## Follow-up
 
-- [ ] Set `UI_PREVIEW_ENABLED=true` in the Vercel **Preview** environment, or confirm it is already set. The table under `## Configuration required` records the intended value; nobody has verified the dashboard. Until then a preview deployment 404s on `/ui-preview`, which fails safe but means the surface AC-13 and AC-14 are re-verified against is not reachable on a deployed preview, only locally.
 - [ ] Feature 6 (entry page and link metadata) ports `docs/design/JobHuntLanding.tsx` onto this system, including collapsing the step 02 hand copied `MatchBar` (Weakness #1) onto the real component and removing the shadow from the "JobHunt" comparison card (Tell #6) so both comparison cards share the flat idiom identically.
 - [ ] Confirm the exact Adzuna "Jobs by Adzuna" attribution image asset and link targets when feature 11 (job search and results list) builds the first real results card using the `Card.Footer` `attribution` slot.
 - [ ] Logo mark integration is out of scope for this feature per the engineer's explicit constraint; revisit when that work is scheduled.
