@@ -63,6 +63,50 @@ export function classesOf(node: ReactNode): readonly string[] {
   return className === undefined ? [] : className.split(/\s+/).filter(Boolean);
 }
 
+/**
+ * Invokes every function component in a tree, except the types named in
+ * `stopAt`, and returns the resulting tree.
+ *
+ * WHY IT STOPS SOMEWHERE INSTEAD OF RENDERING EVERYTHING. Spec 0006's
+ * structural criteria are about the PROPS a page passes to the design system,
+ * not the markup that comes out: "exactly one `divider="hairline"` across the
+ * whole page" (AC-3), "exactly one `tone="elevated"`" (AC-5). Those props only
+ * exist while `Section` and `Card` are still elements. Rendering them away
+ * would leave a test asserting class strings, which is the brittle shape the
+ * base component tests already avoid.
+ *
+ * So a page test invokes its own section modules (which is where composition
+ * lives) and stops at the design system boundary (which is what the criteria
+ * are written against).
+ *
+ * SAME LICENCE AS THE REST OF THIS FILE: calling a component IS its behaviour
+ * here, because every component in this tree is a plain function with no state,
+ * no effects and no hooks. Add one that uses a hook and this stops being valid;
+ * that component needs a real renderer, and spec 0004's just in time rule says
+ * jsdom arrives with it.
+ */
+export function renderDeep(
+  node: ReactNode,
+  stopAt: readonly unknown[] = [],
+): ReactNode {
+  if (Array.isArray(node))
+    return node.map((child) => renderDeep(child, stopAt));
+  if (!isElement(node)) return node;
+
+  if (typeof node.type === "function" && !stopAt.includes(node.type)) {
+    const component = node.type as (props: unknown) => ReactNode;
+    return renderDeep(component(node.props), stopAt);
+  }
+
+  const props = node.props as { readonly children?: ReactNode };
+  if (props.children === undefined) return node;
+
+  return {
+    ...node,
+    props: { ...props, children: renderDeep(props.children, stopAt) },
+  } as ReactElement;
+}
+
 /** All text a caller would read, in order. */
 export function textOf(node: ReactNode): string {
   if (Array.isArray(node)) return node.map(textOf).join("");
