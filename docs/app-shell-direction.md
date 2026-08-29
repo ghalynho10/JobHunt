@@ -270,8 +270,7 @@ explanation behind a "Show match details" disclosure.
 
 **The decision:** a single-column list of result cards, each carrying company,
 role, score, matched chips, gap chips and the one-line summary. The card
-role, score, matched chips, gap chips and the one-line summary. The same
-composition exists as the hero of the entry page (spec 0006) — `Card`,
+composition already exists as the hero of the entry page (spec 0006) — `Card`,
 `MatchBar`, `Chip` and `ScoreBadge` together — so the pattern is designed
 already. **But it is not a shared component:** `ExampleResultCard` in
 `hero-section.tsx` is a private, unexported, feature-local function, so
