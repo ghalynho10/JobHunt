@@ -177,7 +177,7 @@ Never: `<div className="border-t border-line"><div className="rounded-2xl border
 
 - [ ] Feature 6 (entry page and link metadata) ports `docs/design/JobHuntLanding.tsx` onto this system, including collapsing the step 02 hand copied `MatchBar` (Weakness #1) onto the real component and removing the shadow from the "JobHunt" comparison card (Tell #6) so both comparison cards share the flat idiom identically.
 - [ ] Confirm the exact Adzuna "Jobs by Adzuna" attribution image asset and link targets when feature 11 (job search and results list) builds the first real results card using the `Card.Footer` `attribution` slot.
-- [ ] Logo mark integration is out of scope for this feature per the engineer's explicit constraint; revisit when that work is scheduled.
+- [x] Logo mark integration is out of scope for this feature per the engineer's explicit constraint; revisit when that work is scheduled. · **Discharged by spec 0006, ticked 2026-08-28 when feature 6 shipped.** The engineer lifted the constraint deliberately during that spec's design conversation, and `Logo` now lives in `src/components/ui/logo.tsx` with three consumers on day one (the page header, the page footer, and the social preview image generator). It enlarges this spec's component inventory by one, which spec 0006 records and `/sync` still owes a row for in `src/components/ui/AGENTS.md`.
 - [ ] If the project grows past a single engineer, reconsider a broader, general purpose lint rule (or a compile time check) covering more of the base component API, beyond the one narrow `no-restricted-syntax` rule and the review convention this spec adopts.
 
 ## References
