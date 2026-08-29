@@ -30,8 +30,12 @@ const scoreBadge = tv({
     size: {
       /** Beside the match bar inside a result card. */
       card: "rounded-md px-2 py-0.5 text-h3",
-      /** The headline figure of the reasoning comparison. */
-      compare: "rounded-lg px-3 py-1 text-h2",
+      /**
+       * The headline figure of the reasoning comparison. Same radius as `card`
+       * on purpose: radius follows what the object IS, not how big it is
+       * (`ui-registry.md`). Only the size and the padding change.
+       */
+      compare: "rounded-md px-3 py-1 text-h2",
     },
   },
   defaultVariants: {

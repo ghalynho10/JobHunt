@@ -27,11 +27,17 @@ const chip = tv({
       missing:
         "rounded-md border border-line bg-surface px-2.5 py-1 text-small text-muted",
       /**
-       * Smaller and quieter than the other two: it annotates a control it sits
-       * beside rather than standing as its own item.
+       * Quieter than the other two: it annotates a control it sits beside
+       * rather than standing as its own item. It is quieter by weight and
+       * padding, NOT by size: it takes `text-caption`, the smallest step on the
+       * locked scale, rather than an arbitrary value. An off scale `text-[Npx]`
+       * here would be the design system breaking the rule it exists to enforce,
+       * and `tv.test.ts` cannot catch one (it guards size against colour, not
+       * arbitrary values). Same radius as the other two states, because radius
+       * follows the kind of object. See `ui-registry.md`.
        */
       status:
-        "rounded border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] text-muted",
+        "rounded-md border border-line px-1.5 py-0.5 text-caption uppercase tracking-[0.06em] text-muted",
     },
   },
   defaultVariants: {
