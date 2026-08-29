@@ -17,6 +17,7 @@ One component per file, kebab-case, named exports only. All server components: n
 | [match-bar.tsx](match-bar.tsx) | The segmented match bar, deriving its own cells |
 | [section.tsx](section.tsx) | Page rhythm, background alternation, and the divider rule |
 | [icons.tsx](icons.tsx) | The five icons, plain SVG, no icon library |
+| [logo.tsx](logo.tsx) | The mark and the lockup, as outlined vector paths, not text |
 
 Token values are NOT here. They live in [src/app/globals.css](../../app/globals.css) as raw values in `:root` mapped through a non-inline `@theme`. The art direction and the verified palette live in [docs/design/brand-tokens.md](../../../docs/design/brand-tokens.md); this project has no `design.md`, those two files plus spec 0005 are the design system of record.
 
@@ -28,6 +29,7 @@ Token values are NOT here. They live in [src/app/globals.css](../../app/globals.
 - **A rounded, bordered container is what `Card` is for.** Hand composing one outside this directory is an ESLint error (`no-restricted-syntax`, see [eslint.config.mjs](../../../eslint.config.mjs)).
 - **`Card` is one idiom or the other.** Elevated is shadow led with a low opacity edge hint; flat is border led with no shadow. A flat card that grows a shadow erases the distinction the whole split exists for.
 - **`Section`'s divider rule is caller enforced.** A hairline goes between two sections that share a background; two sections with different backgrounds take none. The component cannot see its siblings, so nothing catches a wrong value.
+- **The logo's geometry is generated, not hand typed.** [logo-geometry.ts](logo-geometry.ts) holds the paths lifted from `docs/design/logo/`, and [logo.test.ts](logo.test.ts) fails if the two drift, so edit the SVG source and regenerate rather than nudging a path here. The wordmark is outlined vector, never text set in Space Grotesk, which is what lets the social preview image draw the brand without shipping font bytes.
 - **No component ships a default entrance animation.** The match cell stagger is the only sanctioned default motion, and it is the precedent any future request is judged against.
 
 ## Accessibility floor
@@ -36,7 +38,7 @@ WCAG 2.2 AA, and most of it is centralised rather than per component. `globals.c
 
 ## Testing
 
-Tests sit beside each component and run in the unit project (`pnpm test`), which is the `node` environment. There is no jsdom and no testing library, deliberately: these are stateless server components, so calling one is its whole behaviour and the element it returns is its whole output. [test/helpers/react-element.ts](../../../test/helpers/react-element.ts) walks that returned tree.
+Tests sit beside each component and run in the unit project (`pnpm test`), which is the `node` environment. There is no jsdom and no testing library, deliberately: these are stateless server components, so calling one is its whole behaviour and the element it returns is its whole output. [test/helpers/react-element.ts](../../../test/helpers/react-element.ts) walks that returned tree. Its `renderDeep` invokes a page's own modules but stops at a list of types you pass, which is how a composed page is asserted on the props it hands these components rather than on class strings.
 
 Anything needing a real browser (computed sizes, the focus ring, media queries, layout, overflow) is not faked here. It lives in [verify.md](../../../docs/specs/0005-design-system-and-ui-foundation/verify.md) and is proved by `/check verify`.
 
