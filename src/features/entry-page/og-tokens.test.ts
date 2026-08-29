@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -79,5 +80,43 @@ describe("the preview image's colours", () => {
   it("guards all five colours the spec names", () => {
     // covers: AC-16 · the count is asserted so a deletion cannot shrink the guard
     expect(Object.keys(OG_COLORS)).toHaveLength(5);
+  });
+});
+
+/**
+ * The committed font, and the licence that makes committing it lawful
+ * (spec 0006, AC-15).
+ *
+ * The binary is the first redistributed third party asset this project carries,
+ * and the risk is not that it goes missing (the generator's own guard fails the
+ * build for that, loudly and by name). The risk is that it lands ALONE: a font
+ * file with no licence beside it is the kind of thing that is only noticed by
+ * somebody else, later.
+ */
+describe("the committed typeface", () => {
+  const assets = fileURLToPath(new URL("../../../assets", import.meta.url));
+
+  it("keeps the licence beside the binary, so neither can land without the other", () => {
+    // covers: AC-15
+    const files = readdirSync(assets);
+
+    expect(files).toContain("SpaceGrotesk-SemiBold.ttf");
+    expect(files).toContain("SpaceGrotesk-OFL.txt");
+  });
+
+  it("carries a licence that actually permits redistributing the font here", () => {
+    // covers: AC-15 · the permission is the point, not the presence of a file
+    const licence = readFileSync(`${assets}/SpaceGrotesk-OFL.txt`, "utf8");
+
+    expect(licence).toContain("SIL Open Font License");
+    expect(licence).toContain("Version 1.1");
+    expect(licence).toMatch(/copy, merge, embed, modify,\s*redistribute/);
+  });
+
+  it("commits a real font file rather than an empty placeholder", () => {
+    // covers: AC-15
+    const bytes = readFileSync(`${assets}/SpaceGrotesk-SemiBold.ttf`);
+
+    expect(bytes.byteLength).toBeGreaterThan(10_000);
   });
 });
