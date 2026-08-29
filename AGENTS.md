@@ -63,7 +63,7 @@ Installed and green on the scaffold (feature 2).
 
 - **Lint and format**: ESLint flat config in [eslint.config.mjs](eslint.config.mjs), Next core web vitals plus TypeScript, `eslint-config-prettier` last, with Prettier in [.prettierrc.json](.prettierrc.json). `jsx-a11y` strict is raised to errors, above the eight warnings `eslint-config-next` ships. A `@typescript-eslint/no-restricted-imports` override blocks `src/lib/supabase/secret.ts` from `src/app/**` per binding rule 1, and catches relative and type only imports too. A second override, one `no-restricted-syntax` rule, flags a rounded and bordered container composed by hand outside `src/components/ui/`, per spec 0005's `## Standard definition`; it is deliberately narrow, because the component API plus review is the primary mechanism at this project's size.
 - **Before commit**: husky plus lint-staged, see [.husky/pre-commit](.husky/pre-commit) and [.lintstagedrc.json](.lintstagedrc.json). ESLint and Prettier run on staged files, then `tsc --noEmit` on the whole project.
-- **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) on push to `main` and every pull request, running lint, format check, typecheck and build. A second job runs the unit suite before the stack exists, so a unit test that grows a database dependency fails there, then starts Supabase in Docker and runs the integration suite.
+- **CI**: [.github/workflows/ci.yml](.github/workflows/ci.yml) on push to `main` and every pull request, running lint, format check, typecheck and build. A second job runs the unit suite before the stack exists, so a unit test that grows a database dependency fails there, then starts Supabase in Docker and runs the integration suite. The build job skips environment validation because CI holds no Supabase keys, but it must still be given `NEXT_PUBLIC_SITE_URL`: `layout.tsx` builds `metadataBase` with it at module scope, so an absent value throws `ERR_INVALID_URL` while Next collects page data, long before any request.
 - **Two constraints worth knowing.** ESLint stays on 9 until the react, `jsx-a11y` and import plugins accept 10 as a peer. Prettier ignores `docs/` and every `*.md`, so specs and scope tables are never rewrapped, and it skips the generated `src/lib/supabase/database.types.ts`.
 
 ## Git
@@ -111,5 +111,6 @@ this file instead; /reflex flags it and the engineer moves it.
 ## Context files
 
 - [src/components/ui/AGENTS.md](src/components/ui/AGENTS.md): the design system, its token layer, and the rules that are easy to break by accident
+- [src/features/entry-page/AGENTS.md](src/features/entry-page/AGENTS.md): the entry page's section modules, and the invariants that keep the page honest
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
