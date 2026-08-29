@@ -39,9 +39,20 @@ jobs:
       # configured: CI holds no Supabase keys, so env validation is skipped here
       # and only here. Feature 3 owns the deployed build, which runs with real
       # values and must never set this flag.
+      #
+      # NEXT_PUBLIC_SITE_URL is the one exception, and it is not a Supabase
+      # style secret. Since feature 6, `src/app/layout.tsx` builds its
+      # `metadataBase` with `new URL(canonicalSiteUrl)` at module scope, so the
+      # value is dereferenced while Next collects page data, not at request
+      # time. Skipping validation leaves it `undefined`, and `new URL(undefined)`
+      # throws `ERR_INVALID_URL` on `/_not-found` before any page renders. The
+      # real production origin is used rather than a placeholder, matching the
+      # two test jobs below, so the metadata this build emits is the metadata
+      # production emits.
       - run: pnpm build
         env:
           SKIP_ENV_VALIDATION: "true"
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
 
   # Spec 0004, AC-7 and AC-12. A separate job from `check` on purpose: this one
   # needs Docker and pulls Supabase images, so it is slower, and keeping it apart
