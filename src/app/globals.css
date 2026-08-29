@@ -263,14 +263,31 @@
  * Motion is opt out at the system level, not per component (AC-9, AC-12). This
  * covers the match cell stagger and anything added later, so a future animation
  * cannot forget to respect the preference.
+ *
+ * THE DELAYS HAVE TO BE ZEROED TOO, AND THAT IS NOT COSMETIC. Zeroing only the
+ * duration leaves a delayed animation still delayed, and `match-cell` is
+ * declared with the `both` fill mode, so during its delay the element holds the
+ * keyframe's `from` state: `opacity: 0`. Measured in a real browser under
+ * `prefers-reduced-motion: reduce` before this line existed, five of the hero
+ * card's eight cells were still invisible 120ms after load and the last one
+ * arrived 350ms in. The reader did not get a shorter animation, they got the
+ * same staggered arrival with the smoothing removed, which is the opposite of
+ * what the preference asks for.
+ *
+ * `transition-delay` is zeroed for the same reason. Nothing in the project
+ * carries one today, so that half is a guard rather than a fix: this block's
+ * whole promise is that a later author cannot forget the preference, and a
+ * staggered transition would land in exactly the same hole.
  */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
