@@ -191,7 +191,7 @@ Set in **Vercel**, per environment. Nothing here is committed.
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | production project | development project | local Docker | Browser safe key |
 | `SUPABASE_SECRET_KEY` | production project | development project | local Docker | `sb_secret_…`, read only by `src/lib/supabase/secret.ts` |
 | `NEXT_PUBLIC_SITE_URL` | `https://usejobhunt.vercel.app` | `https://usejobhunt.vercel.app` | `https://usejobhunt.vercel.app` | The canonical URL, same everywhere by design |
-| `DEV_SESSION_ENABLED` | **not set** | `true` | `true` | Enables the development password sign in. Defaults to false |
+| `DEV_SESSION_ENABLED` | **not set** | **not set** | `true` | Guards the test layer's secret key client in `test/helpers/admin.ts`. Defaults to false. **Amended 2026-08-29 by spec [0007](../0007-auth-and-per-user-isolation/index.md)**: it used to enable the development password sign in, which feature 7 deletes, and it used to be set on Preview. Nothing deployed reads it now, and CI sets it on the test jobs itself, so a value set where nothing reads it would be its own small untruth |
 | `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | `1` | `0.1` | `1` | Binding rule 4 needs 1.0 where the ratio alert runs; previews must not compete for that quota |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | **required** | **required** | optional | Required on any deployed build, optional locally so a fresh clone still runs |
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | set | set | unset | Build time only, for source map upload |
