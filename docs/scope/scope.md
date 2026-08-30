@@ -19,6 +19,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 6 | Entry page & link metadata | Foundation | done |
 | 7 | Auth & per user isolation | Foundation | in-progress |
 | 8 | Test foundation | Foundation | done |
+| 32 | App shell & navigation | Foundation | planned |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -154,6 +155,12 @@ _spec [0004](../specs/0004-test-foundation/index.md) · code in `vitest.config.m
   - [x] The command split and the CI job running the stack in Docker (AC-7, AC-12) · CI runs the unit suite before the stack starts, so a unit test that grows a database dependency fails there rather than passing on a warm stack. Green on pull request [#18](https://github.com/ghalynho10/JobHunt/pull/18): the `Test (unit, then integration)` job started the stack in Docker and ran both suites in 1m50s. AC-7 was the one criterion that could not be proved locally
 - [x] Verify it: `/check verify test foundation` · PASS on 2026-08-27, all 13 acceptance criteria met, see [verify.md](../specs/0004-test-foundation/verify.md) for the evidenced checklist. The first run found AC-8 failing (the record mode warning was emitted and then swallowed by Vitest's console interception, so it never reached a human); fixed by writing it to `process.stderr`, and a regression test now fails if it moves back to `console.warn`. Both proofs were checked for vacuousness: disabling row level security fails five tests, and deleting the committed recording fails four with a message naming the file and the record command
 - [ ] Test it: `/test test foundation` · **skipped** 2026-08-27, by decision, not by omission. This feature IS the test layer: it ships 34 tests (25 unit, 9 integration), and `/test` here would mostly mean writing tests for test helpers. What would normally justify the box is already covered another way: the two claims that matter are checked for vacuousness rather than trusted (disabling row level security fails five tests, deleting the committed recording fails four), and the one bug this feature's own verify run found, the record mode warning being swallowed, now has a regression test that fails if it returns to `console.warn`. The durable steps a later `/test` would lock are in [verify.md](../specs/0004-test-foundation/verify.md), all 18 ticked.
+
+### 32. App shell & navigation · needs a decision
+The authenticated app's page inventory, navigation, post sign in destination and header, the gap features 9, 11 and 12 were each about to invent on their own. Must land before feature 9 starts; it does not block feature 7, whose done when clause needs no decided shell.
+**Done when:** `/search`, `/profile` and `/applications` exist as real routes with only the first two in the signed in nav; one header component renders its signed in variant from `(app)/layout.tsx` and its signed out variant from the marketing layout; a user with no profile row lands on `/profile` and everyone else on `/`, with feature 14's later scoring gate layered on top rather than replacing it; a deep link followed while signed out survives sign in and returns the visitor to it, rejecting anything that is not a single leading slash path; the signed in shell needs no hamburger, drawer or tab bar at 320 pixels; and a signed in visitor at `/` no longer sees a sign in invitation, without `/` reading the session.
+_Direction: [docs/app-shell-direction.md](../app-shell-direction.md), read down through "Suggested path" as the settled decision, not a brainstorm to re derive. Evidence for `/architect`: the mock up, [docs/design/jobhunt-app-shell.html](../design/jobhunt-app-shell.html); its density findings, [docs/design/app-shell-mockup-findings.md](../design/app-shell-mockup-findings.md); and the "Design tool import audit, 2026-08-30" section of [ui-registry.md](../../ui-registry.md)._
+- [ ] Design it (spec): `/architect app shell & navigation`
 
 ## Slice 1: Core loop thread
 
