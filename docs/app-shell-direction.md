@@ -102,13 +102,14 @@ restructure.
 
 ### 2. Post-sign-in destination: conditional, then a gate later
 
-**BLOCKED — revisit before this file is treated as final input to
-`/architect`.** This rule is pending feature 7's decision on whether a
-profile row is auto-created via an `auth.users` trigger on signup. If that
-trigger is chosen, "land on `/profile` if no profile row exists" stops being
-a meaningful check — a row always exists — and must be replaced with a
-completeness check across skills, work history and job preferences, which is
-a different query than `readOwnProfile()` answers.
+**Unblocked by spec 0007.** Spec 0007 decided against an `auth.users`
+trigger that auto-creates a profile row on signup — "Deliberately not
+added... Profile creation stays with feature 9, exactly as spec 0003's
+value sourcing table already assigns it." Spec 0007 names the consequence
+for this file directly: choosing no trigger "keeps 'land on `/profile` if
+no profile row exists' meaningful, so the app shell feature inherits a rule
+rather than redesigning it." It stays exactly correct as originally
+written; nothing here needs to change.
 
 **Now (feature 9):** land on `/profile` if the user has no profile row,
 `/` otherwise. A branch on data already read at sign-in — no first-time
@@ -142,6 +143,15 @@ respects the gate.
 **Scope risk to name in the spec:** the threshold turning into a completeness
 meter, a progress bar, or a multi-step wizard. The gate is a refusal with a
 reason, not an onboarding flow.
+
+**Deep link return path, owned here (spec 0007).** Spec 0007 names a
+related gap: a signed-out visitor who follows a protected link is bounced
+to sign-in and the original destination is discarded — "The protected
+layout discards what was asked for." Carrying that return path through
+sign-in is deferred to this feature. The one constraint on it is already
+settled by spec 0007, "so the validator is designed once," and is not open
+for re-deciding here: reject anything that is not a single leading slash
+path.
 
 ### 3. Mobile: no navigation machinery
 
@@ -212,6 +222,16 @@ results page the elevated object should be the result being reasoned about.
 - **`robots: { index: false, follow: false }`** is set at the root layout, so
   it currently applies to signed-in routes too. Probably right, but it was
   inherited rather than chosen for them. Worth a deliberate line.
+- **The entry page still invites a signed-in visitor to sign in.** Spec 0007
+  names it directly: "`/` still shows a sign in invitation to a signed in
+  visitor," deferred to this feature "because options that fix it require
+  `/` to read the session," which "contradicts spec 0006's accepted
+  security model" — the same "no session check, no Supabase client, no
+  Server Action, no user data of any kind" contract, and its AC-4, that
+  already settled the search route as `/search` in section 1. Spec 0007
+  defers this, it does not resolve it, and neither does this file:
+  genuinely unsolved, for `/architect` to work out, not a default to pick
+  here.
 
 **Resolved, not open — the search route.** `/search`, settled by spec 0006's
 Security model ("The page is public and reads nothing. No session check, no
