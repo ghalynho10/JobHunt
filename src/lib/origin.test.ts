@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 /** The production origin, stubbed so these tests do not depend on `.env.test`. */
-const CANONICAL = "https://usejobhunt.vercel.app";
+const CANONICAL = "https://usejobhunt.dev";
 
 /**
  * Re-imports the module against whatever the environment currently says.
