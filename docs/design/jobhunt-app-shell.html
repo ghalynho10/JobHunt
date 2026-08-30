@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="en">
+<head><script type="application/json" data-od-external-dependencies>["https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"]</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JobHunt · Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── JobHunt tokens ────────────────────────────────────────────────
+       User-provided design system. The teal/amber grammar is semantic
+       data encoding (matched / missing / score), not decoration.        */
+    :root {
+      --bg:        #FFFAFB;   /* page background */
+      --surface:   #FFFFFF;   /* elevated cards */
+      --fg:        #1A1A1A;   /* primary text */
+      --muted:     #6B717E;   /* quiet labels only */
+      --ink2:      #474A51;   /* heavier secondary: anything that must be read */
+      --border:    #EDE6E8;   /* hairline, elevated cards */
+      --border-strong: #D9D1D4; /* solid border, flat cards */
+
+      --teal:      #297373;   /* primary */
+      --teal-deep: #194646;   /* primary-deep: fills, primary actions */
+      --teal-light:#98DADA;   /* matched chip fills */
+      --amber:     #FCD581;   /* match score ONLY */
+
+      --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --font-body:    'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+      --fs-page: 28px;
+      --fs-name: 30px;
+      --fs-h:    20px;
+      --fs-body: 16px;
+      --fs-mid:  14px;
+      --fs-label:13px;
+      --fs-cap:  12px;
+
+      --gap-xs: 6px;
+      --gap-sm: 10px;
+      --gap-md: 16px;
+      --gap-lg: 24px;
+      --gap-xl: 40px;
+
+      --radius-card: 16px;
+      --radius-btn: 8px;
+      --col: 880px;
+      --gutter: 24px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: var(--fs-body);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; }
+    p { margin: 0; text-wrap: pretty; }
+    h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+    ul { margin: 0; padding: 0; list-style: none; }
+
+    :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+
+    .skip-link {
+      position: absolute; left: -9999px; top: -9999px;
+      background: var(--surface); color: var(--fg);
+      padding: 10px 16px; border: 2px solid var(--teal); border-radius: var(--radius-btn);
+      font-weight: 600; z-index: 100;
+    }
+    .skip-link:focus { position: fixed; left: 16px; top: 16px; }
+
+    /* ─── shell ─────────────────────────────────────────────────────── */
+    .topnav {
+      position: sticky; top: 0; z-index: 20;
+      background: color-mix(in oklch, var(--bg) 88%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topnav-inner {
+      max-width: var(--col); margin-inline: auto;
+      padding: 0 var(--gutter);
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between; gap: var(--gap-md);
+    }
+    .logo { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: -0.01em; color: var(--fg); }
+    .logo-mark { width: 26px; height: 26px; border-radius: 8px; background: var(--teal-deep); display: grid; place-items: center; color: var(--surface); flex: none; }
+    .logo-mark svg { width: 15px; height: 15px; }
+    .topnav-right { display: flex; align-items: center; gap: var(--gap-sm); }
+    /* nav links styled after the live entry page: 13px medium, teal-800,
+       underline on hover. The entry page has no active state (single page
+       anchors); this nav adds a quiet persistent underline for the page
+       the user is on. Sign out shares the same text-link style so the
+       header reads as one group. */
+    .nav { display: flex; align-items: center; gap: 6px; }
+    .nav a {
+      font-size: 13px; font-weight: 500; color: var(--teal-deep);
+      padding: 6px 2px; border-radius: var(--radius-btn);
+      text-underline-offset: 4px;
+      transition: color .15s ease;
+    }
+    .nav a:hover { color: color-mix(in oklch, var(--teal-deep) 86%, black); text-decoration: underline; }
+    .nav a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; }
+    /* sign out is styled like the other nav links (text only, teal-deep,
+       underline on hover) so the header reads as one consistent group. It
+       stays a <button> for semantics; the only difference from .nav a is
+       that it never gets the page active underline. */
+    .signout {
+      font: inherit; font-size: 13px; font-weight: 500; color: var(--teal-deep);
+      background: transparent; border: 0; border-radius: var(--radius-btn);
+      padding: 6px 2px; line-height: 1.4;
+      text-underline-offset: 4px; cursor: pointer;
+      transition: color .15s ease;
+    }
+    .signout:hover { color: color-mix(in oklch, var(--teal-deep) 86%, black); text-decoration: underline; }
+
+    main { min-height: calc(100vh - 60px); }
+    .container { max-width: var(--col); margin-inline: auto; padding: 0 var(--gutter); }
+
+    /* ─── screen header ─────────────────────────────────────────────── */
+    .screen-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--gap-md); padding: 34px 0 20px; flex-wrap: wrap; }
+    .screen-title { font-size: var(--fs-page); font-weight: 600; letter-spacing: -0.015em; }
+    .screen-sub { margin-top: 6px; font-size: var(--fs-mid); color: var(--ink2); }
+    .seg {
+      display: inline-flex; gap: 2px; padding: 3px;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-btn);
+    }
+    .seg button {
+      border: 0; background: transparent; padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap;
+    }
+    .seg button[aria-pressed="true"] { background: var(--teal-deep); color: var(--surface); }
+
+    /* ─── cards: two variants only ──────────────────────────────────── */
+    .job-card { border-radius: var(--radius-card); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .job-card.elevated {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 28px -14px color-mix(in oklch, var(--fg) 26%, transparent);
+    }
+    .job-card.flat { background: var(--bg); border: 1px solid var(--border-strong); }
+    .card { border-radius: var(--radius-card); padding: 22px; }
+    .card.elevated { background: var(--surface); border: 1px solid var(--border); box-shadow: 0 10px 28px -14px color-mix(in oklch, var(--fg) 26%, transparent); }
+    .card.flat { background: var(--bg); border: 1px solid var(--border-strong); }
+
+    .list { display: flex; flex-direction: column; gap: 14px; container-type: inline-size; }
+
+    /* ─── search bar ────────────────────────────────────────────────── */
+    .searchbar {
+      display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;
+      background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-card);
+      padding: 16px; margin-bottom: 18px;
+    }
+    .searchbar .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .searchbar label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink2); }
+    .searchbar .input { min-height: 44px; }
+    .searchbar .search-go { min-height: 44px; align-self: end; }
+    @media (max-width: 560px) {
+      .searchbar { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+    }
+
+    /* ─── spec measurement annotations (evidence for the spec) ──────── */
+    .measure {
+      background: var(--surface); border: 1px dashed var(--teal); border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 18px;
+      font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--ink2);
+    }
+    .measure-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .measure-actions { display: inline-flex; align-items: center; gap: 6px; }
+    .measure-actions .measure-x[aria-pressed="true"] { border-color: var(--teal); color: var(--teal-deep); background: color-mix(in oklch, var(--teal) 8%, transparent); }
+    .measure-title { font-family: var(--font-display); font-size: 12.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--teal-deep); }
+    .measure-x {
+      background: transparent; border: 1px solid var(--border-strong); border-radius: 6px;
+      color: var(--muted); font-size: 12px; line-height: 1; padding: 5px 10px; font-family: var(--font-mono);
+    }
+    .measure-x:hover { border-color: var(--teal); color: var(--teal-deep); }
+    .measure-body { margin-top: 8px; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 2px 16px; }
+    .measure-body dt { color: var(--muted); }
+    .measure-body dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+    .measure-body .warn { background: var(--amber); border-radius: 4px; padding: 0 5px; font-weight: 500; color: var(--fg); }
+    .measure-body .ok { color: var(--teal-deep); font-weight: 500; }
+    .measure-body .seg-list { display: block; }
+    .measure-body .seg-list b { color: var(--teal-deep); }
+    .measure-body .seg-list b.now { background: var(--amber); border-radius: 3px; padding: 0 4px; }
+    .measure-body .seg-list b.now::after { content: ' ← now'; color: var(--muted); font-weight: 400; }
+    .measure-hidden .measure-body { display: none; }
+    @media (max-width: 560px) {
+      .measure-body { grid-template-columns: 1fr; gap: 0 0; }
+      .measure-body dd { margin-bottom: 6px; }
+    }
+
+    /* split-flatten — probe helper that restores the old single mixed chip row */
+    .split-flatten .skill-groups { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .split-flatten .skill-group { display: contents; }
+    .split-flatten .skill-group-label { display: none; }
+
+    /* ─── profile entries (experience / education) ──────────────────── */
+    .entry-list { display: flex; flex-direction: column; gap: 12px; }
+    .entry { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .entry-main { min-width: 0; }
+    .entry-title { font-weight: 600; color: var(--fg); display: block; }
+    .entry-org { display: block; margin-top: 2px; font-size: 15px; color: var(--ink2); }
+    .entry-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+    .entry-meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .entry-edit-link {
+      font-size: 12px; font-weight: 600; color: var(--teal);
+      background: transparent; border: 0; padding: 2px 2px; line-height: 1;
+    }
+    .entry-edit-link:hover { text-decoration: underline; }
+    .entry-desc {
+      margin-top: 6px; font-size: 14px; line-height: 1.55; color: var(--ink2);
+      max-width: 64ch;
+    }
+    @media (max-width: 560px) { .entry { flex-wrap: wrap; gap: 2px 16px; } }
+
+    /* ─── job card head ─────────────────────────────────────────────── */
+    .job-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--gap-md); }
+    .job-company { font-size: 13.5px; font-weight: 500; color: var(--ink2); margin-top: 3px; }
+    .job-company .jm { font-weight: 400; color: var(--muted); }
+    .job-role { font-size: var(--fs-h); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; overflow-wrap: break-word; }
+    .job-meta { margin-top: 6px; font-family: var(--font-mono); font-size: var(--fs-cap); color: var(--ink2); }
+
+    /* score badge — amber reserved for this only */
+    .score-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: none; min-width: 46px; height: 38px; padding: 0 10px;
+      background: var(--amber); color: var(--fg);
+      border-radius: 10px; font-family: var(--font-mono); font-weight: 500; font-size: 16px;
+    }
+    .score-sm { min-width: 40px; height: 30px; font-size: 14px; border-radius: 8px; }
+
+    /* segmented match bar — like the entry page: spans the card's content
+       width, equal cells that flex to fill, 3px gaps, 8px tall, small
+       radius. Matched = solid primary fill; gaps = outlined with a
+       transparent fill (never a grey fill). The "n of n required skills
+       matched" fraction sits on its own line above, never on the bar's
+       line. */
+    .match-block { display: flex; flex-direction: column; gap: 6px; }
+    .match-frac { font-family: var(--font-mono); font-size: 12px; color: var(--ink2); }
+    .matchbar { display: flex; width: 100%; height: 8px; gap: 3px; }
+    .matchbar > span { flex: 1 1 0; min-width: 0; border-radius: 2px; }
+    .matchbar-matched { background: var(--teal); }
+    .matchbar-gap { background: transparent; border: 1px solid var(--muted); }
+    .matchbar-lg { height: 10px; }
+
+    /* ─── skills grammar ────────────────────────────────────────────── */
+    .skill-groups { display: flex; flex-direction: column; gap: 12px; }
+    .skill-group-label {
+      font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink2); margin-bottom: 8px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 11px; border-radius: 999px;
+      font-size: 12.5px; font-weight: 500; line-height: 1.2; white-space: nowrap;
+    }
+    .chip svg { width: 12px; height: 12px; flex: none; }
+    .chip-matched { background: var(--teal-light); color: var(--teal-deep); }
+    .chip-gap { background: transparent; border: 1px solid var(--teal); color: var(--ink2); }
+    .chip-sm { padding: 3px 9px; font-size: 12px; }
+
+    /* reasoning — the summary IS the reasoning. One short, concise statement
+       per card, held in the dashed "here is the machine's thinking" box.
+       Per-gap explanations live only in the detail view, never as a second
+       element on the card. */
+    .reason {
+      font-family: var(--font-mono); font-size: 12.5px; color: var(--teal-deep);
+      background: color-mix(in oklch, var(--teal) 6%, transparent);
+      border: 1px dashed color-mix(in oklch, var(--teal) 35%, transparent);
+      border-radius: 8px; padding: 10px 12px;
+    }
+
+    /* ─── card foot: action + attribution ───────────────────────────── */
+    .job-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-md); flex-wrap: wrap; }
+    .foot-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      border-radius: var(--radius-btn); font-weight: 500; line-height: 1;
+      transition: background .15s ease, border-color .15s ease, transform .05s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--teal-deep); color: var(--surface); border: 1px solid var(--teal-deep); padding: 11px 18px; font-size: 15px; }
+    .btn-primary:hover { background: color-mix(in oklch, var(--teal-deep) 88%, black); border-color: color-mix(in oklch, var(--teal-deep) 88%, black); }
+    .btn-secondary { background: transparent; color: var(--teal-deep); border: 1px solid var(--border-strong); padding: 9px 14px; font-size: 14px; }
+    .btn-secondary:hover { border-color: var(--teal); }
+    .btn-sm { padding: 8px 12px; font-size: 13px; }
+    .text-link { color: var(--teal); font-weight: 500; }
+    .text-link:hover { text-decoration: underline; }
+    .applied-note {
+      display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      font-size: 13px; font-weight: 500; color: var(--teal-deep);
+      background: var(--teal-light); border-radius: var(--radius-btn); padding: 8px 12px;
+    }
+    .applied-note svg { width: 13px; height: 13px; flex: none; }
+
+    /* Adzuna attribution — legal requirement, >= 116 x 23 */
+    .adzuna-lockup {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-width: 116px; min-height: 23px; padding: 0 2px;
+      font-size: var(--fs-cap); line-height: 1;
+    }
+    .adzuna-jobs { color: var(--muted); }
+    .adzuna-mark { font-weight: 600; letter-spacing: -0.02em; color: var(--ink2); display: inline-flex; align-items: center; }
+    .adzuna-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin-left: 2px; flex: none; }
+
+    /* ─── dense variant ─────────────────────────────────────────────── */
+    .dense { padding: 14px 16px; display: block; }
+    .dense-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .dense-main { flex: 1 1 auto; min-width: 0; }
+    .dense-main .job-role { font-size: 15.5px; margin-top: 0; }
+    .dense-main .job-company { font-size: 12.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dense-salary { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink2); flex: none; text-align: right; min-width: 88px; }
+    .dense-match { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+    .dense-match .matchbar { width: 56px; flex: none; }
+    .dense-frac { font-family: var(--font-mono); font-size: 12px; color: var(--ink2); }
+    .dense .chip-gap { flex: none; max-width: 150px; min-width: 0; }
+    .dense-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dense-more { color: var(--muted); }
+    .dense-details { flex: none; font-family: var(--font-display); font-weight: 500; color: var(--teal); font-size: 14px; white-space: nowrap; }
+    .dense-details:hover { text-decoration: underline; }
+    .dense .adzuna-lockup { flex: none; }
+    .dense:hover { border-color: var(--teal); }
+
+    /* dense collapse order — container-driven, so it follows the list's
+       own width (and probes measure correctly at any viewport). The Adzuna
+       lockup is never the thing that drops. */
+    @container (max-width: 820px) { .dense-frac { display: none; } }
+    @container (max-width: 680px) {
+      .dense-more { display: none; }
+      .dense .chip-gap { max-width: 130px; }
+    }
+    @container (max-width: 480px) {
+      .dense-row { flex-wrap: wrap; row-gap: 8px; }
+      .dense-main { order: 1; }
+      .dense-row .score-badge { order: 2; }
+      .dense-details { order: 3; }
+      .dense-salary { order: 4; }
+      .dense-match { order: 5; }
+      .dense .chip-gap { order: 6; max-width: 100%; }
+      .dense .adzuna-lockup { order: 7; margin-left: auto; }
+    }
+
+    /* ─── detail ────────────────────────────────────────────────────── */
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-label); font-weight: 500; color: var(--ink2); margin: 24px 0 14px; }
+    .back-link:hover { color: var(--teal-deep); }
+    .gap-list { display: flex; flex-direction: column; gap: 10px; }
+    .gap-item { display: flex; align-items: flex-start; gap: 10px; }
+    .gap-item .chip { flex: none; }
+    .gap-note { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 5px; }
+    .how { display: flex; flex-direction: column; gap: 12px; }
+    .how-title { font-size: var(--fs-h); font-weight: 600; }
+    .how-line { font-family: var(--font-mono); font-size: 13px; color: var(--ink2); background: color-mix(in oklch, var(--teal) 6%, transparent); border: 1px dashed color-mix(in oklch, var(--teal) 35%, transparent); border-radius: 8px; padding: 14px 16px; line-height: 1.6; }
+
+    /* ─── profile ───────────────────────────────────────────────────── */
+    .profile-head { display: flex; align-items: center; gap: var(--gap-md); padding: 34px 0 24px; }
+    .avatar { width: 68px; height: 68px; border-radius: 50%; background: var(--teal-light); color: var(--teal-deep); display: grid; place-items: center; font-size: 26px; font-weight: 600; flex: none; }
+    .profile-id { flex: 1; min-width: 0; }
+    .profile-name { font-size: var(--fs-name); font-weight: 600; letter-spacing: -0.015em; }
+    .profile-role { margin-top: 2px; font-size: 16px; font-weight: 500; color: var(--ink2); }
+    .profile-line { margin-top: 2px; font-size: var(--fs-mid); color: var(--ink2); }
+    .edit-btn {
+      font-size: 12.5px; font-weight: 600; color: var(--teal);
+      background: transparent; border: 0; padding: 8px 4px; text-decoration: none;
+    }
+    .edit-btn:hover { text-decoration: underline; }
+
+    .profile-body { display: flex; flex-direction: column; gap: var(--gap-md); padding-bottom: 72px; }
+    .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--gap-md); margin-bottom: 16px; }
+    .card-title { font-size: var(--fs-h); font-weight: 600; }
+
+    .kv { display: grid; grid-template-columns: 200px 1fr; gap: 8px 20px; }
+    .kv dt { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+    .kv dd { margin: 0; font-size: var(--fs-body); color: var(--fg); }
+    .kv > div { display: contents; }
+    .kv .kv-mono dd { font-family: var(--font-mono); font-size: 13.5px; color: var(--ink2); }
+    @media (max-width: 560px) { .kv { grid-template-columns: 1fr; gap: 2px 0; } .kv dt { margin-top: 10px; } }
+
+    .app-entry { display: flex; align-items: center; gap: var(--gap-md); }
+    .app-entry .app-entry-main { flex: 1; }
+    .app-entry .card-title { font-size: 17px; }
+    .app-entry .app-entry-sub { margin-top: 3px; font-size: 13px; color: var(--muted); }
+    .app-entry .app-entry-arrow { color: var(--teal); font-size: 18px; flex: none; font-weight: 500; }
+
+    /* edit form */
+    .edit-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .edit-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .edit-form .row2 { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: var(--fs-label); color: var(--ink2); font-weight: 500; }
+    .input {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-btn);
+      background: var(--surface); color: var(--fg); font: inherit; font-size: 14px;
+    }
+    .input:focus { border-color: var(--teal); }
+    textarea.input { min-height: 72px; resize: vertical; line-height: 1.5; }
+    .edit-actions { display: flex; gap: 10px; }
+
+    /* ─── applications ──────────────────────────────────────────────── */
+    .app-card { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-md); padding: 16px 20px; flex-wrap: wrap; }
+    .app-main { flex: 1; min-width: 0; }
+    .app-side { display: flex; align-items: center; gap: 12px; flex: none; }
+    .app-date { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+    .status-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--teal-deep); background: var(--teal-light); padding: 4px 10px; border-radius: 999px; }
+    .status-chip svg { width: 11px; height: 11px; }
+    .empty { text-align: center; padding: 56px 24px; }
+    .empty .empty-title { font-size: var(--fs-h); font-weight: 600; margin-bottom: 6px; }
+    .empty .empty-sub { font-size: var(--fs-mid); color: var(--muted); margin-bottom: 20px; }
+
+    /* ─── footer ────────────────────────────────────────────────────── */
+    .appfoot { border-top: 1px solid var(--border); padding: 20px 0; font-size: 12.5px; color: var(--muted); }
+    .appfoot-inner { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-md); flex-wrap: wrap; }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+    /* ─── narrow shell ──────────────────────────────────────────────── */
+    @media (max-width: 560px) {
+      .kv { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 400px) {
+      .topnav-inner { padding: 0 14px; height: 54px; gap: 8px; }
+      .logo { font-size: 14px; gap: 6px; }
+      .logo-mark { width: 20px; height: 20px; border-radius: 7px; }
+      .nav a { font-size: 12px; padding: 5px 2px; }
+      .signout { font-size: 12px; padding: 5px 2px; }
+      .container { padding: 0 14px; }
+      .job-card { padding: 16px; }
+    }
+
+    /* compact-nav — the same 400px rules, exposed as a class so the spec
+       measurement probe can measure the 320px configuration on any viewport */
+    .compact-nav { padding: 0 14px; height: 54px; gap: 8px; }
+    .compact-nav .logo { font-size: 14px; gap: 6px; }
+    .compact-nav .logo-mark { width: 20px; height: 20px; border-radius: 7px; }
+    .compact-nav .nav a { font-size: 12px; padding: 5px 2px; }
+    .compact-nav .signout { font-size: 12px; padding: 5px 2px; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+
+  <header class="topnav" data-od-id="topnav">
+    <div class="topnav-inner">
+      <a class="logo" href="#/search" data-od-id="nav-logo">
+        <span class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>
+        </span>
+        JobHunt
+      </a>
+      <div class="topnav-right">
+        <nav class="nav" aria-label="Primary">
+          <a href="#/search" data-nav="search" data-od-id="nav-search">Search</a>
+          <a href="#/profile" data-nav="profile" data-od-id="nav-profile">Profile</a>
+        </nav>
+        <button class="signout" type="button" data-od-id="nav-signout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <p class="sr-only" role="status" aria-live="polite" id="status-region"></p>
+
+  <main id="content" tabindex="-1"></main>
+
+  <footer class="appfoot" data-od-id="footer">
+    <div class="container appfoot-inner">
+      <span>JobHunt prototype · demo data for a spec, not live listings</span>
+      <span class="adzuna-lockup">
+        <a href="https://www.adzuna.com/jobs" target="_blank" rel="noopener" class="adzuna-jobs">Jobs by</a>
+        <a href="https://www.adzuna.com" target="_blank" rel="noopener" class="adzuna-mark" aria-label="Jobs by Adzuna">adzuna<span class="adzuna-dot" aria-hidden="true"></span></a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function store(key, val) {
+      try { localStorage.setItem('jobhunt-' + key, JSON.stringify(val)); } catch (e) {}
+    }
+    function load(key, fallback) {
+      try { var raw = localStorage.getItem('jobhunt-' + key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+    }
+
+    var state = {
+      applied: load('applied', {}),
+      profile: load('profile', null),
+      lastSearch: load('last-search', 'full')
+    };
+
+    var filters = { q: '', loc: '' };
+
+    if (!state.profile) {
+      state.profile = {
+        name: 'Jamie Park',
+        role: 'Product designer',
+        location: 'London',
+        years: '6 years experience',
+        matched: ['Figma', 'Prototyping', 'Design systems', 'User research'],
+        gaps: ['Service design', 'SQL', 'Motion design'],
+        salary: '$100k – $115k',
+        remote: 'Hybrid · 2 days onsite',
+        locations: 'London · open to Paris',
+        seniority: 'Senior (IC)',
+        experience: [
+          { role: 'Senior Product Designer', org: 'Northwind Labs', span: '2022 – now', desc: 'Owned the onboarding redesign (NPS +11) and built the internal design system that now covers 40% of product surfaces.' },
+          { role: 'Product Designer', org: 'Hatch Studio', span: '2019 – 2022' },
+          { role: 'UI Designer', org: 'Fieldnote & Co.', span: '2017 – 2019' }
+        ],
+        education: [
+          { role: 'BA Interaction Design', org: 'Central Saint Martins', span: '2013 – 2016' }
+        ]
+      };
+    }
+
+    var JOBS = [
+      { id: 'j1', company: 'Multiverse', role: 'Senior Product Designer',
+        loc: 'London', type: 'Full-time', score: 92, sal: [95000, 118000], date: 'Aug 24, 2026',
+        matched: ['Figma', 'Design systems', 'Prototyping', 'User research'],
+        gaps: [{ s: 'Mobile (iOS) patterns', n: 'mobile-first work so far, but no shipped iOS app end-to-end' }],
+        summary: 'matches 4/5 core skills · salary sits mid-range' },
+      { id: 'j2', company: 'Revolut', role: 'Product Designer, Growth',
+        loc: 'London', type: 'Full-time', score: 84, sal: [88000, 110000], date: 'Aug 26, 2026',
+        matched: ['Figma', 'A/B testing', 'Prototyping'],
+        gaps: [{ s: 'SQL', n: 'comfortable reading dashboards, never written queries against funnels' }, { s: 'Framer', n: 'used in three sprints — not enough to claim fluency' }],
+        summary: 'craft fits well · SQL gap is minor for the team' },
+      { id: 'j3', company: 'Deloitte Digital (Financial Services Practice)', role: 'Experience Designer — Workplace Transformation',
+        loc: 'London', type: 'Full-time', score: 71, sal: [100000, 130000], date: 'Aug 18, 2026',
+        matched: ['Design systems', 'Figma', 'Stakeholder interviews'],
+        gaps: [
+          { s: 'Service design', n: 'no client-engagement work in the current portfolio' },
+          { s: 'Financial Services domain', n: 'fintech adjacent, but never regulated banking' },
+          { s: 'Confluence', n: 'consulting documentation culture differs from product teams' },
+          { s: 'WCAG audits', n: 'have built accessible UI, never audited one' },
+          { s: 'Proposal writing', n: 'bid responses are a different genre of writing' },
+          { s: 'Vendor management', n: 'worked with vendors, never owned them' } ],
+        summary: '3/9 skills matched · 6 gaps weigh heavy for a senior seat' },
+      { id: 'j4', company: 'Stripe', role: 'Senior Product Designer, Merchant Onboarding & Payments Experience Platform',
+        loc: 'London', type: 'Remote', score: 76, sal: [110000, 140000], date: 'Aug 21, 2026',
+        matched: ['Design systems', 'Prototyping', 'Payments UX', 'Figma'],
+        gaps: [{ s: 'Stripe APIs', n: 'integrated payments as a user, never built on the platform' }, { s: 'Ruby on Rails', n: 'no backend code in three years' }],
+        summary: '4/6 matched · payments platform experience carries weight' },
+      { id: 'j5', company: 'Canva', role: 'Product Designer II, Templates',
+        loc: 'London', type: 'Hybrid', score: 64, sal: [85000, 104000], date: 'Aug 27, 2026',
+        matched: ['Figma', 'Prototyping'],
+        gaps: [{ s: 'React', n: 'read component code, cannot write it' }, { s: 'Motion design', n: 'only easing and transitions, no keyframes' }, { s: 'Illustration', n: 'template craft leans on illustration' }],
+        summary: '2/5 matched · motion + illustration are the visible gaps' },
+      { id: 'j6', company: 'Monzo Bank', role: 'UX Designer, Onboarding',
+        loc: 'London', type: 'Full-time', score: 58, sal: [78000, 96000], date: 'Aug 19, 2026',
+        matched: ['Figma', 'User research'],
+        gaps: [{ s: 'Service design', n: 'flow design, not end-to-end service maps' }, { s: 'Financial regulation', n: 'no familiarity with FCA disclosure rules' }, { s: 'Qualitative analysis', n: 'ran sessions, never coded transcripts' }],
+        summary: '2/5 matched · regulatory domain is the real barrier' },
+      { id: 'j7', company: 'Wayfair', role: 'UI Designer, Product Detail',
+        loc: 'London', type: 'Hybrid', score: 43, sal: [70000, 88000], date: 'Aug 15, 2026',
+        matched: ['Figma'],
+        gaps: [{ s: 'Prototyping', n: 'static specs only, no interactive prototypes recently' }, { s: 'Design systems', n: 'consume tokens, have not contributed them' }, { s: 'Usability testing', n: 'rely on QA feedback loops' }, { s: 'Information architecture', n: 'no taxonomy work on record' }],
+        summary: '1/5 matched · foundational overlap only, not senior' }
+    ];
+
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function currentJobs() {
+      var q = filters.q.trim().toLowerCase(), l = filters.loc.trim().toLowerCase();
+      return JOBS.filter(function (j) {
+        var okQ = !q || j.role.toLowerCase().indexOf(q) !== -1 || j.company.toLowerCase().indexOf(q) !== -1;
+        var okL = !l || (j.loc || '').toLowerCase().indexOf(l) !== -1;
+        return okQ && okL;
+      });
+    }
+
+    function fmtSal(s) { return '$' + (s[0] / 1000) + 'k–$' + (s[1] / 1000) + 'k'; }
+    function today() { return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    function checkIcon() { return '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6.5 4.5 9 10 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+    function dashIcon() { return '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="4.4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.4 2"/></svg>'; }
+    function chipMatched(s) { return '<span class="chip chip-matched">' + checkIcon() + s + '</span>'; }
+    function chipGap(s) { return '<span class="chip chip-gap">' + dashIcon() + s + '</span>'; }
+    function scoreBadge(j, sm) { return '<span class="score-badge' + (sm ? ' score-sm' : '') + '" aria-label="Match score ' + j.score + '">' + j.score + '</span>'; }
+    function adzunaLockup() {
+      return '<span class="adzuna-lockup">' +
+        '<a href="https://www.adzuna.com/jobs" target="_blank" rel="noopener" class="adzuna-jobs">Jobs by</a>' +
+        '<a href="https://www.adzuna.com" target="_blank" rel="noopener" class="adzuna-mark" aria-label="Jobs by Adzuna">adzuna<span class="adzuna-dot" aria-hidden="true"></span></a>' +
+        '</span>';
+    }
+    function appliedNote(j) {
+      return '<span class="applied-note" role="status">' + checkIcon() + 'Applied ' + (state.applied[j.id].date || today()) +
+        ' · <a class="text-link" href="#/applications">view applications</a></span>';
+    }
+    function applyBtn(j) { return '<button type="button" class="btn btn-secondary btn-sm" data-apply="' + j.id + '">Mark applied</button>'; }
+    function viewJobBtn(j) { return '<a class="btn btn-primary btn-sm" href="#/detail/' + j.id + '" data-od-id="view-job-' + j.id + '">View job</a>'; }
+
+    function matchbar(j, lg) {
+      var total = j.matched.length + j.gaps.length;
+      var cells = [];
+      j.matched.forEach(function () { cells.push('<span class="matchbar-matched"></span>'); });
+      j.gaps.forEach(function () { cells.push('<span class="matchbar-gap"></span>'); });
+      return '<div class="matchbar' + (lg ? ' matchbar-lg' : '') + '" role="img" aria-label="' + j.matched.length + ' of ' + total + ' skills matched">' +
+        cells.join('') + '</div>';
+    }
+    function matchFrac(j) {
+      var total = j.matched.length + j.gaps.length;
+      return '<p class="match-frac">' + j.matched.length + ' of ' + total + ' required skills matched</p>';
+    }
+    function matchBlock(j, lg) {
+      return '<div class="match-block">' + matchFrac(j) + matchbar(j, lg) + '</div>';
+    }
+    function reasonLine(text) {
+      return '<p class="reason">' + text + '</p>';
+    }
+
+    function searchBar() {
+      return '<form class="searchbar" role="search" data-searchform data-od-id="search-bar">' +
+        '<div class="field"><label for="in-q">Job title</label>' +
+          '<input class="input" id="in-q" name="q" type="text" value="' + esc(filters.q) + '" placeholder="e.g. product designer" autocomplete="off"></div>' +
+        '<div class="field"><label for="in-loc">Location</label>' +
+          '<input class="input" id="in-loc" name="loc" type="text" value="' + esc(filters.loc) + '" placeholder="e.g. London" autocomplete="off"></div>' +
+        '<button type="submit" class="btn btn-primary search-go" data-od-id="search-go">Search</button>' +
+      '</form>';
+    }
+
+    function emptyState() {
+      return '<div class="card flat empty" data-od-id="results-empty">' +
+        '<p class="empty-title">No results match your search</p>' +
+        '<p class="empty-sub">Try a broader job title or location.</p>' +
+        '<a class="btn btn-primary" href="#" data-clearsearch>Clear search</a>' +
+      '</div>';
+    }
+
+    function subLine(n) {
+      var filtered = filters.q || filters.loc;
+      var base = n + (n === 1 ? ' match' : ' matches') + ' · ' + (filters.loc ? esc(filters.loc) : 'London') + ' · within salary range';
+      if (filters.q) base = n + ' of ' + JOBS.length + ' results for “' + esc(filters.q) + '”';
+      return filtered ? (base + ' · <a class="text-link" href="#" data-clearsearch>clear</a>') : base;
+    }
+
+    /* ── Screen A: full-density results ────────────────────────────── */
+    function cardFull(j, i) {
+      var variant = i === 0 ? 'elevated' : 'flat';
+      return '<article class="job-card ' + variant + '" data-card="' + j.id + '" data-od-id="job-card-' + j.id + '">' +
+        '<div class="job-head">' +
+          '<div style="min-width:0">' +
+            '<h3 class="job-role">' + j.role + '</h3>' +
+            '<p class="job-company">' + j.company + '<span class="jm"> · ' + j.loc + ' · ' + j.type + ' · posted ' + j.date + '</span></p>' +
+            '<p class="job-meta">' + fmtSal(j.sal) + '</p>' +
+          '</div>' +
+          scoreBadge(j, false) +
+        '</div>' +
+        matchBlock(j, false) +
+        '<div class="skill-groups">' +
+          '<div class="skill-group">' +
+            '<p class="skill-group-label">Matched · ' + j.matched.length + '</p>' +
+            '<div class="chips">' + j.matched.map(chipMatched).join('') + '</div>' +
+          '</div>' +
+          '<div class="skill-group">' +
+            '<p class="skill-group-label">Missing · ' + j.gaps.length + '</p>' +
+            '<div class="chips">' + j.gaps.map(function (g) { return chipGap(g.s); }).join('') + '</div>' +
+          '</div>' +
+        '</div>' +
+        reasonLine(j.summary) +
+        '<div class="job-foot">' +
+          '<span class="foot-actions">' + viewJobBtn(j) + (state.applied[j.id] ? appliedNote(j) : applyBtn(j)) + '</span>' +
+          adzunaLockup() +
+        '</div>' +
+      '</article>';
+    }
+
+    function screenFull() {
+      var jobs = currentJobs();
+      var n = jobs.length;
+      return '<section data-od-id="screen-search-full" data-screen="full" aria-labelledby="results-title">' +
+        '<div class="container">' +
+          '<div class="screen-head">' +
+            '<div>' +
+              '<h1 class="screen-title" id="results-title">Product designer roles</h1>' +
+              '<p class="screen-sub">' + subLine(n) + '</p>' +
+            '</div>' +
+            '<div class="seg" role="group" aria-label="Result density">' +
+              '<button type="button" data-seg="full" aria-pressed="true">Full detail</button>' +
+              '<button type="button" data-seg="dense" aria-pressed="false">Compact</button>' +
+            '</div>' +
+          '</div>' +
+          searchBar() +
+          '<div data-measure-slot="full"></div>' +
+          (n ? '<div class="list">' + jobs.map(cardFull).join('') + '</div>' : emptyState()) +
+        '</div>' +
+      '</section>';
+    }
+
+    /* ── Screen B: dense results ───────────────────────────────────── */
+    function denseChip(j) {
+      var more = j.gaps.length - 1;
+      var g = j.gaps[0];
+      if (!g) return '';
+      return '<span class="chip chip-gap chip-sm" title="' + esc(g.s + ' — ' + g.n) + '">' + dashIcon() +
+        '<span class="dense-chip-name">' + g.s + '</span>' +
+        (more > 0 ? '<span class="dense-more"> +' + more + ' more</span>' : '') + '</span>';
+    }
+
+    function cardDense(j) {
+      var total = j.matched.length + j.gaps.length;
+      return '<article class="job-card dense flat" data-od-id="dense-card-' + j.id + '">' +
+        '<div class="dense-row">' +
+          scoreBadge(j, true) +
+          '<div class="dense-main">' +
+            '<h3 class="job-role">' + j.role + '</h3>' +
+            '<p class="job-company">' + j.company + ' · ' + j.loc + '</p>' +
+          '</div>' +
+          '<span class="dense-salary">' + fmtSal(j.sal) + '</span>' +
+          '<span class="dense-match">' + matchbar(j, false) + '<span class="dense-frac">' + j.matched.length + '/' + total + '</span></span>' +
+          denseChip(j) +
+          adzunaLockup() +
+          '<a class="dense-details" href="#/detail/' + j.id + '" data-od-id="dense-details-' + j.id + '">Details →</a>' +
+        '</div>' +
+      '</article>';
+    }
+
+    function screenDense() {
+      var jobs = currentJobs();
+      var n = jobs.length;
+      return '<section data-od-id="screen-search-dense" data-screen="dense" aria-labelledby="results-title">' +
+        '<div class="container">' +
+          '<div class="screen-head">' +
+            '<div>' +
+              '<h1 class="screen-title" id="results-title">Product designer roles</h1>' +
+              '<p class="screen-sub">' + subLine(n) + '</p>' +
+            '</div>' +
+            '<div class="seg" role="group" aria-label="Result density">' +
+              '<button type="button" data-seg="full" aria-pressed="false">Full detail</button>' +
+              '<button type="button" data-seg="dense" aria-pressed="true">Compact</button>' +
+            '</div>' +
+          '</div>' +
+          searchBar() +
+          '<div data-measure-slot="dense"></div>' +
+          (n ? '<div class="list">' + jobs.map(cardDense).join('') + '</div>' : emptyState()) +
+        '</div>' +
+      '</section>';
+    }
+
+    /* ── Detail view (reasoning lives here in dense flow) ───────────── */
+    function detailView(j) {
+      return '<section data-od-id="screen-detail-' + j.id + '">' +
+        '<div class="container">' +
+          '<a class="back-link" href="#/' + (state.lastSearch === 'dense' ? 'search-dense' : 'search') + '" data-od-id="detail-back">← Back to results</a>' +
+          '<article class="job-card elevated" data-card="' + j.id + '" data-od-id="job-card-detail-' + j.id + '">' +
+            '<div class="job-head">' +
+              '<div style="min-width:0">' +
+                '<h1 class="job-role" style="font-size:24px">' + j.role + '</h1>' +
+                '<p class="job-company">' + j.company + '<span class="jm"> · ' + j.loc + ' · ' + j.type + ' · posted ' + j.date + '</span></p>' +
+                '<p class="job-meta">' + fmtSal(j.sal) + '</p>' +
+              '</div>' +
+              scoreBadge(j, false) +
+            '</div>' +
+            matchBlock(j, true) +
+            '<div class="skill-groups">' +
+              '<div class="skill-group">' +
+                '<p class="skill-group-label">Matched · ' + j.matched.length + '</p>' +
+                '<div class="chips">' + j.matched.map(chipMatched).join('') + '</div>' +
+              '</div>' +
+              '<div class="skill-group">' +
+                '<p class="skill-group-label">Missing · ' + j.gaps.length + '</p>' +
+                '<div class="gap-list">' + j.gaps.map(function (g) {
+                  return '<div class="gap-item">' + chipGap(g.s) + '<div class="gap-note">' + g.n + '</div></div>';
+                }).join('') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="how">' +
+              '<h2 class="how-title">Why this score</h2>' +
+              '<p class="how-line">' + j.summary + '. ' + gapSentence(j) + '</p>' +
+            '</div>' +
+            '<div class="job-foot">' +
+              '<span class="foot-actions">' +
+                '<a class="btn btn-primary btn-sm" href="https://www.adzuna.com/jobs" target="_blank" rel="noopener" data-od-id="detail-external">View on Adzuna</a>' +
+                (state.applied[j.id] ? appliedNote(j) : applyBtn(j)) +
+              '</span>' +
+              adzunaLockup() +
+            '</div>' +
+          '</article>' +
+        '</div>' +
+      '</section>';
+    }
+
+    function gapSentence(j) {
+      if (!j.gaps.length) return 'No gaps flagged for this role.';
+      var top = j.gaps[0];
+      return 'Top gap to close before applying: ' + top.s + ' — ' + top.n + '.';
+    }
+
+    /* ── Profile (view-first, edit per section) ─────────────────────── */
+    function profileSkillsBody() {
+      var p = state.profile;
+      var note = p.gaps.length ? 'Next: close ' + p.gaps[0] + ' — the most common gap across your matches' : 'no gaps tracked yet';
+      return '<div data-editor-body="skills">' +
+        '<div class="skill-groups">' +
+          '<div class="skill-group">' +
+            '<p class="skill-group-label">Matched · ' + p.matched.length + '</p>' +
+            '<div class="chips">' + p.matched.map(chipMatched).join('') + '</div>' +
+          '</div>' +
+          '<div class="skill-group">' +
+            '<p class="skill-group-label">Missing · learning plan</p>' +
+            '<div class="chips">' + p.gaps.map(chipGap).join('') + '</div>' +
+          '</div>' +
+        '</div>' +
+        reasonLine(note) +
+      '</div>';
+    }
+
+    function entriesBody(key) {
+      var list = state.profile[key] || [];
+      return '<div data-editor-body="' + key + '">' +
+        '<ul class="entry-list">' + list.map(function (e, i) {
+          return '<li class="entry">' +
+            '<div class="entry-main">' +
+              '<span class="entry-title">' + esc(e.role) + '</span>' +
+              '<span class="entry-org">' + esc(e.org) + '</span>' +
+              (e.desc ? '<p class="entry-desc">' + esc(e.desc) + '</p>' : '') +
+            '</div>' +
+            '<div class="entry-side">' +
+              '<span class="entry-meta">' + esc(e.span) + '</span>' +
+              '<button type="button" class="entry-edit-link" data-edit-entry="' + key + ':' + i + '">Edit</button>' +
+            '</div>' +
+          '</li>';
+        }).join('') + '</ul>' +
+      '</div>';
+    }
+
+    function entryForm(key, idx) {
+      var list = state.profile[key] || [];
+      var e = (idx !== null && list[idx]) ? list[idx] : { role: '', org: '', span: '', desc: '' };
+      var isExp = key === 'experience';
+      var f = '<form class="edit-form" data-form="entry" data-entry-key="' + key + '"' + (idx !== null ? ' data-entry-idx="' + idx + '"' : '') + ' novalidate>' +
+        '<div class="row2">' +
+          '<div class="field"><label for="in-e-role">' + (isExp ? 'Role' : 'Qualification') + '</label>' +
+            '<input class="input" id="in-e-role" name="role" value="' + esc(e.role) + '"></div>' +
+          '<div class="field"><label for="in-e-org">' + (isExp ? 'Company' : 'Institution') + '</label>' +
+            '<input class="input" id="in-e-org" name="org" value="' + esc(e.org) + '"></div>' +
+        '</div>' +
+        '<div class="field"><label for="in-e-span">Dates</label>' +
+          '<input class="input" id="in-e-span" name="span" value="' + esc(e.span) + '"></div>';
+      if (isExp) {
+        f += '<div class="field"><label for="in-e-desc">What you did (optional)</label>' +
+          '<textarea class="input" id="in-e-desc" name="desc">' + esc(e.desc || '') + '</textarea></div>';
+      }
+      f += '<div class="edit-actions"><button type="submit" class="btn btn-primary btn-sm">Save</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-cancel="entry">Cancel</button></div>' +
+      '</form>';
+      return f;
+    }
+
+    function renderEntryEditor(key, idx) {
+      var target = document.querySelector('[data-editor-body="' + key + '"]');
+      if (target) target.innerHTML = entryForm(key, idx);
+    }
+
+    function saveEntryForm(form, key) {
+      var p = state.profile;
+      var list = p[key] || (p[key] = []);
+      var idxAttr = form.getAttribute('data-entry-idx');
+      var entry = {
+        role: form.role.value.trim() || 'Untitled',
+        org: form.org.value.trim(),
+        span: form.span.value.trim()
+      };
+      if (key === 'experience' && form.desc) entry.desc = form.desc.value.trim();
+      if (idxAttr !== null) list[parseInt(idxAttr, 10)] = entry;
+      else list.push(entry);
+      store('profile', p);
+    }
+
+    function profilePrefsBody() {
+      var p = state.profile;
+      return '<div data-editor-body="prefs">' +
+        '<dl class="kv">' +
+          '<div class="kv-mono"><dt>Target salary</dt><dd>' + p.salary + '</dd></div>' +
+          '<div class="kv-mono"><dt>Remote</dt><dd>' + p.remote + '</dd></div>' +
+          '<div><dt>Locations</dt><dd>' + p.locations + '</dd></div>' +
+          '<div><dt>Seniority</dt><dd>' + p.seniority + '</dd></div>' +
+        '</dl>' +
+      '</div>';
+    }
+
+    function sectionCard(id, title, sub, elevated, bodyHtml, editKey, addKey) {
+      var action = addKey
+        ? '<button type="button" class="edit-btn" data-add-entry="' + addKey + '">Add</button>'
+        : '<button type="button" class="edit-btn" data-edit="' + editKey + '">Edit</button>';
+      return '<section class="card ' + (elevated ? 'elevated' : 'flat') + '" data-od-id="' + id + '"' + (title ? ' aria-labelledby="' + id + '-title"' : '') + '>' +
+        '<div class="card-head">' +
+          '<div><h2 class="card-title" id="' + id + '-title">' + title + '</h2>' +
+          (sub ? '<p class="entry-sub" style="margin-top:3px">' + sub + '</p>' : '') + '</div>' +
+          action +
+        '</div>' +
+        bodyHtml +
+      '</section>';
+    }
+
+    function screenProfile() {
+      var p = state.profile;
+      var n = Object.keys(state.applied).length;
+      return '<section data-od-id="screen-profile">' +
+        '<div class="container">' +
+          '<div class="profile-head">' +
+            '<div class="avatar" aria-hidden="true">' + initials(p.name) + '</div>' +
+            '<div class="profile-id" data-editor-body="identity">' +
+              '<h1 class="profile-name">' + esc(p.name) + '</h1>' +
+              '<p class="profile-role">' + esc(p.role) + '</p>' +
+              '<p class="profile-line">' + esc(p.location) + ' · ' + esc(p.years) + '</p>' +
+            '</div>' +
+            '<button type="button" class="edit-btn" data-edit="identity">Edit</button>' +
+          '</div>' +
+          '<div class="profile-body">' +
+            sectionCard('profile-skills', 'Skills & learning', 'what drives every match score', true, profileSkillsBody(), 'skills', null) +
+            sectionCard('profile-experience', 'Experience', null, false, entriesBody('experience'), null, 'experience') +
+            sectionCard('profile-education', 'Education', null, false, entriesBody('education'), null, 'education') +
+            sectionCard('profile-prefs', 'Search preferences', 'used to rank every result', false, profilePrefsBody(), 'prefs', null) +
+            '<a class="card flat" href="#/applications" data-od-id="profile-applications-link">' +
+              '<div class="app-entry">' +
+                '<div class="app-entry-main">' +
+                  '<span class="card-title">Tracked applications</span>' +
+                  '<p class="app-entry-sub">' + n + (n === 1 ? ' role applied' : ' roles applied') + ' · mark a role applied from any result to add it here</p>' +
+                '</div>' +
+                '<span class="app-entry-arrow" aria-hidden="true">→</span>' +
+              '</div>' +
+            '</a>' +
+          '</div>' +
+          '<div data-measure-slot="profile"></div>' +
+        '</div>' +
+      '</section>';
+    }
+
+    function initials(name) {
+      return name.split(' ').map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    }
+
+    /* ── Applications ───────────────────────────────────────────────── */
+    function screenApplications() {
+      var ids = Object.keys(state.applied);
+      var rows;
+      if (!ids.length) {
+        rows = '<div class="card flat empty" data-od-id="applications-empty">' +
+          '<p class="empty-title">No applications tracked yet</p>' +
+          '<p class="empty-sub">Mark a role applied from any result to start your list.</p>' +
+          '<a class="btn btn-primary" href="#/search">Go to results</a>' +
+        '</div>';
+      } else {
+        rows = '<div class="list">' + ids.map(function (id) {
+          var j = JOBS.filter(function (x) { return x.id === id; })[0];
+          if (!j) return '';
+          return '<div class="app-card flat" data-od-id="app-card-' + id + '">' +
+            '<div class="app-main">' +
+              '<h3 class="job-role">' + j.role + '</h3>' +
+              '<p class="job-company">' + j.company + '</p>' +
+            '</div>' +
+            '<div class="app-side">' +
+              '<span class="status-chip">' + checkIcon() + 'Applied</span>' +
+              scoreBadge(j, true) +
+              '<span class="app-date">' + state.applied[id].date + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+      return '<section data-od-id="screen-applications">' +
+        '<div class="container">' +
+          '<div class="screen-head">' +
+            '<div>' +
+              '<h1 class="screen-title">Applications</h1>' +
+              '<p class="screen-sub">' + ids.length + (ids.length === 1 ? ' role' : ' roles') + ' tracked</p>' +
+            '</div>' +
+          '</div>' +
+          rows +
+        '</div>' +
+      '</section>';
+    }
+
+    /* ── editor forms ───────────────────────────────────────────────── */
+    function editForm(key) {
+      var p = state.profile;
+      if (key === 'identity') {
+        return '<form class="edit-form" data-form="identity" novalidate>' +
+          '<div class="row2">' +
+            '<div class="field"><label for="in-name">Name</label><input class="input" id="in-name" name="name" value="' + esc(p.name) + '"></div>' +
+            '<div class="field"><label for="in-role">Role</label><input class="input" id="in-role" name="role" value="' + esc(p.role) + '"></div>' +
+          '</div>' +
+          '<div class="row2">' +
+            '<div class="field"><label for="in-location">Location</label><input class="input" id="in-location" name="location" value="' + esc(p.location) + '"></div>' +
+            '<div class="field"><label for="in-years">Experience</label><input class="input" id="in-years" name="years" value="' + esc(p.years) + '"></div>' +
+          '</div>' +
+          '<div class="edit-actions"><button type="submit" class="btn btn-primary btn-sm">Save</button>' +
+          '<button type="button" class="btn btn-secondary btn-sm" data-cancel="identity">Cancel</button></div>' +
+        '</form>';
+      }
+      if (key === 'skills') {
+        return '<form class="edit-form" data-form="skills" novalidate>' +
+          '<div class="field"><label for="in-matched">Matched skills (comma separated)</label>' +
+          '<textarea class="input" id="in-matched" name="matched">' + esc(p.matched.join(', ')) + '</textarea></div>' +
+          '<div class="field"><label for="in-gaps">Missing · learning plan (comma separated)</label>' +
+          '<textarea class="input" id="in-gaps" name="gaps">' + esc(p.gaps.join(', ')) + '</textarea></div>' +
+          '<div class="edit-actions"><button type="submit" class="btn btn-primary btn-sm">Save</button>' +
+          '<button type="button" class="btn btn-secondary btn-sm" data-cancel="skills">Cancel</button></div>' +
+        '</form>';
+      }
+      return '<form class="edit-form" data-form="prefs" novalidate>' +
+        '<div class="field"><label for="in-salary">Target salary</label><input class="input" id="in-salary" name="salary" value="' + esc(p.salary) + '"></div>' +
+        '<div class="field"><label for="in-remote">Remote</label><input class="input" id="in-remote" name="remote" value="' + esc(p.remote) + '"></div>' +
+        '<div class="row2">' +
+          '<div class="field"><label for="in-locations">Locations</label><input class="input" id="in-locations" name="locations" value="' + esc(p.locations) + '"></div>' +
+          '<div class="field"><label for="in-seniority">Seniority</label><input class="input" id="in-seniority" name="seniority" value="' + esc(p.seniority) + '"></div>' +
+        '</div>' +
+        '<div class="edit-actions"><button type="submit" class="btn btn-primary btn-sm">Save</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-cancel="prefs">Cancel</button></div>' +
+      '</form>';
+    }
+
+    function renderProfileEditor(key) {
+      var target = document.querySelector('[data-editor-body="' + key + '"]');
+      if (target) target.innerHTML = editForm(key);
+    }
+
+    function saveProfileForm(form, key) {
+      var p = state.profile;
+      if (key === 'identity') {
+        p.name = form.name.value || p.name;
+        p.role = form.role.value || p.role;
+        p.location = form.location.value || p.location;
+        p.years = form.years.value || p.years;
+      }
+      else if (key === 'skills') {
+        p.matched = form.matched.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        p.gaps = form.gaps.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+      else {
+        p.salary = form.salary.value || p.salary;
+        p.remote = form.remote.value || p.remote;
+        p.locations = form.locations.value || p.locations;
+        p.seniority = form.seniority.value || p.seniority;
+      }
+      store('profile', p);
+    }
+
+    /* ── router ─────────────────────────────────────────────────────── */
+    function route() {
+      var h = location.hash.replace(/^#/, '');
+      var parts = h.split('/').filter(Boolean);
+      if (!parts.length) return { name: 'search' };
+      if (parts[0] === 'search-dense') return { name: 'search-dense' };
+      if (parts[0] === 'detail' && parts[1]) return { name: 'detail', id: parts[1] };
+      if (parts[0] === 'search') return { name: 'search' };
+      return { name: parts[0] };
+    }
+
+    var titles = { search: 'JobHunt · Search', 'search-dense': 'JobHunt · Search', profile: 'JobHunt · Profile', applications: 'JobHunt · Applications', detail: 'JobHunt · Role detail' };
+
+    function render() {
+      var r = route();
+      var main = document.getElementById('content');
+      var html = '';
+      var title = titles[r.name] || 'JobHunt';
+
+      if (r.name === 'search') {
+        html = screenFull(); state.lastSearch = 'full';
+      } else if (r.name === 'search-dense') {
+        html = screenDense(); state.lastSearch = 'dense';
+      } else if (r.name === 'detail') {
+        var j = JOBS.filter(function (x) { return x.id === r.id; })[0];
+        html = j ? detailView(j) : screenFull();
+        title = j ? ('JobHunt · ' + j.role) : titles.search;
+      } else if (r.name === 'profile') {
+        html = screenProfile();
+      } else if (r.name === 'applications') {
+        html = screenApplications();
+      } else {
+        html = screenFull();
+      }
+
+      main.innerHTML = html;
+      document.title = title;
+      store('last-search', state.lastSearch);
+
+      var navs = document.querySelectorAll('.nav a');
+      navs.forEach(function (a) {
+        var active = (a.getAttribute('data-nav') === 'search' && (r.name === 'search' || r.name === 'search-dense' || r.name === 'detail')) ||
+                     (a.getAttribute('data-nav') === 'profile' && r.name === 'profile');
+        if (active) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
+
+      scheduleMeasures();
+    }
+
+    /* ── spec measurements (computed from the rendered DOM) ─────────── */
+    function probeH(buildFn, width) {
+      var wrap = document.createElement('div');
+      wrap.setAttribute('aria-hidden', 'true');
+      wrap.style.cssText = 'position:fixed;left:-10000px;top:0;overflow:hidden;pointer-events:none;';
+      wrap.style.width = (width || 0) + 'px';
+      wrap.style.containerType = 'inline-size';
+      var el = buildFn();
+      if (!el) return 0;
+      el.style.cssText = 'margin:0;width:100%;box-sizing:border-box;';
+      wrap.appendChild(el);
+      document.body.appendChild(wrap);
+      var h = el.offsetHeight;
+      wrap.remove();
+      return h;
+    }
+
+    function innerColW(vp) {
+      if (vp >= 880) return 880 - 48;
+      return vp - (vp <= 400 ? 28 : 48);
+    }
+
+    function cardAt(screenKey, vp) {
+      var first = document.querySelector('[data-screen="' + screenKey + '"] .job-card');
+      if (!first) return 0;
+      return probeH(function () { var c = first.cloneNode(true); c.classList.remove('elevated', 'flat'); return c; }, innerColW(vp));
+    }
+
+    /* three states of the full card: (1) single mixed chip row — the
+       original build, restored via split-flatten; (2) labelled Matched /
+       Missing groups; (3) the reasoning box removed — isolates its cost.
+       The per-gap note list is no longer on the card: summary = reasoning,
+       one short statement in the box, per-gap detail lives in the detail view. */
+    function fullCardStatesAt(w) {
+      return probeH(function () {
+        var d = document.createElement('div');
+        d.innerHTML = cardFull(JOBS[0], 0);
+        var el = d.firstElementChild;
+        el.classList.remove('elevated', 'flat');
+        el.classList.add('split-flatten');
+        return el;
+      }, w);
+    }
+    function fullCardSplitAt(w) {
+      return probeH(function () {
+        var d = document.createElement('div');
+        d.innerHTML = cardFull(JOBS[0], 0);
+        var el = d.firstElementChild;
+        el.classList.remove('elevated', 'flat');
+        return el;
+      }, w);
+    }
+    function fullCardNoReasonAt(w) {
+      return probeH(function () {
+        var d = document.createElement('div');
+        d.innerHTML = cardFull(JOBS[0], 0);
+        var el = d.firstElementChild;
+        el.classList.remove('elevated', 'flat');
+        var box = el.querySelector('.reason');
+        if (box) box.remove();
+        return el;
+      }, w);
+    }
+
+    function splitCostAt(screenKey, vp) {
+      var first = document.querySelector('[data-screen="' + screenKey + '"] .job-card');
+      if (!first) return { split: 0, stacked: 0, cost: 0, pct: '0' };
+      var w = innerColW(vp);
+      var split = probeH(function () { var c = first.cloneNode(true); c.classList.add('split-flatten'); c.classList.remove('elevated', 'flat'); return c; }, w);
+      var stacked = probeH(function () { var c = first.cloneNode(true); c.classList.remove('elevated', 'flat'); return c; }, w);
+      var cost = Math.max(0, stacked - split);
+      return { split: split, stacked: stacked, cost: cost, pct: (split ? Math.round(cost / split * 100) : 0) };
+    }
+
+    function fullCardAt(w) {
+      return probeH(function () { var d = document.createElement('div'); d.innerHTML = cardFull(JOBS[0], 0); return d.firstElementChild; }, w);
+    }
+
+    function compactHeader() {
+      var inner = document.querySelector('.topnav-inner');
+      if (!inner) return null;
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;left:-10000px;top:0;width:320px;overflow:hidden;pointer-events:none;';
+      var c = inner.cloneNode(true);
+      c.classList.add('compact-nav');
+      c.style.width = '320px';
+      c.style.maxWidth = 'none';
+      wrap.appendChild(c);
+      document.body.appendChild(wrap);
+      var logo = c.querySelector('.logo'), nav = c.querySelector('.nav'), so = c.querySelector('.signout'), right = c.querySelector('.topnav-right');
+      var m = {
+        logoW: logo ? logo.offsetWidth : 0,
+        navW: nav ? nav.offsetWidth : 0,
+        soW: so ? so.offsetWidth : 0,
+        rightW: right ? right.offsetWidth : 0,
+        tapH: (nav && nav.querySelector('a')) ? nav.querySelector('a').offsetHeight : 0
+      };
+      wrap.remove();
+      return m;
+    }
+
+    function row(k, v, cls) { return '<dt>' + k + '</dt><dd class="' + (cls || '') + '">' + v + '</dd>'; }
+
+    function liveAbove() {
+      var vh = window.innerHeight;
+      var hdr = document.querySelector('.topnav-inner') ? document.querySelector('.topnav-inner').offsetHeight : 0;
+      var cards = Array.prototype.slice.call(document.querySelectorAll('.job-card'));
+      var edge = cards.filter(function (c) { return c.getBoundingClientRect().top < vh; }).length;
+      var fully = cards.filter(function (c) { var r = c.getBoundingClientRect(); return r.top >= hdr && r.bottom <= vh; }).length;
+      return { edge: edge, fully: fully, n: cards.length };
+    }
+
+    function aboveRows(prefix) {
+      var out = [];
+      out.push([prefix + 'above fold · live DOM', 'measuring…']);
+      out.push([prefix + 'above fold · with this panel hidden', 'measuring…']);
+      return out;
+    }
+
+    /* above-fold must be measured after the panel body is rendered, so the
+       numbers reflect the page as the user sees it (panel included). */
+    function patchAboveFold() {
+      var dds = Array.prototype.slice.call(document.querySelectorAll('[data-measure-body] dd'));
+      var a = liveAbove();
+      var panel = document.querySelector('.measure');
+      var panelH = panel ? panel.offsetHeight : 0;
+      var b = null;
+      if (panel) {
+        panel.style.display = 'none';
+        b = liveAbove();
+        panel.style.display = '';
+      }
+      dds.forEach(function (dd) {
+        var label = dd.previousElementSibling ? dd.previousElementSibling.textContent : '';
+        if (label.indexOf('above fold · live DOM') === 0) {
+          dd.textContent = a.edge + ' of ' + a.n + ' cards start above the fold · ' + a.fully + ' fully visible';
+          dd.className = a.edge >= 1 ? 'ok' : 'warn';
+        } else if (label.indexOf('above fold · with this panel hidden') === 0 && b) {
+          dd.textContent = b.edge + ' of ' + b.n + ' · (the annotation panel itself sits ' + panelH + 'px tall)';
+          dd.className = b.edge >= 1 ? 'ok' : 'warn';
+        }
+      });
+    }
+
+    function measurePanelHTML(key) {
+      var label = key === 'full' ? 'Full-density list' : key === 'dense' ? 'Compact list' : 'Profile';
+      var collapsed = window.innerWidth <= 560;
+      return '<div class="measure' + (collapsed ? ' measure-hidden' : '') + '" data-od-id="measure-' + key + '">' +
+        '<div class="measure-head"><span class="measure-title">Spec · measurements — ' + label + '</span>' +
+        '<span class="measure-actions">' +
+        '<button type="button" class="measure-x" data-measure-toggle aria-label="Toggle spec measurements">' + (collapsed ? 'show' : 'hide') + '</button></span></div>' +
+        '<dl class="measure-body" data-measure-body="' + key + '"></dl>' +
+      '</div>';
+    }
+
+    function fillMeasure(key) {
+      var body = document.querySelector('[data-measure-body="' + key + '"]');
+      if (!body) return;
+      var rows = [];
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var liveScrollW = document.documentElement.scrollWidth;
+      var liveOK = liveScrollW <= vw;
+
+      if (key === 'full') {
+        var first = document.querySelector('[data-screen="full"] .job-card');
+        var n = currentJobs().length;
+        var cardHlive = first ? first.offsetHeight : 0;
+        var cardWlive = first ? first.offsetWidth : 0;
+        var w1440 = innerColW(1440);
+        var w320 = innerColW(320);
+        var s1 = fullCardStatesAt(w1440);
+        var s1b = fullCardStatesAt(w320);
+        var s2 = fullCardSplitAt(w1440);
+        var s2b = fullCardSplitAt(w320);
+        var s3 = fullCardNoReasonAt(w1440);
+        var s3b = fullCardNoReasonAt(w320);
+
+        rows.push(['viewport', vw + '×' + vh]);
+        rows.push(['full card height', cardHlive + 'px · measured at ' + cardWlive + 'px wide']);
+        rows.push(['card @ 1440 column (832px)', s2 + 'px']);
+        rows.push(['card @ 320 column (292px)', s2b + 'px']);
+        rows.push(['3 states @1440 · mixed row → split → −reason box', s1 + 'px → ' + s2 + 'px → ' + s3 + 'px (split +' + (s2 - s1) + 'px, reason box +' + (s2 - s3) + 'px)']);
+        rows.push(['3 states @320 · mixed row → split → −reason box', s1b + 'px → ' + s2b + 'px → ' + s3b + 'px (split +' + (s2b - s1b) + 'px, reason box +' + (s2b - s3b) + 'px)']);
+        rows.push(['reasoning box cost @1440', '+' + (s2 - s3) + 'px (+' + (s3 ? Math.round((s2 - s3) / s3 * 100) : 0) + '%) — summary IS the reasoning', 'ok']);
+        rows.push(['reasoning box cost @320', '+' + (s2b - s3b) + 'px (+' + (s3b ? Math.round((s2b - s3b) / s3b * 100) : 0) + '%)', 'ok']);
+        rows = rows.concat(aboveRows(''));
+
+        /* header at live viewport — measured */
+        var inner = document.querySelector('.topnav-inner');
+        var cs = getComputedStyle(inner);
+        var pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+        var usableW = vw - pad;
+        var logoW = document.querySelector('.logo').offsetWidth;
+        var rightW = document.querySelector('.topnav-right').offsetWidth;
+        var navW = document.querySelector('.nav').offsetWidth;
+        var soW = document.querySelector('.signout').offsetWidth;
+        var tapH = document.querySelector('.nav a').offsetHeight;
+        var slack = usableW - logoW - rightW;
+        rows.push(['header · usable width', usableW + 'px (' + vw + ' − ' + pad + 'px padding)']);
+        rows.push(['header · logo width', logoW + 'px']);
+        rows.push(['header · nav + sign out', rightW + 'px (nav ' + navW + 'px + signout ' + soW + 'px)']);
+        rows.push(['header · slack', slack + 'px', slack < 0 ? 'warn' : 'ok']);
+        rows.push(['header · tap target height', tapH + 'px · AA floor 24px, comfort 44px', tapH >= 24 ? 'ok' : 'warn']);
+        rows.push(['header · horizontal overflow', liveOK ? 'none ✓' : 'OVERFLOW ✗ (scrollWidth ' + liveScrollW + 'px)', liveOK ? 'ok' : 'warn']);
+
+        var ch = compactHeader();
+        if (ch) {
+          var total320 = ch.logoW + ch.rightW;
+          var slack320 = 292 - total320;
+          rows.push(['header @320px · logo + nav/signout (probe)', ch.logoW + 'px + ' + ch.rightW + 'px = ' + total320 + 'px → slack ' + slack320 + 'px', slack320 >= 0 ? 'ok' : 'warn']);
+          rows.push(['header @320px · tap target (probe)', ch.tapH + 'px · AA floor 24px, comfort 44px', ch.tapH >= 24 ? 'ok' : 'warn']);
+        }
+      } else if (key === 'dense') {
+        var firstD = document.querySelector('[data-screen="dense"] .job-card');
+        var nd = currentJobs().length;
+        var dHlive = firstD ? firstD.offsetHeight : 0;
+        var dh1440 = cardAt('dense', 1440);
+        var dh320 = cardAt('dense', 320);
+        var fullRef = fullCardAt(innerColW(1440));
+        var saved = fullRef - dh1440;
+
+        rows.push(['viewport', vw + '×' + vh]);
+        rows.push(['dense row height', dHlive + 'px']);
+        rows.push(['dense @ 1440 column', dh1440 + 'px']);
+        rows.push(['dense @ 320 column', dh320 + 'px']);
+        rows.push(['full card @ 1440 (reference)', fullRef + 'px']);
+        rows.push(['height saved by dense', saved + 'px (−' + Math.round(saved / fullRef * 100) + '%)']);
+        rows = rows.concat(aboveRows(''));
+
+        var stage = vw >= 821 ? 0 : vw >= 681 ? 1 : vw >= 481 ? 2 : 3;
+        var stageName = ['0', '1', '2', '3'];
+        function stB(i) { return '<b' + (i === stage ? ' class="now"' : '') + '>' + stageName[i] + '</b>'; }
+        rows.push(['collapse stage now', 'Stage ' + stage + ' · at ' + vw + 'px', stage === 0 ? 'ok' : 'warn']);
+        rows.push(['collapse order',
+          '<span class="seg-list">' +
+          stB(0) + ' ≥821px — full row: score, role/company, salary, bar+fraction, gap chip, lockup, Details.<br>' +
+          stB(1) + ' 681–820px — match-bar fraction text drops (bar stays).<br>' +
+          stB(2) + ' 481–680px — gap chip “+N more” drops; chip caps at 130px.<br>' +
+          stB(3) + ' &lt;481px — row restacks to three lines; salary/bar/chip wrap. Lockup is never the drop.</span>']);
+
+        var matchedTotal = JOBS.reduce(function (a, j) { return a + j.matched.length; }, 0);
+        var gapTotal = JOBS.reduce(function (a, j) { return a + j.gaps.length; }, 0);
+        var moved = matchedTotal + (gapTotal - JOBS.length) + JOBS.length;
+        rows.push(['what leaves the list', moved + ' pieces of evidence move to #/detail/{id}: ' + matchedTotal + ' matched chips, ' + (gapTotal - JOBS.length) + ' non-top gap chips (Deloitte: 5), ' + JOBS.length + ' reasoning lines (the summary box). Per-gap notes never leave — they live only in the detail view. The row keeps score, matched count, top gap chip, salary.']);
+
+        var lk = document.querySelector('[data-screen="dense"] .adzuna-lockup');
+        rows.push(['adzuna lockup', 'present ✓ · ' + (lk ? lk.offsetWidth + '×' + lk.offsetHeight : '?') + 'px · never dropped', 'ok']);
+      } else {
+        /* Experience description cost — one entry populated, others absent.
+           Measured as the section's real height minus the height of the same
+           section with every .entry-desc removed (probe). */
+        var expSec = document.querySelector('[data-od-id="profile-experience"]');
+        var expH = expSec ? expSec.offsetHeight : 0;
+        var noDescH = expSec ? probeH(function () {
+          var c = expSec.cloneNode(true);
+          c.querySelectorAll('.entry-desc').forEach(function (el) { el.remove(); });
+          c.classList.remove('elevated', 'flat');
+          return c;
+        }, innerColW(vw)) : 0;
+        var descCost = Math.max(0, expH - noDescH);
+
+        var eduSec = document.querySelector('[data-od-id="profile-education"]');
+        var eduH = eduSec ? eduSec.offsetHeight : 0;
+
+        var skSec = document.querySelector('[data-od-id="profile-skills"]');
+        var skH = skSec ? skSec.offsetHeight : 0;
+
+        rows.push(['viewport', vw + '×' + vh]);
+        rows.push(['identity header', 'avatar 68px + name/role/line · identity lives here, not in a card']);
+        rows.push(['Skills & learning (elevated card)', skH + 'px']);
+        rows.push(['Experience section', expH + 'px · 1 of 3 entries has a description']);
+        rows.push(['Experience · description cost', descCost + 'px over the no-desc version' + (noDescH ? ' (' + Math.round(descCost / noDescH * 100) + '%)' : ''), descCost >= 0 ? 'ok' : 'warn']);
+        rows.push(['Education section', eduH + 'px · per-entry Edit + Add, mono dates']);
+        rows.push(['Education · entries', (state.profile.education || []).length + ' entry(ies) · one flat peer card']);
+      }
+
+      body.innerHTML = rows.map(function (r) { return row(r[0], r[1], r[2] || ''); }).join('');
+      patchAboveFold();
+    }
+
+    function scheduleMeasures() {
+      var r = route();
+      var run = function () {
+        if (r.name === 'search' || r.name === 'search-dense' || r.name === 'profile') {
+          var key = r.name === 'search' ? 'full' : r.name === 'search-dense' ? 'dense' : 'profile';
+          var slot = document.querySelector('[data-measure-slot="' + key + '"]');
+          if (slot) {
+            slot.innerHTML = measurePanelHTML(key);
+            fillMeasure(key);
+          }
+        }
+      };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(run);
+        setTimeout(run, 1500);
+      } else setTimeout(run, 60);
+    }
+
+    /* ── events ─────────────────────────────────────────────────────── */
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-apply]');
+      if (t) {
+        var id = t.getAttribute('data-apply');
+        state.applied[id] = { date: today() };
+        store('applied', state.applied);
+        var job = JOBS.filter(function (x) { return x.id === id; })[0];
+        var actions = t.closest('.foot-actions');
+        if (actions && job) { actions.innerHTML = appliedNote(job); }
+        var status = document.getElementById('status-region');
+        if (status) status.textContent = 'Marked applied — added to your applications.';
+        return;
+      }
+
+      var cs = e.target.closest('[data-clearsearch]');
+      if (cs) {
+        e.preventDefault();
+        filters.q = '';
+        filters.loc = '';
+        render();
+        return;
+      }
+
+      var seg = e.target.closest('[data-seg]');
+      if (seg) {
+        var dense = seg.getAttribute('data-seg') === 'dense';
+        location.hash = dense ? '#/search-dense' : '#/search';
+        return;
+      }
+
+      var edit = e.target.closest('[data-edit]');
+      if (edit) { renderProfileEditor(edit.getAttribute('data-edit')); return; }
+
+      var editEntry = e.target.closest('[data-edit-entry]');
+      if (editEntry) {
+        var kv = editEntry.getAttribute('data-edit-entry').split(':');
+        renderEntryEditor(kv[0], parseInt(kv[1], 10));
+        return;
+      }
+
+      var addEntry = e.target.closest('[data-add-entry]');
+      if (addEntry) { renderEntryEditor(addEntry.getAttribute('data-add-entry'), null); return; }
+
+      var cancel = e.target.closest('[data-cancel]');
+      if (cancel) { render(); return; }
+
+      var mt = e.target.closest('[data-measure-toggle]');
+      if (mt) {
+        var panel = mt.closest('.measure');
+        if (panel) {
+          var hidden = panel.classList.toggle('measure-hidden');
+          mt.textContent = hidden ? 'show' : 'hide';
+        }
+        return;
+      }
+
+      var signout = e.target.closest('[data-od-id="nav-signout"]');
+      if (signout) {
+        var st = document.getElementById('status-region');
+        if (st) st.textContent = 'Signed out — demo build, no session to end.';
+      }
+    });
+
+    document.addEventListener('submit', function (e) {
+      var form = e.target.closest('[data-form]');
+      if (form) {
+        e.preventDefault();
+        var fkey = form.getAttribute('data-form');
+        if (fkey === 'entry') saveEntryForm(form, form.getAttribute('data-entry-key'));
+        else saveProfileForm(form, fkey);
+        render();
+        var status = document.getElementById('status-region');
+        if (status) status.textContent = 'Profile updated.';
+        return;
+      }
+
+      var sf = e.target.closest('[data-searchform]');
+      if (sf) {
+        e.preventDefault();
+        filters.q = sf.q.value;
+        filters.loc = sf.loc.value;
+        render();
+      }
+    });
+
+    window.addEventListener('hashchange', render);
+
+    if (!location.hash) location.replace('#/search');
+    render();
+  })();
+  </script>
+</body>
+</html>
