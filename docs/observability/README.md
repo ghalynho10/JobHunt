@@ -61,9 +61,24 @@ the gaps between them are the point of this section.
 
 ### Uptime monitoring
 
-UptimeRobot, one monitor on `https://usejobhunt.dev`, the production
-origin. It watches the marketing page rather than a status route, because a
-route that only reports on itself proves less than the page a visitor loads.
+UptimeRobot, **two** monitors at a 5 minute interval, both confirmed Up with
+real check results on 2026-08-30.
+
+1. `https://usejobhunt.dev`, the production origin. It watches the marketing
+   page rather than a status route, because a route that only reports on itself
+   proves less than the page a visitor loads.
+2. `https://usejobhunt.vercel.app`, the old host, added when the domain moved.
+   It exists to catch the 308 redirect breaking, because spec 0007 AC-4 leans on
+   that redirect: if the old host ever served the application again, a sign in
+   started there would write the PKCE code verifier on a hostname the callback
+   never returns to, and sign in would fail at the exchange.
+
+**Known limitation on the second monitor, recorded rather than assumed fixed.**
+As configured it reports Up whether that host redirects or serves the
+application, so it cannot detect the one thing it was added for. The fix is to
+invert its expected status codes, so `200` counts as down and `3xx` as up. Until
+that is applied, the redirect is proved only by the manual `curl` step in spec
+0007's `verify.md`, not by the monitor.
 
 Production is public, so the monitor measures the application. That holds only
 while deployment protection stays at standard, which leaves the generated
