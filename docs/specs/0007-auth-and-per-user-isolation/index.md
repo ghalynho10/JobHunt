@@ -25,7 +25,7 @@ This spec builds the real sign in: OAuth through Google and GitHub, on Supabase 
 - **AC-4**: `redirectTo` is built from `currentOrigin()` and never from `canonicalSiteUrl`. The PKCE code verifier is a **host only** cookie written on whichever host served the action, so sign in only completes when it is started on the host `currentOrigin()` will return to. Two hostnames can break that, and they are handled differently on purpose:
   - **Preview**: `currentOrigin()` returns the **branch** URL, so sign in must be started there. Starting it on a per commit preview URL fails at the exchange with `exchange_failed`. Documented expected behaviour, not a misconfiguration.
   - **Production**: `currentOrigin()` returns `canonicalSiteUrl`, now `https://usejobhunt.dev`, so a sign in started on the old `usejobhunt.vercel.app` would write the verifier there and be returned to a host that never receives it. **Mitigated at the platform rather than documented**: Vercel 308 redirects the old host, so it cannot serve the application at all and the verifier can never be written on it. Deliberately **not** done in `proxy.ts`, because binding rule 6 confines the proxy to refreshing the session cookie and a host redirect there would widen it.
-- **AC-5**: Every failure path redirects to `/sign-in?error=<code>` and the page renders this product's own sentence for that code. There are **five** codes, four raised by the callback and one by the sign in actions, listed in `## Feature design` under **Failure codes**. The provider's `error_description` reaches Sentry and never reaches the page.
+- **AC-5**: Every failure path redirects to `/sign-in?error=<code>` and the page renders this product's own sentence for that code, verbatim from `## Copy`, **above the two provider forms**. The position is part of the criterion because five of the six sentences say "below" or "from here" and are wrong anywhere else. There are **five** codes, four raised by the callback and one by the sign in actions, listed in `## Feature design` under **Failure codes**. The provider's `error_description` reaches Sentry and never reaches the page.
 - **AC-6**: Each of the five codes carries the kind and severity given in the **Failure codes** table, so an ordinary denial never competes with an outage. A cancelled consent and a refused signup are `expected` and raise no alert; a failed exchange and an unreachable provider are `unexpected`. Every one is built by `failure()`, with no log line written beside it.
 - **AC-7**: The `error` query value is parsed with Zod as a closed enum of exactly those five codes. An unrecognised value renders the one generic sentence (`COPY-6`) and is never echoed back to the page.
 - **AC-8**: A person who signs in with one provider and later with the other, on the same verified email address, reaches the same account and sees the same rows.
@@ -234,17 +234,31 @@ That fallback also has a window worth naming: by the time the application can re
 
 ## Copy
 
-**Written by the engineer, used verbatim.** Six named blanks, one per code in the **Failure codes** table. Five are needed at milestone 2; `COPY-2` alone is needed at milestone 4, for the reason in its row. They are left empty on purpose: a sentence a person reads after a failed sign in is product voice, not something to be invented at build time, and spec 0006 set this precedent with its own `COPY-1` to `COPY-4`. `/develop` must not fill these in.
+**Written by the engineer, used verbatim.** One slot per code in the **Failure codes** table. Five were written on 2026-08-30 and are **final**. `COPY-2` stays empty until milestone 4, because its content depends on P10's answer. `/develop` must not invent or reword any of them.
 
-| Slot | Shown when | Constraints | Text |
-|---|---|---|---|
-| `COPY-1` | `access_denied`, the person cancelled at the provider | Must not read as an error. They chose this | _to be written_ |
-| `COPY-2` | `account_exists`, the signup was refused because the email already belongs to another identity | Must name **which** provider owns it, or say plainly how to find out. This is the one slot carrying runtime detail, and P10 decides whether that detail can reach the page at all. **Needed at milestone 4, not milestone 2**: the code is unreachable until the hook exists, and P10 is answered in the same step | _to be written_ |
-| `COPY-3` | `no_code`, the callback was reached with no code | Rare and usually means a stale or hand edited link. Say what to do, which is start again | _to be written_ |
-| `COPY-4` | `exchange_failed`, the code could not be exchanged | Covers the AC-4 case of starting sign in on a per commit preview URL, so it must not claim the provider is down | _to be written_ |
-| `COPY-5` | `provider_unavailable`, the provider could not be reached at all | The one case where the provider genuinely may be down. Suggest the other provider | _to be written_ |
-| `COPY-6` | anything else, an `error` value outside the enum | Fully generic, and never echoes the value it received | _to be written_ |
+**These strings are the engineer's and are used verbatim**, and the punctuation rule that applies to the rest of this document applies inside the Text column too. There is no carve out. The reasoning is stronger here than anywhere else in the spec: this workflow already avoids dashes in its own prose, and product copy is the last place to make an exception, because it is the only text a user actually reads. Em dashes and semicolons in microcopy read as machine written, and em dash overuse in particular is one of the most cited markers of AI generated text, which costs something real on a portfolio facing product. All five strings use full stops, with a single comma in `COPY-5`. **Do not reintroduce an em dash, an en dash, or a semicolon into any of them, `COPY-2` included when it is written at milestone 4.**
 
+| Slot | Shown when | Text |
+|---|---|---|
+| `COPY-1` | `access_denied`, the person cancelled at the provider | You cancelled before signing in. Nothing changed. Pick an option below when you're ready. |
+| `COPY-2` | `account_exists`, the signup was refused because the email already belongs to another identity | _written at milestone 4, once P10 is answered_ |
+| `COPY-3` | `no_code`, the callback was reached with no code | Something was missing from that link. Start again below. |
+| `COPY-4` | `exchange_failed`, the code could not be exchanged | We couldn't finish signing you in. Start again from here. An older tab or link won't work. |
+| `COPY-5` | `provider_unavailable`, the provider could not be reached at all | That provider isn't responding right now. Try the other option, or try again shortly. |
+| `COPY-6` | anything else, an `error` value outside the enum | Something went wrong signing you in. Please start again below. |
+
+**Three constraints the copy creates.** Each is a requirement on the build, not a note about tone.
+
+1. **`COPY-4`'s "Start again from here. An older tab or link won't work." is the AC-4 fix in plain words, not politeness.** Restarting from this page is precisely what resolves the host only PKCE cookie case, on a per commit preview URL or on the old production host. The clause is load bearing and must not be trimmed for brevity.
+2. **Every "below" assumes the error line renders ABOVE the two provider forms.** That is a layout constraint the copy imposes on `/sign-in`, recorded here because otherwise someone reorders the page later and the copy silently becomes wrong. AC-5 carries it so it is checkable rather than only documented.
+3. **`COPY-3`, `COPY-4` and `COPY-6` all tell the person to "start again", and that repetition is deliberate.** The action genuinely is the same and only the first sentence differs. Recorded so a later reader does not improve them into artificial variety.
+
+**Two decisions already settled, so they are not reopened at build time.**
+
+- **`COPY-5` stays generic rather than naming the failing provider.** The redirect carries only `/sign-in?error=<code>`, and AC-7 parses a closed enum of five with no provider dimension in it. Naming the provider would mean widening what AC-7 parses, for very little gain.
+- **No slot apologises or reassures.** This matches spec 0006's register, where its own `COPY-1` states the fact and moves on with nothing softening it.
+
+## Build plan
 ## Build plan
 
 Tracer Bullet, so the first milestone is one provider all the way through a real deployment, not the full surface half built. The refusal hook and the second provider come after the thread is proved, because a thread that does not reach a real provider proves nothing about any of this.
@@ -257,7 +271,7 @@ Tracer Bullet, so the first milestone is one provider all the way through a real
 
 2. Add `[auth.external.google]` and `[auth.external.github]` to `config.toml` with `env()` substitution, fix `site_url` and `additional_redirect_urls` to match `http://localhost:3000` (both are stock scaffold values today and the second is `https` on a loopback address), add the four variables to `.env.example`, and add placeholders to CI, satisfies **AC-18**.
 3. Build `src/features/auth/`: `signInWithGoogle()`, the `/auth/callback` route handler, and the failure code map from the **Failure codes** table, with each code's kind and severity as given. Open the span first in each, keep `redirect()` outside the span callback and outside any `attempt()`, since it works by throwing, satisfies **AC-2**, **AC-3**, **AC-4**, **AC-5**, **AC-6**.
-4. Rebuild `/sign-in` as a real page with the Google form and the **full five member Zod enum**, including `account_exists`. Wire the copy slots reachable at this milestone verbatim: `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5`, `COPY-6`. **`COPY-2` waits for milestone 4**, because `account_exists` cannot be raised until the hook exists, so its sentence is unreachable here and its content is not yet decided. Delete the dev only guard from it, satisfies **AC-5**, **AC-7**, **AC-12**.
+4. Rebuild `/sign-in` as a real page with the Google form and the **full five member Zod enum**, including `account_exists`. Wire the copy slots reachable at this milestone verbatim: `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5`, `COPY-6`, all five final as of 2026-08-30. **Render the error line above both provider forms**, since the copy says "below" and "from here". **`COPY-2` waits for milestone 4**, because `account_exists` cannot be raised until the hook exists, so its sentence is unreachable here and its content is not yet decided. Delete the dev only guard from it, satisfies **AC-5**, **AC-7**, **AC-12**.
 5. Deploy and sign in with Google on the preview, confirming the return lands on the branch URL. Tick spec 0002's blocked verify step for `currentOrigin()` while doing it, which has been waiting for this feature to become its first caller, satisfies **AC-1**, **AC-4**.
 
 **Milestone 3: thicken. GitHub, sign out, and the deletions.**
