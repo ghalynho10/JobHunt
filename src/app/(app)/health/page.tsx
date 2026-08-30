@@ -1,4 +1,4 @@
-import { signOut } from "@/features/dev-session/actions";
+import { signOut } from "@/features/auth/actions";
 import { readOwnProfile } from "@/features/profile/queries";
 import { readKillSwitch } from "@/lib/kill-switch";
 

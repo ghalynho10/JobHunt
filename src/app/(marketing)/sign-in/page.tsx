@@ -2,7 +2,10 @@ import { Heading } from "@/components/ui/heading";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 import { signInErrorSentence } from "@/features/auth/copy";
-import { SignInWithGoogleForm } from "@/features/auth/provider-forms";
+import {
+  SignInWithGitHubForm,
+  SignInWithGoogleForm,
+} from "@/features/auth/provider-forms";
 
 /**
  * The sign in page (spec 0007, AC-5, AC-7, AC-12).
@@ -12,9 +15,10 @@ import { SignInWithGoogleForm } from "@/features/auth/provider-forms";
  * whole path rather than switching it off, so no environment is one variable
  * away from accepting a password (invariant 1).
  *
- * NO `"use client"` ANYWHERE BELOW THIS FILE. The provider controls are form
- * submits and the error line is server rendered, so this page ships zero client
- * JavaScript, the same contract spec 0006 AC-4 holds the entry page to.
+ * NOTHING BELOW THIS FILE CROSSES THE CLIENT BOUNDARY. The provider controls
+ * are form submits and the error line is server rendered, so this page ships
+ * zero client JavaScript, the same contract spec 0006 AC-4 holds the entry page
+ * to.
  */
 export default async function SignInPage({
   searchParams,
@@ -55,6 +59,7 @@ export default async function SignInPage({
 
         <div className="mt-8 flex flex-col items-start gap-3">
           <SignInWithGoogleForm />
+          <SignInWithGitHubForm />
         </div>
       </Section>
     </main>

@@ -19,10 +19,16 @@ import { signInErrorPath, AUTH_FAILURES } from "./failure-codes";
  * The sign in actions (spec 0007, AC-2, AC-4, AC-5, AC-6).
  *
  * THE WHOLE HANDSHAKE RUNS ON THE SERVER. No file reachable from `/` or from
- * `/sign-in` carries `"use client"`, so spec 0006 AC-4 still holds: the entry
- * page ships zero client JavaScript after this feature lands. Both provider
- * controls are plain `<form action={...}>` submits, which work with JavaScript
- * switched off.
+ * `/sign-in` carries the client boundary directive, so spec 0006 AC-4 still
+ * holds: the entry page ships zero client JavaScript after this feature lands.
+ * Both provider controls are plain `<form action={...}>` submits, which work
+ * with JavaScript switched off.
+ *
+ * The directive is described rather than quoted anywhere in this feature, on
+ * purpose. Spec 0006's AC-4 is checked by a plain recursive grep for that
+ * phrase across `src/`, so a comment that spelled it out would answer that
+ * check with itself and every later reader would have to re read the hits to
+ * find the real ones.
  *
  * ONE ACTION PER PROVIDER, NOT ONE TAKING A PROVIDER ARGUMENT. The set is
  * closed at two, and a provider name arriving from a form would be untrusted
@@ -48,6 +54,85 @@ export async function signInWithGoogle(): Promise<void> {
   }
 
   redirect(started.value);
+}
+
+/**
+ * GitHub.
+ *
+ * `user:email` IS NAMED HERE TO CONFIRM A DEFAULT, NOT TO ADD A SCOPE, and the
+ * distinction is the whole reason this comment exists. P8 reached GitHub's
+ * authorization screen with no scope parameter in the URL at all and it still
+ * requested "Personal user data, Email addresses (read only)", so Supabase's
+ * GitHub provider already asks for it. Naming it means nobody later strips it
+ * as redundant, and nobody later re adds it believing it was missing.
+ *
+ * It is load bearing either way: automatic linking (AC-8) fires only on a
+ * VERIFIED email address, so a handshake that came back without one would
+ * refuse a signup that should have linked, and the symptom would look like a
+ * broken hook rather than a missing scope.
+ */
+export async function signInWithGitHub(): Promise<void> {
+  const started = await startProviderSignIn("github", "user:email");
+
+  if (isFailure(started)) {
+    redirect(signInErrorPath("provider_unavailable"));
+  }
+
+  redirect(started.value);
+}
+
+/**
+ * Sign out, from wherever the person is signed in (spec 0007, AC-11).
+ *
+ * BEST EFFORT BUT NEVER SILENT (invariant 6). A failing sign out still clears
+ * what it can, still reports, and still redirects, because leaving somebody on
+ * a page that looks signed in is worse than sending them home with a session
+ * the server already gave up on.
+ *
+ * IT CONSTRUCTS A `failure()` RATHER THAN RETURNING ONE, which looks like a
+ * discarded value and is not. `failure()` reports and marks the span failed as
+ * its own effect, and this function ends in `redirect()`, which works by
+ * throwing, so no caller ever regains control to read a returned value. A
+ * returned failure here would be a value nothing can receive.
+ */
+export async function signOut(): Promise<void> {
+  /** BINDING RULE 4: the span opens first. */
+  await Sentry.startSpan(
+    { name: "auth.sign_out", op: "auth" },
+    async (): Promise<void> => {
+      const supabase = await createClient();
+
+      /** BINDING RULE 5: the auth client may throw rather than return. */
+      const attempted = await attempt(
+        {
+          kind: "external_service_failed",
+          message: "Sign out did not complete cleanly.",
+        },
+        () => supabase.auth.signOut(),
+      );
+
+      /** `attempt()` has already built and reported the failure on a throw. */
+      if (isFailure(attempted)) return;
+
+      const { error } = attempted.value;
+
+      if (error) {
+        failure({
+          kind: "external_service_failed",
+          severity: "unexpected",
+          message: "Sign out did not complete cleanly.",
+          context: { status: error.status, detail: error.message },
+          cause: error,
+        });
+      }
+    },
+  );
+
+  /**
+   * Outside the span, because `redirect()` throws and a throw inside would be
+   * recorded as this operation failing. The destination is the literal `/`.
+   */
+  redirect("/");
 }
 
 /**

@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { GoogleIcon } from "@/components/ui/icons";
+import { GitHubIcon, GoogleIcon } from "@/components/ui/icons";
 
-import { signInWithGoogle } from "./actions";
+import { signInWithGitHub, signInWithGoogle } from "./actions";
 
 /**
  * The provider controls, as real form submits (spec 0007, AC-2, AC-16).
  *
- * A PLAIN `<form action={...}>`, NOT A CLICK HANDLER. Nothing here carries
- * `"use client"`, so every page that renders these still ships zero client
+ * A PLAIN `<form action={...}>`, NOT A CLICK HANDLER. Nothing here crosses the
+ * client boundary, so every page that renders these still ships zero client
  * JavaScript and the controls work with JavaScript switched off. That is what
  * keeps spec 0006 AC-4 true after this feature lands.
  *
@@ -24,6 +24,22 @@ export function SignInWithGoogleForm() {
       <Button type="submit" variant="secondary">
         <GoogleIcon />
         Sign in with Google
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * GitHub. Identical in shape to Google on purpose: the two differ only in which
+ * action they post to, which is what keeps the "two thin actions" split honest
+ * rather than reintroducing a provider argument through the back door.
+ */
+export function SignInWithGitHubForm() {
+  return (
+    <form action={signInWithGitHub}>
+      <Button type="submit" variant="secondary">
+        <GitHubIcon />
+        Sign in with GitHub
       </Button>
     </form>
   );
