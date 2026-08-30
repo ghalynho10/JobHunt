@@ -199,17 +199,58 @@ describe("the entry page's links", () => {
     }
   });
 
-  it.each([
-    "Sign in with Google",
-    "Sign in with GitHub",
-    "Apply on the real posting",
-  ])("renders %s as a label, never as a link (covers AC-7, AC-17)", (label) => {
+  /**
+   * SPLIT BY SPEC 0007, AC-16, AND THE SPLIT IS THE POINT. This was one table
+   * covering three controls that all had nowhere to go. Two of them now do:
+   * sign in is real. The third does not and never did, so its half survives
+   * unchanged and spec 0006 AC-17 keeps a test.
+   *
+   * Merging them back would either weaken the apply assertion or reassert
+   * something about sign in that is no longer true.
+   */
+  it("renders the apply control as a label, never as a link (covers AC-17)", () => {
+    const label = "Apply on the real posting";
     const asLink = anchorsOnThePage().some((element) =>
       textOf(element).includes(label),
     );
 
     expect(asLink).toBe(false);
     expect(textOf(page)).toContain(label);
+  });
+
+  /**
+   * The other half, inverted. The provider controls are real submits now, and
+   * they are still not ANCHORS, which matters for a different reason than
+   * before: a sign in that navigated by link would be a GET, and this handshake
+   * starts with a POST to a Server Action.
+   */
+  it.each(["Sign in with Google", "Sign in with GitHub"])(
+    "renders %s as a real submit, not as a link (covers AC-16)",
+    (label) => {
+      const asLink = anchorsOnThePage().some((element) =>
+        textOf(element).includes(label),
+      );
+
+      expect(asLink).toBe(false);
+      expect(textOf(page)).toContain(label);
+    },
+  );
+
+  /**
+   * Asserted at PAGE level, not only per component, because the rule AC-16
+   * carries is about the page: every provider control the page renders posts to
+   * a server action. The controls appear twice, in the hero and in the band, and
+   * a component test cannot see that there are two of each.
+   */
+  it("posts every provider control to a server action (covers AC-16)", () => {
+    const forms = flatten(page).filter((element) => element.type === "form");
+
+    expect(forms).toHaveLength(4);
+    for (const form of forms) {
+      expect((form.props as { readonly action?: unknown }).action).toBeTypeOf(
+        "function",
+      );
+    }
   });
 
   it("keeps the header's sign in jump pointing at a section that exists (covers AC-7)", () => {

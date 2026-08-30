@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Heading } from "@/components/ui/heading";
+import { Button } from "@/components/ui/button";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 import {
@@ -21,7 +22,16 @@ import { SignInBand } from "./sign-in-band";
  * is exactly how they arrived the first time.
  */
 
-const band = renderDeep(SignInBand(), [Section, Heading, Text]);
+/**
+ * `Button` joins the stop list from spec 0007 onward, and it is not padding.
+ * The band now renders two real provider submits, and `Button`'s own base class
+ * list contains `justify-center`, which centres a label INSIDE a control. The
+ * AC-6 assertion below is about the band centring its own content. Without the
+ * stop, the band's class list absorbs the button's and AC-6 fails on something
+ * it was never about, which is the same false positive the `items-center` note
+ * below already anticipated.
+ */
+const band = renderDeep(SignInBand(), [Section, Heading, Text, Button]);
 const section = findByType(band, Section);
 
 /** The props the band really hands `Section`, not a copy written out here. */
@@ -102,7 +112,16 @@ describe("the sign in band", () => {
     expect((section?.props as { readonly id?: string }).id).toBe("start");
   });
 
-  it("does not invite an action that cannot happen yet (covers AC-7)", () => {
+  /**
+   * INVERTED BY SPEC 0007, AC-16. This used to assert the band said sign in was
+   * "coming soon", which was right for exactly as long as it was true. Sign in
+   * is real now, so the same sentence would be the falsehood, and the band has
+   * to offer the action rather than defer it.
+   *
+   * The second assertion is unchanged and still spec 0006's: the band invites a
+   * sign in, not a search, because search is feature 11.
+   */
+  it("offers the action rather than deferring it (covers AC-16)", () => {
     const body = flatten(band)
       .map((element) =>
         String(
@@ -111,7 +130,8 @@ describe("the sign in band", () => {
       )
       .join(" ");
 
-    expect(body).toContain("is coming soon");
+    expect(body).not.toContain("coming soon");
+    expect(body).toContain("Sign in with Google or GitHub.");
     expect(body).not.toContain("run your first search.");
   });
 });
