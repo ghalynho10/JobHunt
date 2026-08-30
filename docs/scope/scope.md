@@ -298,9 +298,29 @@ Out of scope for this build pass, kept so the plan stays honest.
 - **Scheduled push digest**: a genuinely different interaction model from the pull based app, worth real consideration once v1 is stable · needs a decision
 - **Supplementary remote jobs source**: only if the text heuristic for remote proves too weak in practice · needs a decision
 - **Retrieval tool over job search history**: a separate later project; its relationship to this app's multi user database is explicitly unresolved · needs a decision
-- **Custom domain**: **no longer a cost decision.** It was deferred because the production URL is a free `vercel.app` subdomain and moving later means updating three redirect lists (Google, GitHub, Supabase) plus one Vercel setting, cheapest before feature 7 wires OAuth. Feature 7's prerequisite work found the real reason, verified 2026-08-30 by running the handshake: **Google's consent screen does not name this product.** It reads "Sign in to `serbucmdtvbspkbmxewl.supabase.co`", says Google will let that host access the person's information, and points them at that host's Privacy Policy and Terms of Service, which do not exist. "JobHunt" appears nowhere. GitHub's screen, run minutes earlier against the same project, correctly reads "Authorize JobHunt", so this is Google specific rather than a misconfiguration. Cause is inferred: Google appears to take the displayed name from an Authorized domain, and the only ones are the two `supabase.co` hosts, which this project does not own and cannot verify. Both fixes need a domain we own, a Supabase custom domain (a paid add on) so the host itself reads as the product, or publishing and verifying the Google app, which needs feature 21's privacy policy and terms on an authorized domain and **Google will not accept `vercel.app`**. So this is the only fix for a user visible misrepresentation on the product's front door. **Not a v1 blocker**: sign in works and both providers were exercised live. `from spec 0002` `from spec 0007`
 - **Supabase Branching, a database per pull request**: the best isolation answer available, rejected in spec 0002 on cost alone since it needs a paid plan. Revisit if this project ever has a budget, or if the free projects pausing becomes a real drag. `from spec 0002`
 - **Alert rule drift detection**: a scheduled diff between Sentry's live alert rules and the definitions in `docs/observability/`, so a rule that is edited or deleted in the Sentry interface is caught. Blocks nothing in v1; the forced failure smoke test in feature 10 is the load bearing half. `from spec 0001`
+
+## Resolved
+
+Decisions that were deferred and have since been made, kept so the trail
+survives rather than the entry simply vanishing.
+
+- **Custom domain**: **done 2026-08-30.** The production origin moved from
+  `https://usejobhunt.vercel.app` to `https://usejobhunt.dev`. A domain was
+  purchased, Vercel serves it, and the old host 308 redirects to it. Settled on
+  the terms spec 0007's finding 6 set out rather than the original cost ones,
+  and taken at the cheap moment, before feature 7 registers callback URLs.
+  **What it fixed**: the product now serves from a domain it owns, and that
+  redirect is what spec 0007 **AC-4** leans on to stop a sign in being started
+  on a hostname the callback never returns to. **What it did not fix**: Google's
+  consent screen still reads the Supabase host, because that is the OAuth
+  redirect host and the domain move did not touch it. The remaining fix is
+  publishing and verifying the Google app once feature 21 supplies a privacy
+  policy and terms on `usejobhunt.dev`, which is now a domain we own and can
+  register as an Authorized domain. The Supabase custom domain add on was
+  considered and rejected on cost, since that route reaches the same place for
+  the price of the domain alone. `from spec 0002` `from spec 0007`
 
 ## Legend
 
