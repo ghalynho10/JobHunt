@@ -71,7 +71,6 @@ src/
   components/ui/        shared design system primitives (feature 5)
   lib/
     supabase/
-      browser.ts        publishable key client
       server.ts         request scoped server client, carries the user token
       secret.ts         the ONLY place a secret key client may be constructed
     ai/
@@ -87,6 +86,8 @@ docs/
 ```
 
 Routes live only in `src/app`. A feature's own code lives in `src/features/<feature>/`. Anything shared by two features moves to `src/lib` or `src/components/ui`.
+
+**Amended 2026-08-29 by spec [0007](../0007-auth-and-per-user-isolation/index.md).** This tree listed a fourth file, `lib/supabase/browser.ts`, "publishable key client", reserved for the OAuth handshake in feature 7. Feature 7 does that handshake entirely on the server, so the browser client never gained a caller and is deleted rather than left as a module whose doc comment claims a purpose it no longer has. The trail is kept here rather than the line silently vanishing: this project's data path is server only, and the one exception this file was held open for turned out not to be one.
 
 ## Binding rules
 
