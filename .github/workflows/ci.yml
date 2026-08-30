@@ -130,6 +130,10 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
             echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
             echo "SUPABASE_SECRET_KEY=$SECRET_KEY"
+            # Spec 0007. The refusal hook is unreachable from the Data API by
+            # design, so its tests call the real function over a direct
+            # connection. test/helpers/database.ts refuses any non local host.
+            echo "SUPABASE_DB_URL=$DB_URL"
           } >> "$GITHUB_ENV"
 
       # Against the real stack with the real row level security policies

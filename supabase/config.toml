@@ -289,9 +289,25 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+#
+# SPEC 0007, AC-9 and AC-19. The function ships in a migration, so it is
+# versioned and reviewed like everything else here. Its ENABLEMENT on the two
+# hosted projects is dashboard state that no file in this repository records, so
+# the two can drift: a migration can land with the hook switched off on
+# production and nothing here would say so. That is why the spec's session policy
+# matrix carries that row separately rather than assuming it follows the
+# migration.
+#
+# Rollback is one step: set `enabled = false` here, and in each dashboard.
+#
+# THE URI IS NOT THE COMMENTED TEMPLATE THIS FILE SHIPPED WITH. That template
+# reads `pg-functions://postgres/auth/before-user-created-hook`, which is wrong
+# twice over for this project: the hyphenated name is not a legal unquoted
+# Postgres identifier, and `auth` is Supabase's own schema, changeable by a
+# platform upgrade. This project's migrations own `public`.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/before_user_created_hook"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

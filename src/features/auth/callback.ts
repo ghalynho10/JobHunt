@@ -100,12 +100,42 @@ export async function completeSignIn(
 }
 
 /**
- * Classify an arrival that carries no session to build: either the provider
- * said no, or there was no code to exchange.
+ * THE ONE STRING THIS MODULE SHARES WITH THE DATABASE, and it is a contract, not
+ * a convenience. It must stay byte for byte identical to the opening of the
+ * refusal message in
+ * `supabase/migrations/20260830230000_before_user_created_hook.sql`.
+ *
+ * P10, ANSWERED 2026-08-30 AGAINST THE REAL LOCAL STACK, which is why matching
+ * on text is the mechanism rather than a shortcut. A full external handshake was
+ * driven end to end with the hook made to refuse. GoTrue forwards the refusal to
+ * the registered `redirect_to`, the same channel a cancelled consent uses, as:
+ *
+ *   /auth/callback?error=server_error&error_code=&error_description=<the hook's
+ *   own message, verbatim and URL encoded>
+ *
+ * and no user row is created. So the answer to P10 is YES, the rejection does
+ * reach this application. Two limits came with it, both measured rather than
+ * assumed: `error` is the generic `server_error`, which a real outage would also
+ * use, and `error_code` arrives EMPTY. Returning `error_code` or `code` inside
+ * the hook's own error object was tried and neither survives the redirect. The
+ * message is the only channel carrying anything specific, so the message is what
+ * is matched.
+ *
+ * The coupling is real and is locked by an integration test that calls the
+ * actual hook and feeds its actual message through this classifier, so rewording
+ * one side fails the suite rather than silently degrading `account_exists` into
+ * `no_code`.
+ */
+const ACCOUNT_EXISTS_MARKER = "That email address already signs in with ";
+
+/**
+ * Classify an arrival that carries no session to build: the hook refused, the
+ * provider said no, or there was no code to exchange.
  *
  * SPEC 0007, `## Feature design`, **Failure codes**. The mapping is fixed here
  * rather than derived from the provider's own string, so no provider text can
- * decide what this product says (invariant 4).
+ * decide what this product says (invariant 4). The description is READ here and
+ * rendered nowhere: it reaches Sentry as context and stops (AC-5).
  *
  * `access_denied` is matched exactly, because it is the OAuth 2.0 error code a
  * provider returns when the person refuses consent, not a guess at wording.
@@ -122,8 +152,7 @@ function refuse(
   providerError: string | undefined,
   description: string | undefined,
 ): SignInOutcome {
-  const code: AuthErrorCode =
-    providerError === "access_denied" ? "access_denied" : "no_code";
+  const code: AuthErrorCode = classify(providerError, description);
 
   failure({
     kind: AUTH_FAILURES[code].kind,
@@ -134,4 +163,31 @@ function refuse(
   });
 
   return { signedIn: false, code };
+}
+
+/**
+ * Which of the four callback codes this arrival is (spec 0007, **Failure
+ * codes**).
+ *
+ * Order matters. The hook's refusal arrives as `error=server_error`, which is
+ * the same generic value a real GoTrue fault would use, so the message is
+ * checked FIRST and the generic value is only fallen back to once it does not
+ * match.
+ *
+ * Exported so the integration suite can drive it with the actual message the
+ * actual hook produces, rather than with a copy of that message written in the
+ * test. That is what keeps `ACCOUNT_EXISTS_MARKER` honest.
+ */
+export function classify(
+  providerError: string | undefined,
+  description: string | undefined,
+): AuthErrorCode {
+  if (
+    description !== undefined &&
+    description.startsWith(ACCOUNT_EXISTS_MARKER)
+  ) {
+    return "account_exists";
+  }
+
+  return providerError === "access_denied" ? "access_denied" : "no_code";
 }
