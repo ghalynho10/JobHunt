@@ -25,7 +25,7 @@ Each of these is a fact about an account or a dashboard, not about this reposito
 - [x] Session policy read off **both** hosted dashboards, not off `config.toml` → **P9**, AC-19 · **VERIFIED 2026-08-30**, identical on both and to `config.toml`. Access token expiry 3600, timebox 0, inactivity 0, single session off, compromised refresh token detection **on**, reuse interval 10s, and the six rate limits as recorded in the matrix
 - [ ] Hook **enablement** confirmed in **both** hosted dashboards, not just the local `config.toml` stanza. The function ships in a migration, its enablement does not, so the two can drift → AC-19
 
-- [ ] `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5` and `COPY-6` are filled in by the engineer before milestone 2. `/develop` must not invent them → AC-5, AC-7
+- [x] `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5` and `COPY-6` are written and **final** → AC-5, AC-7 · **written by the engineer 2026-08-30**, in the spec's `## Copy` block. Used verbatim; `/develop` must not reword them
 - [ ] `COPY-2` is filled in before milestone 4, after P10 is answered, taking its escape hatch wording if the answer is no → AC-5, AC-9
 
 ## Answered at milestone 4, not before
@@ -50,6 +50,7 @@ These cannot be automated. Google blocks automated browsers and Vercel SSO sits 
 - [ ] Sign out from `/health` → you land on `/` with no session. Reload → still signed out → AC-1
 - [ ] After signing out, request `/health` directly → you are redirected to `/sign-in`, never an empty page → AC-14
 - [ ] At the provider's consent screen, **cancel** → you land on `/sign-in` showing `COPY-1` verbatim, and the URL reads `?error=access_denied` → AC-5
+- [ ] On that same page → the error line renders **above** both provider forms. Five of the six sentences say "below" or "from here", so a reordered page makes the copy wrong without any code failing → AC-5
 - [ ] Check Sentry for that cancellation → **no alert and no issue**. A person changing their mind is the system working → AC-6
 - [ ] Sign in with the second provider on the **same verified email** → you reach the same account and see the same rows, not a fresh empty one → AC-8
 - [ ] With a second real account, sign in and confirm it sees only its own rows → AC-15
