@@ -52,7 +52,7 @@ jobs:
       - run: pnpm build
         env:
           SKIP_ENV_VALIDATION: "true"
-          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.dev
 
   # Spec 0004, AC-7 and AC-12. A separate job from `check` on purpose: this one
   # needs Docker and pulls Supabase images, so it is slower, and keeping it apart
@@ -87,7 +87,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_unit_tests_never_connect
           SUPABASE_SECRET_KEY: sb_secret_unit_tests_never_connect
-          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.dev
           DEV_SESSION_ENABLED: "true"
 
       # Pinned to the same version as the `supabase` devDependency in
@@ -123,7 +123,7 @@ jobs:
       - name: Integration tests, against the real stack
         run: pnpm test:integration
         env:
-          NEXT_PUBLIC_SITE_URL: https://usejobhunt.vercel.app
+          NEXT_PUBLIC_SITE_URL: https://usejobhunt.dev
           DEV_SESSION_ENABLED: "true"
 
       # `supabase start` applies migrations and the seed, so a seed that broke

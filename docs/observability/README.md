@@ -61,7 +61,7 @@ the gaps between them are the point of this section.
 
 ### Uptime monitoring
 
-UptimeRobot, one monitor on `https://usejobhunt.vercel.app`, the production
+UptimeRobot, one monitor on `https://usejobhunt.dev`, the production
 origin. It watches the marketing page rather than a status route, because a
 route that only reports on itself proves less than the page a visitor loads.
 
