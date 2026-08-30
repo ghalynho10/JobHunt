@@ -1,51 +1,62 @@
-import { notFound } from "next/navigation";
-
-import { env } from "@/env";
-import { SignInForm } from "@/features/dev-session/sign-in-form";
+import { Heading } from "@/components/ui/heading";
+import { Section } from "@/components/ui/section";
+import { Text } from "@/components/ui/text";
+import { signInErrorSentence } from "@/features/auth/copy";
+import { SignInWithGoogleForm } from "@/features/auth/provider-forms";
 
 /**
- * The development only sign in. Spec 0001 decided OAuth only (Google and GitHub)
- * for the real product, and feature 7 builds it. This page exists so the
- * scaffold can prove a protected read under a real session, and feature 7
- * replaces it.
+ * The sign in page (spec 0007, AC-5, AC-7, AC-12).
+ *
+ * A REAL PAGE IN EVERY ENVIRONMENT. It used to render the development only
+ * password form and hard 404 outside development. Feature 7 deletes that
+ * whole path rather than switching it off, so no environment is one variable
+ * away from accepting a password (invariant 1).
+ *
+ * NO `"use client"` ANYWHERE BELOW THIS FILE. The provider controls are form
+ * submits and the error line is server rendered, so this page ships zero client
+ * JavaScript, the same contract spec 0006 AC-4 holds the entry page to.
  */
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: PageProps<"/sign-in">) {
   /**
-   * Spec 0002 AC-10: blocked in two places, not one. This page refuses to
-   * render, and the Server Action behind it refuses to run, each checking the
-   * same validated variable independently. A page guard alone would leave the
-   * action callable on its own, and an action guard alone would leave this page
-   * returning a not found on every preview, which is where the end to end
-   * thread has to be proved.
-   *
-   * The variable defaults to false, so production, which never sets it, is
-   * blocked by absence rather than by a label a build tool chooses.
-   *
-   * The two guards run at different times, which is worth knowing before
-   * testing either. This page is statically prerendered, so its guard is settled
-   * for each environment when that environment is built, and the route becomes a
-   * hard 404 on production. The Server Action's guard runs per request. Both are
-   * closed on production; only the action reacts to a variable changed after a
-   * deploy, so proving this half locally means rebuilding without the variable,
-   * not just restarting.
+   * AC-7: the value is untrusted, so it is parsed against the closed enum at
+   * this boundary. An unrecognised value renders the one generic sentence and
+   * is never echoed back onto the page.
    */
-  if (!env.DEV_SESSION_ENABLED) {
-    notFound();
-  }
+  const { error } = await searchParams;
+  const sentence = signInErrorSentence(error);
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-8">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <p>
-        Development only. Seeded users are <code>dev-one@example.test</code>,{" "}
-        <code>dev-two@example.test</code> and{" "}
-        <code>dev-three@example.test</code>, all with the password{" "}
-        <code>devpassword123</code>. Sign in as each in turn: the first two must
-        see different profiles, and the third, who has no profile row on
-        purpose, must see a named failure rather than an empty page (spec 0003,
-        AC-3 and AC-14).
-      </p>
-      <SignInForm />
+    <main>
+      <Section weight="standard">
+        <Heading level={1}>Sign in</Heading>
+
+        <Text className="mt-3">
+          JobHunt uses your Google or GitHub account. No password to remember,
+          and no email to verify.
+        </Text>
+
+        {/*
+         * AC-5: THE ERROR LINE RENDERS ABOVE BOTH PROVIDER FORMS, and the
+         * position is part of the criterion rather than a layout preference.
+         * Five of the six sentences say "below" or "from here", so they are
+         * simply wrong anywhere else on the page.
+         *
+         * `role="alert"` matches how this product renders every other failure
+         * it shows (the health page's two), so a failure always looks like a
+         * failure rather than like ordinary copy.
+         */}
+        {sentence === undefined ? undefined : (
+          <div role="alert" className="mt-8 border-l-4 border-red-700 pl-4">
+            <Text>{sentence}</Text>
+          </div>
+        )}
+
+        <div className="mt-8 flex flex-col items-start gap-3">
+          <SignInWithGoogleForm />
+        </div>
+      </Section>
     </main>
   );
 }

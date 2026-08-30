@@ -101,8 +101,23 @@ jobs:
       # gateway, GoTrue for the session mint, and PostgREST for the reads. The
       # rest are excluded because each one is an image to pull and a service to
       # wait for, and none of them is exercised here.
+      # Spec 0007, AC-18. `config.toml` enables Google and GitHub with env()
+      # substitution, and the file that fills those locally (supabase/.env) is
+      # git ignored, so CI has to supply them or GoTrue boots with two providers
+      # configured to nothing.
+      #
+      # Placeholders on purpose: no job here drives a real provider handshake,
+      # and the integration suite proves the callback's failure paths, which
+      # never reach a provider at all. Confirmed empirically on 2026-08-30
+      # against CLI 2.115.0 that the process environment is read, not only the
+      # supabase/.env file, which is what makes this block work.
       - name: Start the local Supabase stack
         run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        env:
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-placeholder-google-client-id
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-placeholder-google-secret
+          SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID: ci-placeholder-github-client-id
+          SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET: ci-placeholder-github-secret
 
       # Read back from the stack that is actually running rather than hardcoded.
       # The local keys are fixed development values, not secrets, but reading

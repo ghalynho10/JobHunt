@@ -156,11 +156,24 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+#
+# SPEC 0007, AC-18: this must be the host `currentOrigin()` actually returns
+# locally, which is `http://localhost:3000` (see src/lib/origin.ts). The stock
+# scaffold value was `http://127.0.0.1:3000`. The two are different origins to a
+# browser, so the PKCE code verifier written on one is not sent back on the
+# other, and sign in would fail at the exchange with no obvious cause.
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+#
+# SPEC 0007, AC-18. The stock value was `https://127.0.0.1:3000`: wrong scheme
+# (https on a loopback address nothing serves) and wrong host. The return leg is
+# `http://localhost:3000/auth/callback`, so the entry has to match a PATH under
+# the origin, not the bare origin. This is the same trap P5 recorded against the
+# production project, where a bare `https://usejobhunt.dev` matched nothing and
+# would have fallen through to Site URL instead of completing the sign in.
+additional_redirect_urls = ["http://localhost:3000/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -332,6 +345,36 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# SPEC 0007: the two providers this product actually uses. Both hosted projects
+# carry the same two credential pairs in their own dashboards; this stanza
+# governs the LOCAL stack only, which is the whole reason the spec records the
+# session policy for all three environments separately.
+#
+# The four values are read from the environment, never written here. `.env`
+# beside this file holds them locally and is git ignored; CI passes placeholders,
+# because `supabase start` has to succeed on a job that never drives a real
+# handshake.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# SPEC 0007, finding 4. This is the ONE row where local must differ from both
+# hosted projects, which keep it off. The stock comment on the apple stanza above
+# states the reason: "Required for local sign in with Google auth." Discovering
+# that from a failed handshake instead of from here is exactly the cost the
+# spec's session policy matrix exists to avoid.
+skip_nonce_check = true
+# Off deliberately, matching all four hosted provider dialogs (P4). This is what
+# enforces the verified email condition that automatic linking depends on (P7),
+# rather than leaving it an assumption.
+email_optional = false
+
+[auth.external.github]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
