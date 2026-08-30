@@ -71,7 +71,7 @@ This section was written before any of it existed. It now records real values. E
 | Thing | Value | How it was confirmed |
 |---|---|---|
 | Vercel project | `jobhunt` | Created from the repository. `jobhunt-app` was free as a project name but its subdomain was already taken, and the two are claimed separately, which is why the shorter name is the one carrying the domain. |
-| Production origin | `https://usejobhunt.vercel.app` | Loaded in a browser and served the scaffold. |
+| Production origin | `https://usejobhunt.dev` | Loaded in a browser and served the scaffold. Moved 2026-08-30 from `https://usejobhunt.vercel.app`, which now 308 redirects here. |
 | Function region | `iad1` | Set in the project settings, beside both databases in `us-east-1`. |
 | Preview protection | Vercel Authentication, standard protection, on | Set in the project settings. |
 | Production reachability | Public | Loaded in a private window with no Vercel session. Standard protection does not cover the generated production URL, so AC-3 holds as designed and no custom domain is needed to make production public. |
@@ -190,7 +190,7 @@ Set in **Vercel**, per environment. Nothing here is committed.
 | `NEXT_PUBLIC_SUPABASE_URL` | production project | development project | local Docker | Supabase endpoint |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | production project | development project | local Docker | Browser safe key |
 | `SUPABASE_SECRET_KEY` | production project | development project | local Docker | `sb_secret_…`, read only by `src/lib/supabase/secret.ts` |
-| `NEXT_PUBLIC_SITE_URL` | `https://usejobhunt.vercel.app` | `https://usejobhunt.vercel.app` | `https://usejobhunt.vercel.app` | The canonical URL, same everywhere by design |
+| `NEXT_PUBLIC_SITE_URL` | `https://usejobhunt.dev` | `https://usejobhunt.dev` | `https://usejobhunt.dev` | The canonical URL, same everywhere by design. Moved 2026-08-30 |
 | `DEV_SESSION_ENABLED` | **not set** | **not set** | `true` | Guards the test layer's secret key client in `test/helpers/admin.ts`. Defaults to false. **Amended 2026-08-29 by spec [0007](../0007-auth-and-per-user-isolation/index.md)**: it used to enable the development password sign in, which feature 7 deletes, and it used to be set on Preview. Nothing deployed reads it now, and CI sets it on the test jobs itself, so a value set where nothing reads it would be its own small untruth |
 | `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | `1` | `0.1` | `1` | Binding rule 4 needs 1.0 where the ratio alert runs; previews must not compete for that quota |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | **required** | **required** | optional | Required on any deployed build, optional locally so a fresh clone still runs |
