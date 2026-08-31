@@ -14,7 +14,7 @@ One module per body section, plus the two shell pieces and the two things more t
 | [reasoning-section.tsx](reasoning-section.tsx) | The two comparison cards, and the page's only hairline |
 | [about-section.tsx](about-section.tsx) | The prose, and the "what's real today" status card |
 | [sign-in-band.tsx](sign-in-band.tsx) | The dark closing band |
-| [sign-in-controls.tsx](sign-in-controls.tsx) | The two provider labels and the line saying accounts are not open yet |
+| [sign-in-controls.tsx](sign-in-controls.tsx) | The two provider controls, which are real submit forms owned by `src/features/auth/` |
 | [score-badge.tsx](score-badge.tsx) | The amber score pill, used by the hero and the comparison |
 | [og-tokens.ts](og-tokens.ts) | The brand colours the social preview image draws with, and their token names |
 
@@ -22,7 +22,7 @@ The image generator itself is [src/app/opengraph-image.tsx](../../app/opengraph-
 
 ## Rules that are easy to break by accident
 
-- **Nothing that cannot work is a link.** Both provider controls and the example card's apply control render as `Text`, never as `Button` or an anchor. The prototype pointed all three at `#`, which is a control that looks live, takes focus and does nothing. Feature 7 turns the sign in half into real OAuth; until then the page states the position instead of miming it. `page.test.ts` asserts the whole page's anchor list, including raw `<a>`, so a regression fails the suite rather than shipping.
+- **Nothing that cannot work is a link.** The rule survives feature 7, but it now applies to one control rather than three, so read it carefully before changing either half. The example card's apply control still renders as `Text`, never as `Button` or an anchor, because an example listing has nothing real to apply to. The two provider controls are now real `<form action={...}>` submits, since sign in works: spec 0006 AC-7 was superseded by spec 0007 AC-16, and `COPY-1` plus both `soon` chips were deleted rather than reworded, because they were false for every visitor the moment sign in shipped. `page.test.ts` carries both halves separately, including raw `<a>` in its anchor query, so a regression on either fails the suite rather than shipping.
 - **No `"use client"` in this tree, ever.** The page is a static prerender and nothing here may change that. Real interactivity opens its own narrow boundary in the feature that needs it and says why.
 - **The status card in `about-section.tsx` is a promise, not copy.** Nothing may sit under `working` that `docs/scope/scope.md` does not mark `done`, and nothing under `planned` without a real scope row. Features 9, 11, 12 and 14 each carry a line in their own `Done when` requiring them to move their claim across when they ship. No test guards the truth of it, deliberately: the source is prose, so a test would only encode the same reading twice.
 - **The example card's numbers derive from one list.** `MATCHED_SKILLS` and `MISSING_SKILLS` in `hero-section.tsx` produce the score badge, the match bar, both chip clusters, the per skill gap notes and the summary sentence. Never hand write a count into the copy: that shipped once, and editing the skills left a written "8 of 11" behind next to a bar that said something else.

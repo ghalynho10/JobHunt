@@ -18,7 +18,7 @@ Each of these is a fact about an account or a dashboard, not about this reposito
 - [x] Both providers enabled with credentials on both hosted projects → **P4**, AC-20 · **VERIFIED 2026-08-30.** "Allow users without an email" off in all four dialogs, which is what enforces the verified email condition at the platform; "Skip nonce checks" off on Google in both
 - [x] Production allowlist holds the production origin → **P5**, AC-20 · **VERIFIED 2026-08-30, updated after the domain move.** `jobhunt-prod` Site URL `https://usejobhunt.dev`, redirect `https://usejobhunt.dev/**`. **The `/**` matters**: set briefly as a bare `https://usejobhunt.dev`, an exact match, it would not have matched the `/auth/callback` return and production sign in would have fallen through to Site URL
 - [x] Development allowlist holds a branch shaped wildcard → **P5**, AC-20 · **VERIFIED 2026-08-30**, `https://*-pgjules1996-6954s-projects.vercel.app/**`. `jobhunt-dev`'s Site URL is `http://localhost:3000` **deliberately**: it is the fallback when a redirect matches nothing, and an unreachable localhost fails loudly where a real URL would quietly sign someone in on the wrong environment
-- [ ] **The wildcard pattern itself is still unproven.** It is confirmed only when the first preview sign in succeeds at build plan step 5. If that fails on a redirect mismatch, this pattern is the first suspect, not the code → **P5**, AC-4
+- [x] ~~**The wildcard pattern itself is still unproven.** It is confirmed only when the first preview sign in succeeds at build plan step 5. If that fails on a redirect mismatch, this pattern is the first suspect, not the code~~ → **P5**, AC-4 · **PROVED 2026-08-30** by the first preview sign in, which is the event this row was held open for: both providers completed on the branch preview and reached one linked account. Re confirmed on production 2026-08-31, where GoTrue accepted `redirect_to=https://usejobhunt.dev/auth/callback` and forwarded to the real client id rather than falling through to Site URL
 - [x] `before_user_created` available on the plan → **P6**, AC-20 · **VERIFIED ON BOTH PROJECTS**, 2026-08-29 on `jobhunt-dev`, extended 2026-08-30 to `jobhunt-prod`. Above the "Team or Enterprise Plan required" divider on the Free org in each. Not created on either: the function does not exist yet
 - [x] Automatic linking behaves as documented, same email and verified only → **P7**, AC-20 · **VERIFIED 2026-08-30** against the vendor's identity linking page. **There is no dashboard toggle**, so this row's original "where" was wrong: it is default GoTrue behaviour, not a setting. SAML SSO users are excluded from linking of either kind, and manual linking stays off
 - [x] The GitHub account returns a verified primary email → **P8**, AC-20 · **VERIFIED 2026-08-30, risk reduced not eliminated.** `mghalynho@gmail.com` is Primary and Verified and matches the Google account. It is also **private**, and the authorization screen requested "Email addresses (read only)" with no scope parameter in the URL, so `user:email` is a default and `/user/emails` is in scope. **Still inferred**: whether GoTrue prefers `/user/emails` over `/user`'s email field. See the AC-8 step below
@@ -26,7 +26,7 @@ Each of these is a fact about an account or a dashboard, not about this reposito
 - [ ] Hook **enablement** confirmed in **both** hosted dashboards, not just the local `config.toml` stanza. The function ships in a migration, its enablement does not, so the two can drift → AC-19
 
 - [x] `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5` and `COPY-6` are written and **final** → AC-5, AC-7 · **written by the engineer 2026-08-30**, in the spec's `## Copy` block. Used verbatim; `/develop` must not reword them
-- [ ] `COPY-2` is filled in before milestone 4, after P10 is answered, taking its escape hatch wording if the answer is no → AC-5, AC-9
+- [x] ~~`COPY-2` is filled in before milestone 4, after P10 is answered, taking its escape hatch wording if the answer is no~~ → AC-5, AC-9 · **WRITTEN AND WIRED 2026-08-30**, and the escape hatch was not needed: P10's answer was yes, so the refusal does reach this application's own callback and `account_exists` is a sentence somebody actually reads. `This email already has an account with the other sign in option. Try that one below.` **Confirmed rendering on production 2026-08-31**, above both provider forms, which is the placement its own "below" depends on
 
 ## Answered at milestone 4, not before
 
@@ -48,35 +48,35 @@ These cannot be automated. Google blocks automated browsers and Vercel SSO sits 
 - [ ] Start sign in from the preview's **branch** URL → it completes and lands back on the branch URL → AC-4
 - [ ] Now start sign in from the same preview's **per commit** URL → it fails at the exchange, showing `COPY-4`, because the PKCE code verifier is a host only cookie written on the per commit host and the branch host never receives it. **This is the documented expected outcome, not a defect.** Sign in is started from the branch URL → AC-4
 - [ ] Sign out from `/health` → you land on `/` with no session. Reload → still signed out → AC-1
-- [ ] After signing out, request `/health` directly → you are redirected to `/sign-in`, never an empty page → AC-14
+- [x] After signing out, request `/health` directly → you are redirected to `/sign-in`, never an empty page → AC-14 · **VERIFIED 2026-08-31** by `/check verify`. Proved as the general guarantee rather than only after a sign out: an unauthenticated `GET /health` answers `307` to `/sign-in` both locally and on `https://usejobhunt.dev`
 - [ ] At the provider's consent screen, **cancel** → you land on `/sign-in` showing `COPY-1` verbatim, and the URL reads `?error=access_denied` → AC-5
-- [ ] On that same page → the error line renders **above** both provider forms. Five of the six sentences say "below" or "from here", so a reordered page makes the copy wrong without any code failing → AC-5
+- [x] On that same page → the error line renders **above** both provider forms. Five of the six sentences say "below" or "from here", so a reordered page makes the copy wrong without any code failing → AC-5 · **VERIFIED 2026-08-31** by `/check verify`. Checked on all five codes, locally and on production, by byte offset in the served HTML rather than by eye: the `role="alert"` block precedes the first `<form>` every time
 - [ ] Check Sentry for that cancellation → **no alert and no issue**. A person changing their mind is the system working → AC-6
 - [ ] Sign in with the second provider on the **same verified email** → you reach the same account and see the same rows, not a fresh empty one → AC-8
 - [ ] With a second real account, sign in and confirm it sees only its own rows → AC-15
 - [ ] **Prove AC-8 with GitHub private email left ON**, on `mghalynho@gmail.com`, so the risky path is the one tested. If linking does not fire and the hook refuses instead, **read P8's row before debugging the hook**: the symptom of GoTrue reading `/user` rather than `/user/emails` is indistinguishable from a broken hook → AC-8, **P8**
 - [ ] Attempt a sign in that cannot link (an unverified or absent provider email) → the signup is **refused**, `COPY-2` renders and names which provider owns that email, and no account is created → AC-9
-- [ ] Tab through `/sign-in` → both provider controls are keyboard reachable in order, each with the visible teal focus ring, and each submits on Enter → AC-2
-- [ ] On `/` at 1440 and at 320 pixels → the two provider controls are real submits, `COPY-1` ("Sign in isn't live yet. Coming soon with Google and GitHub.") is gone, and neither "soon" status chip renders → AC-16
-- [ ] On `/` → the apply control in the hero card is still **not** a link. Spec 0006 **AC-17** is untouched by this feature → AC-16
+- [x] Tab through `/sign-in` → both provider controls are keyboard reachable in order, each with the visible teal focus ring, and each submits on Enter → AC-2 · **VERIFIED 2026-08-31** by `/check verify`. Tab order inside `main` is Google then GitHub, the only two focusable elements there. The ring is `2px solid rgb(41, 115, 115)` at `2px` offset on focus and `outline-style: none` off it, so it is a real indicator and not an always on border. Enter on the focused Google control submitted and drove the handshake to Google's own endpoint
+- [x] On `/` at 1440 and at 320 pixels → the two provider controls are real submits, `COPY-1` ("Sign in isn't live yet. Coming soon with Google and GitHub.") is gone, and neither "soon" status chip renders → AC-16 · **VERIFIED 2026-08-31** by `/check verify`. Both widths, and no horizontal overflow at 320. Four provider controls across the hero and the band, all `type=submit` inside a form
+- [x] On `/` → the apply control in the hero card is still **not** a link. Spec 0006 **AC-17** is untouched by this feature → AC-16 · **VERIFIED 2026-08-31** by `/check verify`. It renders as a bare `<span>`, inside no anchor and no button
 
 ## Commands
 
-- [ ] `pnpm db:start` → the stack starts with both provider stanzas enabled and `env()` secrets resolved → AC-18
-- [ ] `grep -n 'skip_nonce_check' supabase/config.toml` → it is `true` on the Google stanza. **Local only**: both hosted projects keep it off. The vendor's own comment says it is "Required for local sign in with Google auth", and without it local Google sign in fails opaquely → AC-18, AC-19
-- [ ] Locally, open `/sign-in` and submit a provider → the redirect is accepted by the local GoTrue. This is what proves `config.toml`'s `site_url` and `additional_redirect_urls` were fixed: the stock values are `http://127.0.0.1:3000` and `https://127.0.0.1:3000`, and `currentOrigin()` returns `http://localhost:3000` locally, so the scheme **and** the host both had to change → AC-18
-- [ ] `grep -rn "use client" src/` → walk the import graph from `/` and from `/sign-in`. Neither route reaches a file carrying the directive. The literal grep returns `global-error.tsx`, which is Next's required root error boundary and is reachable from neither → AC-2
-- [ ] `grep -rn "signInWithDevPassword\|features/dev-session\|supabase/browser" src/ test/` → **no match anywhere**. The password path and the browser client are deleted, not disabled → AC-12
-- [ ] `ls src/app/api/` → the callback is **not** there. `ls src/app/auth/callback/route.ts` → it is → AC-3
-- [ ] `grep -n "currentOrigin\|canonicalSiteUrl" src/features/auth/*.ts` → `redirectTo` reads `currentOrigin()` and nothing in this feature reads `canonicalSiteUrl` → AC-4
-- [ ] `pnpm test` → all unit tests pass, including the split "no dead controls" test whose apply control half still runs → AC-16
-- [ ] `pnpm test:integration` → all integration tests pass against the real local stack → AC-5, AC-6, AC-9, AC-10, AC-14, AC-15
-- [ ] `pnpm lint` → clean at `--max-warnings=0` → AC-2
-- [ ] `pnpm build` → succeeds, and `/sign-in` no longer builds as a hard 404 outside development → AC-12
-- [ ] `grep -n "DEV_SESSION_ENABLED" src/ test/ .github/` → the only reads left are `test/helpers/admin.ts` and its test. Nothing under `src/` reads it → AC-13
-- [ ] `vercel env ls` → `DEV_SESSION_ENABLED` is no longer set on Preview → AC-13
-- [ ] Read `src/env.ts`'s comment on `DEV_SESSION_ENABLED` → it names the test mint as its one remaining job, and no longer says feature 7 deletes it → AC-13
-- [ ] Read [docs/observability/spans.md](../../observability/spans.md) → `auth.sign_in`, `auth.callback` and `auth.sign_out` are listed; `dev_session.sign_in` is gone → AC-17
+- [x] `pnpm db:start` → the stack starts with both provider stanzas enabled and `env()` secrets resolved → AC-18 · **VERIFIED 2026-08-31** by `/check verify`. **Read off the running GoTrue container, not off the file**, which is the check that caught the drift recorded at the foot of this document
+- [x] `grep -n 'skip_nonce_check' supabase/config.toml` → it is `true` on the Google stanza. **Local only**: both hosted projects keep it off. The vendor's own comment says it is "Required for local sign in with Google auth", and without it local Google sign in fails opaquely → AC-18, AC-19 · **VERIFIED 2026-08-31** by `/check verify`. `true` on Google and `false` on GitHub in `config.toml`, and the container agrees
+- [x] Locally, open `/sign-in` and submit a provider → the redirect is accepted by the local GoTrue. This is what proves `config.toml`'s `site_url` and `additional_redirect_urls` were fixed: the stock values are `http://127.0.0.1:3000` and `https://127.0.0.1:3000`, and `currentOrigin()` returns `http://localhost:3000` locally, so the scheme **and** the host both had to change → AC-18 · **VERIFIED 2026-08-31** by `/check verify`. The action returns a 303 to `/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback`, and local GoTrue accepts that redirect and forwards to Google rather than falling through to Site URL
+- [x] `grep -rn "use client" src/` → walk the import graph from `/` and from `/sign-in`. Neither route reaches a file carrying the directive. The literal grep returns `global-error.tsx`, which is Next's required root error boundary and is reachable from neither → AC-2 · **VERIFIED 2026-08-31** by `/check verify`. The literal grep now also returns two `AGENTS.md` files, which are prose about the rule rather than code carrying the directive
+- [x] `grep -rn "signInWithDevPassword\|features/dev-session\|supabase/browser" src/ test/` → **no match anywhere**. The password path and the browser client are deleted, not disabled → AC-12 · **VERIFIED 2026-08-31** by `/check verify`. No match in `src/` or `test/`
+- [x] `ls src/app/api/` → the callback is **not** there. `ls src/app/auth/callback/route.ts` → it is → AC-3 · **VERIFIED 2026-08-31** by `/check verify`. `src/app/api/` does not exist at all, and the callback route does
+- [x] `grep -n "currentOrigin\|canonicalSiteUrl" src/features/auth/*.ts` → `redirectTo` reads `currentOrigin()` and nothing in this feature reads `canonicalSiteUrl` → AC-4 · **VERIFIED 2026-08-31** by `/check verify`.
+- [x] `pnpm test` → all unit tests pass, including the split "no dead controls" test whose apply control half still runs → AC-16 · **VERIFIED 2026-08-31** by `/check verify`. 316 tests in 31 files
+- [x] `pnpm test:integration` → all integration tests pass against the real local stack → AC-5, AC-6, AC-9, AC-10, AC-14, AC-15 · **VERIFIED 2026-08-31** by `/check verify`. 44 tests in 8 files, re run against a stack rebuilt from the committed config
+- [x] `pnpm lint` → clean at `--max-warnings=0` → AC-2 · **VERIFIED 2026-08-31** by `/check verify`.
+- [x] `pnpm build` → succeeds, and `/sign-in` no longer builds as a hard 404 outside development → AC-12 · **VERIFIED 2026-08-31** by `/check verify`. The route table shows `/` still prerendering as static, so spec 0006 **AC-4** holds, and `/sign-in` building as a dynamic route rather than a 404
+- [x] `grep -n "DEV_SESSION_ENABLED" src/ test/ .github/` → the only reads left are `test/helpers/admin.ts` and its test. Nothing under `src/` reads it → AC-13 · **VERIFIED 2026-08-31** by `/check verify`.
+- [x] `vercel env ls` → `DEV_SESSION_ENABLED` is no longer set on Preview → AC-13 · **VERIFIED 2026-08-31** by `/check verify`. Absent from all 20 rows on the live project, on every environment, not just Preview
+- [x] Read `src/env.ts`'s comment on `DEV_SESSION_ENABLED` → it names the test mint as its one remaining job, and no longer says feature 7 deletes it → AC-13 · **VERIFIED 2026-08-31** by `/check verify`.
+- [x] Read [docs/observability/spans.md](../../observability/spans.md) → `auth.sign_in`, `auth.callback` and `auth.sign_out` are listed; `dev_session.sign_in` is gone → AC-17 · **VERIFIED 2026-08-31** by `/check verify`.
 
 ## Checks that must FAIL, run each and then revert
 
@@ -230,9 +230,19 @@ failed proves nothing:
 
 ### Still open after this build
 
-- [ ] The whole `## UI / manual` section above. It needs a deploy and real
+- [ ] Most of the `## UI / manual` section above. It needs a deploy and real
   Google and GitHub accounts, and this feature is explicitly not the one that
-  brings a browser runner
+  brings a browser runner. **Partly closed 2026-08-30**: the engineer signed in
+  on the branch preview with both providers and reached one linked account
+  rather than two, which is **AC-8** and also settles P5's wildcard, unproven
+  until the first preview sign in. **AC-15 is half proved as of 2026-08-30**: a
+  second real account signed in, so two real OAuth identities each resolved to
+  their own `auth.uid()` and neither reached the other's data. Both landed on
+  the same named `record_not_found`, because no `profile` row exists for either,
+  which is exactly the state this spec's `## Consequences` predicts between this
+  feature and feature 9. **The positive half, that each sees their OWN rows,
+  cannot be proved until rows exist, so it belongs to feature 9.** AC-15's
+  wording assumes rows are there to be isolated; read it with that in mind
 - [x] ~~`COPY-2` is still unwritten~~ · **written by the engineer and wired
   2026-08-30**, once P10's answer showed the refusal does reach the page, so the
   escape hatch wording held in reserve for a "no" was not needed. `This email
@@ -240,10 +250,21 @@ failed proves nothing:
   tests carry the constraints it creates: it says "below", so it depends on the
   error line rendering above both forms, and it names no provider, which is what
   AC-7's enum having no provider dimension requires → **AC-5**
-- [ ] The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`. The
-  migration ships the function; the switch is dashboard state no file here
-  records → **AC-9**, **AC-19**
-- [ ] `DEV_SESSION_ENABLED` removed from the Vercel Preview scope → **AC-13**
-- [ ] Spec 0002's two steps that this feature unblocks: the `currentOrigin()`
+- [x] ~~The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`~~ ·
+  **both enabled 2026-08-30**, `jobhunt-dev` before the merge and `jobhunt-prod`
+  straight after it. The migration ships the function and the switch is dashboard
+  state no file here records, so this row stays as the record that both were
+  flipped, and it is the first thing to re read if a signup ever fails on one
+  project and not the other → **AC-9**, **AC-19**
+- [x] ~~`DEV_SESSION_ENABLED` removed from the Vercel Preview scope~~ ·
+  **removed 2026-08-30**. Nothing deployed reads it now; CI sets it on its own
+  test jobs and a developer sets it locally → **AC-13**
+- [x] ~~Spec 0002's two steps that this feature unblocks: the `currentOrigin()`
   resolver step, stranded since 2026-08-22 on code that had never run outside a
-  build, and the direct exercise of a deployed Server Action against production
+  build, and the direct exercise of a deployed Server Action against production~~ ·
+  **BOTH PROVED 2026-08-31**, and by the same request. Posting the real sign in
+  form on `https://usejobhunt.dev` returned a 303 to
+  `.../auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fusejobhunt.dev%2Fauth%2Fcallback`,
+  which is a deployed Server Action exercised directly and `currentOrigin()`
+  resolving to the canonical production origin at request time. **Spec 0002's own
+  `verify.md` still has to be ticked**, since that is a different file → AC-4
