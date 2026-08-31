@@ -27,8 +27,15 @@ import { SignInControls } from "./sign-in-controls";
  * here, which is the one honest destination the word has until feature 7.
  */
 
+/**
+ * Spec 0007, AC-16. The opening clause used to read "is coming soon", which
+ * became false for every visitor the moment sign in shipped. The clause is
+ * DELETED rather than reworded, the same operation AC-16 mandates for `COPY-1`
+ * and the two status chips. Everything after it is the engineer's own sentence,
+ * unchanged.
+ */
 const BAND_BODY =
-  "Sign in with Google or GitHub is coming soon. No email, no password, no subscription. JobHunt is free.";
+  "Sign in with Google or GitHub. No email, no password, no subscription. JobHunt is free.";
 
 /** The page's closing section: where sign in will live, and what it will cost. */
 export function SignInBand() {
@@ -46,7 +53,7 @@ export function SignInBand() {
       <Text className="text-paper mt-3">{BAND_BODY}</Text>
 
       <div className="mt-8">
-        <SignInControls tone="dark" />
+        <SignInControls />
       </div>
     </Section>
   );

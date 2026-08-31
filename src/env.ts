@@ -24,10 +24,20 @@ export const env = createEnv({
      */
     SENTRY_DSN: z.url().optional(),
     /**
-     * Spec 0002 AC-10: the development only password sign in is permitted only
-     * where this is explicitly true. It defaults to false, so an environment
-     * that simply does not set it (production) fails closed, and neither guard
-     * depends any longer on how a build labels `NODE_ENV`.
+     * ONE REMAINING JOB, since spec 0007 (AC-13): it guards the development only
+     * session mint in `test/helpers/admin.ts`, and nothing else.
+     *
+     * It used to permit the development only password sign in (spec 0002,
+     * AC-10). Feature 7 deleted that path outright rather than switching it off,
+     * so no environment is one variable away from accepting a password, and this
+     * variable no longer gates anything shipped: NOTHING UNDER `src/` READS IT.
+     *
+     * It is therefore no longer set on Vercel Preview. CI sets it on its own
+     * test jobs, and a developer sets it locally. Spec 0002's configuration
+     * table is amended to match.
+     *
+     * It defaults to false, so an environment that simply does not set it fails
+     * closed, and the mint is unreachable rather than merely unused.
      *
      * `z.stringbool()` rejects a malformed value rather than quietly reading it
      * as false, which would be a silent failure in the safe direction and still
@@ -42,10 +52,13 @@ export const env = createEnv({
      * but it is not product surface, so it renders only where this is
      * explicitly true and fails closed everywhere else.
      *
-     * It is deliberately NOT tied to `DEV_SESSION_ENABLED`: feature 7 deletes
-     * that variable along with the development only sign in, and this page
-     * outlives it. It is deliberately not tied to `NODE_ENV` either, for the
-     * reason recorded above.
+     * It is deliberately NOT tied to `DEV_SESSION_ENABLED`. That was written
+     * expecting feature 7 to delete the variable along with the development only
+     * sign in; feature 7 deleted the sign in and the variable survived with one
+     * narrower job (see its note above), so the two now guard different things
+     * in different places and tying them together would be worse, not better.
+     * It is deliberately not tied to `NODE_ENV` either, for the reason recorded
+     * above.
      */
     UI_PREVIEW_ENABLED: z.stringbool().default(false),
   },

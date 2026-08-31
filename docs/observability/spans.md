@@ -12,7 +12,9 @@ exactly the failure it exists to catch.
 | Span name | `op` | Opened in | Alerted on |
 |---|---|---|---|
 | `profile.read` | `db.query` | `src/features/profile/queries.ts` | Not yet. It is the deployed end to end proof from spec 0003, and the first read of a real product table. Feature 9 gives it a write path worth alerting on. |
-| `dev_session.sign_in` | `auth` | `src/features/dev-session/actions.ts` | No. Development only; removed by feature 7. |
+| `auth.sign_in` | `auth` | `src/features/auth/actions.ts` | Not yet. One name for both providers, deliberately: the provider is a span attribute, so every sign in attempt groups under one name and binding rule 4's ratio has a single denominator rather than two half sized ones. |
+| `auth.callback` | `auth` | `src/features/auth/callback.ts` | Not yet, and it is the one here most likely to earn an alert. Spec 0007's follow-up defers the decision to feature 10, which brings the first alert rule. |
+| `auth.sign_out` | `auth` | `src/features/auth/actions.ts` | No. A failing sign out still reports through `failure()`, and the operation is best effort by design (spec 0007, invariant 6). |
 | `kill_switch.read` | `db.query` | `src/lib/kill-switch.ts` | Not yet. Feature 10 puts this read inside every gated call, and its failure rate is alerted on from there. |
 
 None of the spans above is alerted on yet. They are registered because the convention

@@ -1,7 +1,7 @@
 # 0007. Auth and per user isolation
 
 **Date**: 2026-08-29
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
