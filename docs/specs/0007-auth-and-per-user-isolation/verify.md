@@ -205,6 +205,16 @@ the message rather than on a code:
 - [x] Sign out actually clears the session, proved by reading the jar back
   through a second client rather than by observing the redirect → **AC-11**
 
+### One correction the engineer caught in review
+
+- [x] `test/helpers/database.ts` originally read `DEV_SESSION_ENABLED` as its
+  guard, which would have made **AC-13**'s wording false: that variable is
+  supposed to have exactly one remaining job, guarding the mint in `admin.ts`,
+  and `src/env.ts`'s comment says so too. It now has its own
+  `TEST_DIRECT_DB_ENABLED`, so the two privileged paths fail independently and
+  switching the mint on does not switch on a superuser connection as a side
+  effect → **AC-13**
+
 ### Mutation checks run on this build's own tests
 
 Each was made to fail on purpose, then restored, because a test that has never
@@ -215,15 +225,21 @@ failed proves nothing:
 - [x] Rewording the hook's refusal message → the marker coupling test fails
 - [x] Making sign out redirect without clearing the session → the one **AC-11**
   assertion that matters fails
+- [x] Letting `DEV_SESSION_ENABLED` switch the direct database connection back
+  on → the **AC-13** guard test fails, along with the absent flag case
 
 ### Still open after this build
 
 - [ ] The whole `## UI / manual` section above. It needs a deploy and real
   Google and GitHub accounts, and this feature is explicitly not the one that
   brings a browser runner
-- [ ] `COPY-2` is still unwritten, so `account_exists` currently renders
-  `COPY-6`'s generic sentence as a deliberate placeholder. The map is typed over
-  every enum member, so the slot cannot be dropped, only filled → **AC-5**
+- [x] ~~`COPY-2` is still unwritten~~ · **written by the engineer and wired
+  2026-08-30**, once P10's answer showed the refusal does reach the page, so the
+  escape hatch wording held in reserve for a "no" was not needed. `This email
+  already has an account with the other sign in option. Try that one below.` Two
+  tests carry the constraints it creates: it says "below", so it depends on the
+  error line rendering above both forms, and it names no provider, which is what
+  AC-7's enum having no provider dimension requires → **AC-5**
 - [ ] The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`. The
   migration ships the function; the switch is dashboard state no file here
   records → **AC-9**, **AC-19**
