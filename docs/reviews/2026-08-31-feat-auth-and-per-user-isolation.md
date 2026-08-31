@@ -1,0 +1,79 @@
+# Review, auth and per user isolation (spec 0007), 2026-08-31
+
+**Reviewed by**: Claude Sonnet 5 (author model not recorded in commit history)
+**Scope**: 29 files, range `a7c1b5c..HEAD` (feature 7's full implementation, already merged to `main`; reviewed as a commit range rather than branch vs base because the branch no longer exists)
+**Verdict**: Changes requested
+
+## Summary
+
+This ships real OAuth (Google, GitHub) end to end: two thin Server Actions, a route handler that exchanges the code and never 500s to the browser, a closed five-code failure vocabulary with verbatim engineer-written copy, a `security definer` Postgres hook enforcing one account per verified email, and a clean deletion of the development password path and the browser Supabase client it depended on. The security-sensitive parts are careful and correct: the hook's `search_path = ''` plus fully-qualified names, the explicit revoke-then-grant to `supabase_auth_admin` only, the fail-closed exception handler, and the deliberate choice to match the hook's refusal by message text (locked with an integration test that drives the real function and feeds its real message through the real classifier) all hold up under inspection. No untrusted value (provider error text, the `error` query parameter, the hook's own message) reaches a rendered page; everything is fenced by a closed Zod enum or a fixed sentence table. `pnpm test` (333 tests), `pnpm typecheck`, `pnpm lint`, and a targeted grep for the deleted dev-session/browser-client paths all came back clean during this review. The one real gap is asymmetric test coverage: `actions.ts` (the sign-in half) gets an exhaustive, boundary-mocked test file, but `callback.ts`'s `completeSignIn()` — the function that actually exchanges the code for a session — has no automated test at all, only its pure `classify()` helper does.
+
+## Major
+
+### 🟠 `completeSignIn()` has no automated test, only its pure helper does, `src/features/auth/callback.ts:36-95`
+
+**Problem**: `src/features/auth/callback.test.ts` thoroughly covers `classify()`, the pure string-matching helper. It does not call `completeSignIn()` itself even once. That function is where the actual branching and error handling live: the `code`/`error` boundary parse, the `attempt()`-wrapped call to `supabase.auth.exchangeCodeForSession(code)`, the `error`-returned-but-not-thrown path that builds a `failure()`, and the success path that returns `{ signedIn: true }`. None of these are exercised by `pnpm test` or `pnpm test:integration` (confirmed by grepping the whole tree for `completeSignIn` — it appears only in `callback.ts` itself and in `AGENTS.md` prose). The only proof this logic works is the one-time manual `/check verify` pass on 2026-08-31, which is not a regression guard.
+
+This is a real asymmetry rather than a structural constraint: `src/features/auth/actions.test.ts` faces the identical problem (a function that calls `createClient()` from `@/lib/supabase/server` and needs a real session boundary) and solves it cleanly by mocking `@/lib/supabase/server` and `next/navigation` at the boundary while running the real `Sentry.startSpan`. `completeSignIn(params: URLSearchParams)` takes no `NextRequest` and has exactly the same shape — the same technique would work verbatim.
+
+**Why it matters**: This is branching logic, error handling, and directly security relevant (it is what turns a code into a session). A future edit — say, a refactor that changes the order of the `attempt()` call and the boundary parse, or one that accidentally returns `signedIn: true` on the error-returned-but-not-thrown path — would pass `pnpm test`, `pnpm lint`, and `pnpm typecheck` and only be caught by a human re-running the manual verify steps by hand.
+
+**Suggested fix**: Add a `describe` block to `callback.test.ts` (or a new file beside it) that mocks `@/lib/supabase/server` the same way `actions.test.ts` does, and drives `completeSignIn()` through: a successful exchange (`{ signedIn: true }`), an exchange that returns an `error` object (`exchange_failed`, and that `failure()` is called with the right kind/severity), and an exchange that throws (`attempt()` catching it into `exchange_failed`). The existing `classify()` tests can stay as they are for the pure boundary-parse cases.
+
+## Minor
+
+### 🟡 A genuine unrelated GoTrue server error is silently classified the same as "no code at all," `src/features/auth/callback.ts:159-169`
+
+**Problem**: `classify()` maps every provider `error` value that is neither `access_denied` nor a match on `ACCOUNT_EXISTS_MARKER` to `no_code`, per the code's own comment ("ANY OTHER error VALUE FALLS TO no_code"). `callback.test.ts` explicitly locks this in: `classify("server_error", "Internal server error")` (a stand-in for a genuine GoTrue fault unrelated to the hook) returns `"no_code"`, the same code produced when the callback is reached with literally nothing on the query string.
+
+The spec's state-transition diagram (`## Feature design`) only names four callback outcomes — no code, exchange fails, access denied, account exists — so this collapsing is an implementation decision, not something the spec spelled out. The practical effect: a real GoTrue-side fault (not the hook's deliberate refusal) shows the person `COPY-3`, "Something was missing from that link. Start again below.", which is not what happened and does not point at the actual fix, and is filed as `validation_failed`/`expected` (info level in Sentry) rather than `external_service_failed`/`unexpected` (error level), the same bucket used for `exchange_failed`.
+
+The severity impact is partly mitigated: `failure()` marks the active span failed regardless of severity (`src/lib/result.ts:110-112`), so binding rule 4's ratio-based alert (once feature 10 wires it up) would still see the elevated failure rate on `auth.callback`. What is lost is the per-event fidelity: the event lands in Sentry as an info-level `captureMessage` rather than an error-level `captureException`, and the sentence shown to the affected person misdescribes what happened.
+
+**Why it matters**: This is exactly the area AC-6 exists to protect ("an ordinary denial never competes with an outage"), and a rare, real backend fault reads to both the user and to whoever triages Sentry as an everyday malformed link rather than an outage.
+
+**Suggested fix**: At minimum, note this collapsing explicitly in `callback.ts`'s doc comment as a named tradeoff (the current comment argues it "does NOT hide an outage" on the alerting axis, but doesn't address the copy/severity-fidelity axis). If the fidelity is worth the cost, consider giving a bare `error` value with no recognized marker a severity of `unexpected` even while mapping it to the `no_code` copy slot, so it is at least visible as an error-level Sentry event; whether the AC-7 enum needs a sixth member is a spec-level call, not this review's to make.
+
+## Nits
+
+- ⚪ `supabase/migrations/20260830230000_before_user_created_hook.sql:2588-2590`, the comment describing the confirmed GoTrue payload shape says the shape includes `event -> 'user' -> 'app_metadata' ->> 'provider'`, but the function body never reads that path anywhere — only `event -> 'user' ->> 'email'` is extracted. Harmless, but the comment implies a field is used when it is not, which could send a future reader looking for logic that isn't there.
+- ⚪ `supabase/migrations/20260830230000_before_user_created_hook.sql:2545-2551`, `provider_display_name`'s `'email'` branch ("an email address and password") describes a sign-in method spec 0007 deletes outright (invariant 1: "not disabled, not flagged, absent"). The branch is only reachable if `auth.users` holds a row with no linked identity but a matching email — in practice only the password-hash fixture rows `supabase/seed.sql` keeps around, since no real user could ever have signed up that way. Effectively dead for any real account, worth a one-line comment saying so if it's meant to stay for the fixture case, otherwise consider whether it should be removed with the rest of the password path.
+
+## Strengths
+
+- The hook's security posture is genuinely careful: `security definer` is justified in a comment that explicitly distinguishes itself from the `security invoker` function beside it, `search_path = ''` pairs with fully-qualified names throughout (with the one deliberate, well-explained exception for `nullif`, a SQL construct rather than a `pg_catalog` function), and the grant is written out explicitly (`revoke ... from public; grant ... to supabase_auth_admin`) rather than left to the default. `test/integration/auth-hook.test.ts`'s "who may execute the hook" block asserts this from the catalog (`has_function_privilege`) rather than trusting the migration text, and `pg_proc.prosecdef`/`proconfig` are read back directly to confirm the two settings survived.
+- The `ACCOUNT_EXISTS_MARKER` coupling between the SQL migration's refusal message and `callback.ts`'s classifier, which the task brief flagged as worth judging, is locked correctly: `test/integration/auth-hook.test.ts` calls the real function and feeds its real returned message through the real `classify()`, so a reworded message on either side fails the suite rather than silently degrading `account_exists` into `no_code`. That is the right test shape for a text-based contract between two systems.
+- `actions.test.ts` is a model of testing at the real boundary rather than around it: the Supabase auth SDK and `next/navigation`'s `redirect()` are the only two things replaced, and even `@sentry/nextjs` is wrapped with a `Proxy` that still calls the real `startSpan` rather than a stub that would only prove the wrapper was called. The preview-vs-production `redirectTo` test (`"uses the branch URL on a preview, never the canonical site URL"`) is exactly the trap AC-4 exists to catch, and it is a real regression test, not a restatement of the code.
+- The deletions are clean: `src/features/dev-session/` and `src/lib/supabase/browser.ts` are gone with no dangling reference anywhere in `src/` or `test/` (confirmed by grep), and the one place that imported the old `signOut` (`src/app/(app)/health/page.tsx`) was repointed.
+
+## Test coverage
+
+Unit suite: 333 tests passing (`pnpm test`), `pnpm typecheck` and `pnpm lint` both clean, confirmed by running all three during this review. Coverage is strong and boundary-real for `actions.ts` (provider dispatch, AC-4's origin logic, span behaviour, Sentry reporting on both a returned error and a thrown one) and for the pure decision functions `classify()` and `signInErrorSentence()` (including the adversarial cases: script tags, case variants, repeated query parameters, and the punctuation rule). The refusal hook is proved against the real local stack in `test/integration/auth-hook.test.ts`, including the two load-bearing cases the build's own record calls out: refusing correctly after GoTrue has already pruned the identities the hook reads (AC-9), and refusing on its own internal error with a distinct message (AC-10). Sign out is proved against a real session and a real cookie jar in `test/integration/sign-out.test.ts`, reading the jar back through a second client rather than trusting the redirect alone. The gap, covered above as a Major, is `completeSignIn()` itself: the exchange call, its `attempt()` wrapping, and the success path have no test, unit or integration, only the pure `classify()` helper it calls does.
+
+## Disposition
+
+Recorded 2026-08-31, after the engineer read the findings. The findings above are
+left exactly as the reviewer wrote them; this section is what was decided about
+them, so an open item is not re read later as unresolved.
+
+- **Major, `completeSignIn()` untested: FIXED.** Ten tests added to
+  `src/features/auth/callback.test.ts`, extending the existing file rather than
+  adding a parallel one. They drive the function itself: the clean exchange, an
+  exchange that returns an error, an exchange that throws, both guard clause
+  paths, and the hook's refusal carried end to end rather than through
+  `classify()` alone. Both failure modes the finding named were mutation checked
+  and each is caught by exactly one test: returning `signedIn: true` on the error
+  path, and hoisting the guard clause above the span. The two guard clause tests
+  also assert the SDK is never called, which the return value alone cannot show.
+  Unit suite 333 to 343.
+- **Minor, a genuine GoTrue fault collapsing into `no_code`: ACCEPTED, not
+  fixed.** The engineer's call. The reviewer's own analysis is why it is
+  affordable: `failure()` marks the span failed whatever the severity, so binding
+  rule 4's ratio alert still sees the elevated failure rate on `auth.callback`
+  and no outage is hidden. What is given up is per event fidelity, an info level
+  Sentry event and copy that misdescribes a rare backend fault. Whether AC-7's
+  enum should grow a sixth member stays a spec level question for `/architect`,
+  not something to settle in a review.
+- **Both nits: OPEN.** Comment only, no behaviour attached. They describe a
+  payload field the hook never reads and a `provider_display_name` branch that is
+  effectively dead for any real account.
