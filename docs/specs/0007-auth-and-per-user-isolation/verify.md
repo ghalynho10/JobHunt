@@ -230,9 +230,13 @@ failed proves nothing:
 
 ### Still open after this build
 
-- [ ] The whole `## UI / manual` section above. It needs a deploy and real
+- [ ] Most of the `## UI / manual` section above. It needs a deploy and real
   Google and GitHub accounts, and this feature is explicitly not the one that
-  brings a browser runner
+  brings a browser runner. **Partly closed 2026-08-31**: the engineer signed in
+  on the branch preview with both providers and reached one linked account
+  rather than two, which is **AC-8** and also settles P5's wildcard, unproven
+  until the first preview sign in. **AC-15 is the notable one still open**,
+  because it needs a SECOND real account, not one identity across two providers
 - [x] ~~`COPY-2` is still unwritten~~ · **written by the engineer and wired
   2026-08-30**, once P10's answer showed the refusal does reach the page, so the
   escape hatch wording held in reserve for a "no" was not needed. `This email
@@ -240,10 +244,15 @@ failed proves nothing:
   tests carry the constraints it creates: it says "below", so it depends on the
   error line rendering above both forms, and it names no provider, which is what
   AC-7's enum having no provider dimension requires → **AC-5**
-- [ ] The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`. The
-  migration ships the function; the switch is dashboard state no file here
-  records → **AC-9**, **AC-19**
-- [ ] `DEV_SESSION_ENABLED` removed from the Vercel Preview scope → **AC-13**
+- [x] ~~The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`~~ ·
+  **both enabled 2026-08-31**, `jobhunt-dev` before the merge and `jobhunt-prod`
+  straight after it. The migration ships the function and the switch is dashboard
+  state no file here records, so this row stays as the record that both were
+  flipped, and it is the first thing to re read if a signup ever fails on one
+  project and not the other → **AC-9**, **AC-19**
+- [x] ~~`DEV_SESSION_ENABLED` removed from the Vercel Preview scope~~ ·
+  **removed 2026-08-31**. Nothing deployed reads it now; CI sets it on its own
+  test jobs and a developer sets it locally → **AC-13**
 - [ ] Spec 0002's two steps that this feature unblocks: the `currentOrigin()`
   resolver step, stranded since 2026-08-22 on code that had never run outside a
   build, and the direct exercise of a deployed Server Action against production
