@@ -133,18 +133,20 @@ signed out visitor hits /search?q=react
 
 ## Copy
 
-Six slots, used verbatim, no em dash, no en dash, no semicolon, matching the convention specs 0006 and 0007 set. **These are drafts, awaiting the engineer's words. `/develop` must not invent or reword them; if a slot is still marked DRAFT when the build starts, stop and ask.**
+Six slots, **final**, used verbatim, no em dash, no en dash, no semicolon, matching the convention specs 0006 and 0007 set. Drafted with this spec and adopted by the engineer on 2026-08-31. `/develop` must not invent or reword them.
 
-| Slot | Where | Draft |
+| Slot | Where | Sentence |
 |---|---|---|
-| `COPY-1` | `/search` placeholder | DRAFT: "Search comes next. This is where real listings will appear, ranked, with the reasoning shown." |
-| `COPY-2` | `/profile` placeholder | DRAFT: "Your profile lives here. Once you fill it in, search has something to rank against." |
-| `COPY-3` | `/applications` placeholder | DRAFT: "Every job you apply to will be recorded here, so you can see what you sent and when." |
-| `COPY-4` | the door CTA on `/` | DRAFT: "Open JobHunt" |
-| `COPY-5` | the signed out header control | DRAFT: "Open JobHunt" |
-| `COPY-6` | the `/profile` link to `/applications` | DRAFT: "Tracked applications" (the mock up's wording, per `docs/design/app-shell-mockup-findings.md:16-17`) |
+| `COPY-1` | `/search` placeholder | "Search comes next. This is where real listings will appear, ranked, with the reasoning shown." |
+| `COPY-2` | `/profile` placeholder | "Your profile lives here. Once you fill it in, search has something to rank against." |
+| `COPY-3` | `/applications` placeholder | "Every job you apply to will be recorded here, so you can see what you sent and when." |
+| `COPY-4` | the door CTA on `/` | "Open JobHunt" |
+| `COPY-5` | the signed out header control | "Open JobHunt" |
+| `COPY-6` | the `/profile` link to `/applications` | "Tracked applications" (the mock up's wording, per `docs/design/app-shell-mockup-findings.md:16-17`) |
 
 `COPY-4` and `COPY-5` must not read as a sign in invitation, which is the whole point of AC-18. That constraint is load bearing, not stylistic.
+
+They carry the same sentence deliberately. Both controls point at `/go` and do the same thing, so giving them different words would suggest two destinations. They stay two slots rather than one because they sit in different components and a later change to one should not silently move the other.
 
 **Critical test scenarios**:
 
