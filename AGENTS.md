@@ -34,7 +34,7 @@ pnpm test             # vitest, unit only, needs nothing running
 pnpm test:integration # vitest against the local Supabase stack, needs pnpm db:start
 ```
 
-Tests run on Vitest, as two projects (spec 0004). `pnpm test` is the unit suite and needs nothing running; `pnpm test:integration` drives the real local Supabase stack with the real policies and fails with a named message when the stack is down. Unit tests sit beside the code they prove (`src/**/*.test.ts`); the session mint, the recorder and the fixtures live in `test/`, outside `src/`, so no application module can import a test helper. No end to end runner is installed: Playwright is the recorded choice and arrives with the first feature that needs a browser.
+Tests run on Vitest, as two projects (spec 0004). `pnpm test` is the unit suite and needs nothing running; `pnpm test:integration` drives the real local Supabase stack with the real policies and fails with a named message when the stack is down. Unit tests sit beside the code they prove (`src/**/*.test.ts`); the session mint, the recorder, the fixtures and the direct database connection live in `test/`, outside `src/`, so no application module can import a test helper. The direct connection (`test/helpers/database.ts`, feature 7) is the widest privilege in the repository: it exists because spec 0007's refusal hook is deliberately unreachable from the Data API, it is guarded by `TEST_DIRECT_DB_ENABLED`, and it refuses any host that is not local. No end to end runner is installed: Playwright is the recorded choice and arrives with the first feature that needs a browser.
 
 ## Specs
 
@@ -112,5 +112,6 @@ this file instead; /reflex flags it and the engineer moves it.
 
 - [src/components/ui/AGENTS.md](src/components/ui/AGENTS.md): the design system, its token layer, and the rules that are easy to break by accident
 - [src/features/entry-page/AGENTS.md](src/features/entry-page/AGENTS.md): the entry page's section modules, and the invariants that keep the page honest
+- [src/features/auth/AGENTS.md](src/features/auth/AGENTS.md): the OAuth handshake, the failure code table, and the refusal hook's one shared string
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
