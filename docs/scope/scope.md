@@ -19,7 +19,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 6 | Entry page & link metadata | Foundation | done |
 | 7 | Auth & per user isolation | Foundation | done |
 | 8 | Test foundation | Foundation | done |
-| 32 | App shell & navigation | Foundation | planned |
+| 32 | App shell & navigation | Foundation | in-progress |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -156,11 +156,19 @@ _spec [0004](../specs/0004-test-foundation/index.md) · code in `vitest.config.m
 - [x] Verify it: `/check verify test foundation` · PASS on 2026-08-27, all 13 acceptance criteria met, see [verify.md](../specs/0004-test-foundation/verify.md) for the evidenced checklist. The first run found AC-8 failing (the record mode warning was emitted and then swallowed by Vitest's console interception, so it never reached a human); fixed by writing it to `process.stderr`, and a regression test now fails if it moves back to `console.warn`. Both proofs were checked for vacuousness: disabling row level security fails five tests, and deleting the committed recording fails four with a message naming the file and the record command
 - [ ] Test it: `/test test foundation` · **skipped** 2026-08-27, by decision, not by omission. This feature IS the test layer: it ships 34 tests (25 unit, 9 integration), and `/test` here would mostly mean writing tests for test helpers. What would normally justify the box is already covered another way: the two claims that matter are checked for vacuousness rather than trusted (disabling row level security fails five tests, deleting the committed recording fails four), and the one bug this feature's own verify run found, the record mode warning being swallowed, now has a regression test that fails if it returns to `console.warn`. The durable steps a later `/test` would lock are in [verify.md](../specs/0004-test-foundation/verify.md), all 18 ticked.
 
-### 32. App shell & navigation · needs a decision
+### 32. App shell & navigation · in-progress
 The authenticated app's page inventory, navigation, post sign in destination and header, the gap features 9, 11 and 12 were each about to invent on their own. Must land before feature 9 starts; it does not block feature 7, whose done when clause needs no decided shell.
 **Done when:** `/search`, `/profile` and `/applications` exist as real routes with only the first two in the signed in nav; one header component renders its signed in variant from `(app)/layout.tsx` and its signed out variant from the marketing layout; a user with no profile row lands on `/profile` and everyone else on `/`, with feature 14's later scoring gate layered on top rather than replacing it; a deep link followed while signed out survives sign in and returns the visitor to it, rejecting anything that is not a single leading slash path; the signed in shell needs no hamburger, drawer or tab bar at 320 pixels; and a signed in visitor at `/` no longer sees a sign in invitation, without `/` reading the session.
+_spec [0008](../specs/0008-app-shell-and-navigation/index.md) · code in `src/app/`, `src/components/ui/`, `src/lib/`, `src/proxy.ts`_
 _Direction: [docs/app-shell-direction.md](../app-shell-direction.md), read down through "Suggested path" as the settled decision, not a brainstorm to re derive. Evidence for `/architect`: the mock up, [docs/design/jobhunt-app-shell.html](../design/jobhunt-app-shell.html); its density findings, [docs/design/app-shell-mockup-findings.md](../design/app-shell-mockup-findings.md); and the "Design tool import audit, 2026-08-30" section of [ui-registry.md](../../ui-registry.md)._
-- [ ] Design it (spec): `/architect app shell & navigation`
+- [x] Design it (spec): `/architect app shell & navigation` · done 2026-08-31, spec 0008 at revision 4. Two adversarial cross model rounds (Fable 5, Sonnet 5, Opus 5) plus a decision completeness pass, all findings applied, recorded in [docs/reviews/2026-08-31-spec-0008-app-shell-and-navigation.md](../reviews/2026-08-31-spec-0008-app-shell-and-navigation.md). The spec amends this row's **Done when** wording in two places, and `/develop` records both against the row when the feature ships. First, "everyone else on `/`" becomes `/search`, because that wording predates the settled decision that `/` is the static marketing page. Second, "its signed out variant from the marketing layout" becomes each marketing page composing it, because a layout never learns the pathname and the row's phrasing assumed it could.
+- [ ] Build it: `/develop app shell & navigation`
+  - [ ] The return path thread, end to end: the two shared modules and the validator, the proxy echoing the requested path as a header, the layout appending `?next=`, `/sign-in` carrying it, the Server Actions writing the cookie, the callback consuming and clearing it · **AC-5b**, **AC-6**, **AC-7**, **AC-7a**, **AC-8**, **AC-9**, **AC-10**, **AC-10a**, **AC-11** to **AC-16**, **AC-24a**. Starts by proving the one mechanic the spec marks inferred rather than verified.
+  - [ ] The door, the entry page swap and the sign in bounce: `/go` with `no-store`, `/` losing every provider form, and a signed in visitor at `/sign-in` bounced · **AC-17**, **AC-17a**, **AC-18**, **AC-19**, **AC-20**
+  - [ ] The shell itself: the chrome only header, the marketing pages composing their own variant, the three routes with their copy slots, `/health` tidied · **AC-1** to **AC-5a**, **AC-21**, **AC-22**, **AC-23**
+  - [ ] The three span names registered in `docs/observability/spans.md` · **AC-24**
+- [ ] Verify it: `/check verify app shell & navigation`
+- [ ] Test it: `/test app shell & navigation`
 
 ## Slice 1: Core loop thread
 
