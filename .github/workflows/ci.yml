@@ -101,8 +101,23 @@ jobs:
       # gateway, GoTrue for the session mint, and PostgREST for the reads. The
       # rest are excluded because each one is an image to pull and a service to
       # wait for, and none of them is exercised here.
+      # Spec 0007, AC-18. `config.toml` enables Google and GitHub with env()
+      # substitution, and the file that fills those locally (supabase/.env) is
+      # git ignored, so CI has to supply them or GoTrue boots with two providers
+      # configured to nothing.
+      #
+      # Placeholders on purpose: no job here drives a real provider handshake,
+      # and the integration suite proves the callback's failure paths, which
+      # never reach a provider at all. Confirmed empirically on 2026-08-30
+      # against CLI 2.115.0 that the process environment is read, not only the
+      # supabase/.env file, which is what makes this block work.
       - name: Start the local Supabase stack
         run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        env:
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-placeholder-google-client-id
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-placeholder-google-secret
+          SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID: ci-placeholder-github-client-id
+          SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET: ci-placeholder-github-secret
 
       # Read back from the stack that is actually running rather than hardcoded.
       # The local keys are fixed development values, not secrets, but reading
@@ -115,6 +130,10 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
             echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
             echo "SUPABASE_SECRET_KEY=$SECRET_KEY"
+            # Spec 0007. The refusal hook is unreachable from the Data API by
+            # design, so its tests call the real function over a direct
+            # connection. test/helpers/database.ts refuses any non local host.
+            echo "SUPABASE_DB_URL=$DB_URL"
           } >> "$GITHUB_ENV"
 
       # Against the real stack with the real row level security policies
@@ -125,6 +144,10 @@ jobs:
         env:
           NEXT_PUBLIC_SITE_URL: https://usejobhunt.dev
           DEV_SESSION_ENABLED: "true"
+          # Spec 0007. Its own flag, not DEV_SESSION_ENABLED, because AC-13
+          # gives that variable exactly one remaining job. See
+          # test/helpers/database.ts.
+          TEST_DIRECT_DB_ENABLED: "true"
 
       # `supabase start` applies migrations and the seed, so a seed that broke
       # would already have failed the step above. This says so out loud, because

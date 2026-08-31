@@ -118,3 +118,132 @@ A check that has never failed proves nothing. Each of these is a deliberate brea
 | AC-18 | Commands (`pnpm db:start`, local redirect) |
 | AC-19 | Prerequisites (P9, read off both dashboards), Commands (`skip_nonce_check` local only), hook enablement on both hosted projects |
 | AC-20 | Prerequisites (P1 to P9). P10 is carved out by name and answered at milestone 4 |
+
+---
+
+## Build record, added by `/develop` 2026-08-30
+
+_Everything above is left exactly as `/architect` wrote it, including the boxes.
+This section records what the build itself proved, with the evidence, so
+`/check verify` can skip re running it, and adds the steps that could not have
+been written before the code existed._
+
+### P10 is answered, and the answer is YES
+
+**Verified 2026-08-30 against the running local stack, not inferred.** A
+complete external handshake was driven end to end using a stand in OAuth
+provider (GoTrue's `url` override on the GitHub stanza, pointed at a small local
+server), with the hook made to refuse. GoTrue forwards a hook rejection to the
+registered `redirect_to`, the same channel a cancelled consent uses:
+
+```
+/auth/callback?error=server_error&error_code=&error_description=<the hook's own message, URL encoded>
+```
+
+and **no user row is created**. So `account_exists` is reachable and `COPY-2` is
+a sentence somebody will actually read.
+
+Two limits came with the answer, and they are the reason the callback matches on
+the message rather than on a code:
+
+- `error` is the generic `server_error`, which a real GoTrue fault also uses.
+- `error_code` arrives **empty**. Returning `error_code` or `code` inside the
+  hook's own error object was tried; neither survives the redirect.
+
+### Five things this build found that the steps above could not have anticipated
+
+- [x] **The Supabase CLI reads `env()` values from `supabase/.env`, and from the
+  process environment.** Confirmed empirically against CLI 2.115.0 both ways, by
+  restarting the stack and reading the GoTrue container's environment. There is
+  no `--env-file` flag on `supabase start` in this version. The process
+  environment half is what lets CI pass placeholders → **AC-18**
+- [x] **`NULLIF` is a SQL construct, not a `pg_catalog` function.**
+  `pg_catalog.nullif(...)` does not resolve, and under `set search_path = ''` the
+  whole hook fell into its own exception handler: every signup refused with the
+  internal error message, which is the fail closed behaviour working and the hook
+  being broken at the same time. It is unqualified in the migration with a
+  comment saying why, so nobody tidies it → **AC-9**, **AC-10**
+- [x] **GoTrue prunes an unconfirmed user AND its identity BEFORE calling the
+  hook.** This is the P7 interaction, observed directly with a tracing wrapper
+  that recorded what `auth.identities` held at hook time. It is why the hook
+  correctly ALLOWS on that path: at the moment it is asked, nobody owns the
+  address any more. A test written against a clean fixture would have asserted
+  the opposite → **AC-9**
+- [x] **The hook's message opening is a contract with the application.**
+  `ACCOUNT_EXISTS_MARKER` in [src/features/auth/callback.ts](../../../src/features/auth/callback.ts)
+  must stay byte for byte identical to the message opening in the migration.
+  Locked by an integration test that drives the real function and feeds its real
+  message through the real classifier, so rewording one side fails the suite
+  rather than degrading `account_exists` into `no_code` → **AC-5**, **AC-9**
+- [x] **AC-8's linking behaviour was proved against a stand in provider**: one
+  user row, two identities, same user id. That is not a substitute for the real
+  account proof in the steps above, which still has to run with GitHub private
+  email left **on**, but it does mean a failure there is a scope problem rather
+  than a broken hook
+
+### Already proved by this build, with how
+
+- [x] `redirect_to` is `currentOrigin()` plus `/auth/callback`, read off the
+  authorize URL the action actually returns → **AC-4**
+- [x] The PKCE code verifier cookie is written with **no `Domain` attribute**,
+  so it is host only. AC-4's premise is now observed rather than assumed →
+  **AC-4**
+- [x] All four callback paths `303` to their own code: no parameters →
+  `no_code`, `error=access_denied` → `access_denied`, an unusable `code` →
+  `exchange_failed`, an unrecognised provider error → `no_code` → **AC-5**
+- [x] The GitHub action's authorize URL carries `scopes=user%3Aemail` →
+  **AC-1**
+- [x] GoTrue accepts `http://localhost:3000/auth/callback` on the return leg
+  rather than falling through to Site URL, which is what the corrected
+  `additional_redirect_urls` buys → **AC-18**
+- [x] The hook is **not** callable by `anon`, `authenticated`, `service_role` or
+  `public`, only by `supabase_auth_admin`. Asserted in the integration suite
+  rather than assumed from the migration → **AC-9**
+- [x] `/` still prerenders as **static** in the build route table, and
+  `global-error.tsx` is the only file in `src/app`, `src/features` or
+  `src/components` carrying the client directive → **AC-2**, **AC-16**
+- [x] Sign out actually clears the session, proved by reading the jar back
+  through a second client rather than by observing the redirect → **AC-11**
+
+### One correction the engineer caught in review
+
+- [x] `test/helpers/database.ts` originally read `DEV_SESSION_ENABLED` as its
+  guard, which would have made **AC-13**'s wording false: that variable is
+  supposed to have exactly one remaining job, guarding the mint in `admin.ts`,
+  and `src/env.ts`'s comment says so too. It now has its own
+  `TEST_DIRECT_DB_ENABLED`, so the two privileged paths fail independently and
+  switching the mint on does not switch on a superuser connection as a side
+  effect → **AC-13**
+
+### Mutation checks run on this build's own tests
+
+Each was made to fail on purpose, then restored, because a test that has never
+failed proves nothing:
+
+- [x] Making the hook fail open on its internal error → the three **AC-10**
+  tests fail
+- [x] Rewording the hook's refusal message → the marker coupling test fails
+- [x] Making sign out redirect without clearing the session → the one **AC-11**
+  assertion that matters fails
+- [x] Letting `DEV_SESSION_ENABLED` switch the direct database connection back
+  on → the **AC-13** guard test fails, along with the absent flag case
+
+### Still open after this build
+
+- [ ] The whole `## UI / manual` section above. It needs a deploy and real
+  Google and GitHub accounts, and this feature is explicitly not the one that
+  brings a browser runner
+- [x] ~~`COPY-2` is still unwritten~~ · **written by the engineer and wired
+  2026-08-30**, once P10's answer showed the refusal does reach the page, so the
+  escape hatch wording held in reserve for a "no" was not needed. `This email
+  already has an account with the other sign in option. Try that one below.` Two
+  tests carry the constraints it creates: it says "below", so it depends on the
+  error line rendering above both forms, and it names no provider, which is what
+  AC-7's enum having no provider dimension requires → **AC-5**
+- [ ] The hook's **enablement** on `jobhunt-dev` and `jobhunt-prod`. The
+  migration ships the function; the switch is dashboard state no file here
+  records → **AC-9**, **AC-19**
+- [ ] `DEV_SESSION_ENABLED` removed from the Vercel Preview scope → **AC-13**
+- [ ] Spec 0002's two steps that this feature unblocks: the `currentOrigin()`
+  resolver step, stranded since 2026-08-22 on code that had never run outside a
+  build, and the direct exercise of a deployed Server Action against production
