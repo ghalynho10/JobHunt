@@ -235,8 +235,14 @@ failed proves nothing:
   brings a browser runner. **Partly closed 2026-08-30**: the engineer signed in
   on the branch preview with both providers and reached one linked account
   rather than two, which is **AC-8** and also settles P5's wildcard, unproven
-  until the first preview sign in. **AC-15 is the notable one still open**,
-  because it needs a SECOND real account, not one identity across two providers
+  until the first preview sign in. **AC-15 is half proved as of 2026-08-30**: a
+  second real account signed in, so two real OAuth identities each resolved to
+  their own `auth.uid()` and neither reached the other's data. Both landed on
+  the same named `record_not_found`, because no `profile` row exists for either,
+  which is exactly the state this spec's `## Consequences` predicts between this
+  feature and feature 9. **The positive half, that each sees their OWN rows,
+  cannot be proved until rows exist, so it belongs to feature 9.** AC-15's
+  wording assumes rows are there to be isolated; read it with that in mind
 - [x] ~~`COPY-2` is still unwritten~~ · **written by the engineer and wired
   2026-08-30**, once P10's answer showed the refusal does reach the page, so the
   escape hatch wording held in reserve for a "no" was not needed. `This email
