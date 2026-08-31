@@ -20,6 +20,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 7 | Auth & per user isolation | Foundation | done |
 | 8 | Test foundation | Foundation | done |
 | 32 | App shell & navigation | Foundation | in-progress |
+| 21 | Terms & privacy notices | Foundation | planned |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -32,7 +33,6 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 18 | Structured search filters | Slice 3 | planned |
 | 19 | Listing data quality | Slice 3 | planned |
 | 20 | Guided application capture | Slice 4 | planned |
-| 21 | Terms & privacy notices | Slice 5 | planned |
 | 22 | Discard with reason | v1.5 | planned |
 | 23 | Applications dashboard | v1.5 | planned |
 | 24 | Master resume | v1.5 | planned |
@@ -170,6 +170,15 @@ _Direction: [docs/app-shell-direction.md](../app-shell-direction.md), read down 
 - [ ] Verify it: `/check verify app shell & navigation`
 - [ ] Test it: `/test app shell & navigation`
 
+### 21. Terms & privacy notices · Alpha
+A plain terms page and a privacy notice saying what is stored, why, and how to have it deleted. Owed the day the first person other than the author signs in, because real resumes and personal details are in the database from Slice 1 onward. Written against the actual data model rather than from a template, so it is accurate.
+**Done when:** both pages exist and are linked from the entry page and from sign in, the privacy notice names the real stored fields and the real third parties data reaches, and a user can find out how to request deletion.
+_Moved here from Slice 5 on 2026-08-31, to build after feature 32. **The reason is a meter that only runs one way.** This feature is what lifts Google's 100 user cap: the Publish app button is greyed because the privacy policy and terms links are empty, and these pages are what fills them. Until then the app stays in Testing, capped at 100 users, and Google counts that cap over the app's whole lifetime, so it never resets. Every person who signs in before these pages exist spends one of those slots permanently, which is why waiting until launch readiness was the wrong place for it. The pages must be served from `usejobhunt.dev`, because Google will not accept a `vercel.app` address as an authorised domain. Publishing is also the remaining fix for the consent screen naming a Supabase host instead of JobHunt._
+_Depends on feature 7, both ways, recorded from spec [0007](../specs/0007-auth-and-per-user-isolation/index.md) on 2026-08-31. Feature 7 is what makes these notices load bearing rather than paperwork: the privacy notice must describe what arrives from the provider into `auth.users`, meaning the email address, the display name and the avatar URL._
+_**Building it early means the third party list is incomplete on the day it ships, and that is accepted rather than overlooked.** At this point in the build the real third parties are Supabase, Vercel, Sentry, Google and GitHub. Adzuna arrives at feature 11 and the model providers at features 13 and 14, so each of those features must add itself to the notice as part of its own build. A privacy notice that silently stops matching where data actually goes is worse than one written later, so the revisit is named here rather than left to be noticed._
+- [ ] Build it: `/develop terms & privacy notices`
+- [ ] Verify it: `/check verify terms & privacy notices`
+
 ## Slice 1: Core loop thread
 
 The thinnest real thread through the whole product, touching every layer and actually working. Real auth, real database, real external search, real UI. Narrow, not faked: results are not ranked yet and filters are minimal, but nothing here is a placeholder to be thrown away.
@@ -243,14 +252,6 @@ Fix the known problems in the incoming listing data rather than switching source
 Thicken the tracking segment: when a user marks a job applied, walk them through a small set of preset questions and save their own typed answers. Hand typed, never AI generated. This is what later makes the dashboard and the discard signal worth anything.
 **Done when:** marking applied opens the guided flow, answers save against the application record and are editable afterwards, an abandoned flow still leaves a valid applied record, and nothing in the flow makes an external call.
 - [ ] Design it (spec): `/architect guided application capture`
-
-## Slice 5: Launch readiness
-
-### 21. Terms & privacy notices · Alpha
-A plain terms page and a privacy notice saying what is stored, why, and how to have it deleted. Owed the day the first person other than the author signs in, because real resumes and personal details are in the database from Slice 1 onward. Written against the actual data model rather than from a template, so it is accurate.
-**Done when:** both pages exist and are linked from the entry page and from sign in, the privacy notice names the real stored fields and the real third parties data reaches, and a user can find out how to request deletion.
-_Depends on feature 7, both ways, recorded from spec [0007](../specs/0007-auth-and-per-user-isolation/index.md) on 2026-08-31. **This feature is what lifts Google's 100 user cap.** Google's Publish app button is greyed because the privacy policy and terms links are empty, and these pages are what fills them. Until then the app stays in Testing, capped at 100 users, and Google counts that cap over the app's whole lifetime, so it never goes back down. The pages must be served from `usejobhunt.dev`, because Google will not accept a `vercel.app` address as an authorised domain. Publishing is also the remaining fix for the consent screen naming a Supabase host instead of JobHunt. In the other direction, feature 7 is what makes these notices load bearing rather than paperwork: the privacy notice must describe what arrives from the provider into `auth.users`, meaning the email address, the display name and the avatar URL._
-- [ ] Build it: `/develop terms & privacy notices`
 
 ## v1.5
 
