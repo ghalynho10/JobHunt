@@ -49,3 +49,31 @@ The severity impact is partly mitigated: `failure()` marks the active span faile
 ## Test coverage
 
 Unit suite: 333 tests passing (`pnpm test`), `pnpm typecheck` and `pnpm lint` both clean, confirmed by running all three during this review. Coverage is strong and boundary-real for `actions.ts` (provider dispatch, AC-4's origin logic, span behaviour, Sentry reporting on both a returned error and a thrown one) and for the pure decision functions `classify()` and `signInErrorSentence()` (including the adversarial cases: script tags, case variants, repeated query parameters, and the punctuation rule). The refusal hook is proved against the real local stack in `test/integration/auth-hook.test.ts`, including the two load-bearing cases the build's own record calls out: refusing correctly after GoTrue has already pruned the identities the hook reads (AC-9), and refusing on its own internal error with a distinct message (AC-10). Sign out is proved against a real session and a real cookie jar in `test/integration/sign-out.test.ts`, reading the jar back through a second client rather than trusting the redirect alone. The gap, covered above as a Major, is `completeSignIn()` itself: the exchange call, its `attempt()` wrapping, and the success path have no test, unit or integration, only the pure `classify()` helper it calls does.
+
+## Disposition
+
+Recorded 2026-08-31, after the engineer read the findings. The findings above are
+left exactly as the reviewer wrote them; this section is what was decided about
+them, so an open item is not re read later as unresolved.
+
+- **Major, `completeSignIn()` untested: FIXED.** Ten tests added to
+  `src/features/auth/callback.test.ts`, extending the existing file rather than
+  adding a parallel one. They drive the function itself: the clean exchange, an
+  exchange that returns an error, an exchange that throws, both guard clause
+  paths, and the hook's refusal carried end to end rather than through
+  `classify()` alone. Both failure modes the finding named were mutation checked
+  and each is caught by exactly one test: returning `signedIn: true` on the error
+  path, and hoisting the guard clause above the span. The two guard clause tests
+  also assert the SDK is never called, which the return value alone cannot show.
+  Unit suite 333 to 343.
+- **Minor, a genuine GoTrue fault collapsing into `no_code`: ACCEPTED, not
+  fixed.** The engineer's call. The reviewer's own analysis is why it is
+  affordable: `failure()` marks the span failed whatever the severity, so binding
+  rule 4's ratio alert still sees the elevated failure rate on `auth.callback`
+  and no outage is hidden. What is given up is per event fidelity, an info level
+  Sentry event and copy that misdescribes a rare backend fault. Whether AC-7's
+  enum should grow a sixth member stays a spec level question for `/architect`,
+  not something to settle in a review.
+- **Both nits: OPEN.** Comment only, no behaviour attached. They describe a
+  payload field the hook never reads and a `provider_display_name` branch that is
+  effectively dead for any real account.
