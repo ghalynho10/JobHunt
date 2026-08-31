@@ -32,27 +32,27 @@ import { authErrorCodeSchema, type AuthErrorCode } from "./failure-codes";
 const GENERIC_SENTENCE =
   "Something went wrong signing you in. Please start again below.";
 
-/**
- * `COPY-2` IS NOT WRITTEN YET, and this is the placeholder the spec's build
- * plan calls for.
- *
- * The spec leaves the slot empty until milestone 4 because its content depends
- * on P10: whether a hook rejection reaches this application on the callback at
- * all, or is answered from GoTrue's own endpoint. `account_exists` cannot be
- * raised before the hook exists, so this entry is unreachable until then, and
- * the generic sentence stands in rather than a sentence invented here.
- *
- * REPLACE THIS WITH THE ENGINEER'S OWN `COPY-2` AT MILESTONE 4. The map below
- * is typed over every member of the enum, so the slot cannot simply be dropped.
- */
-const COPY_2_PENDING = GENERIC_SENTENCE;
-
 const SENTENCES: Readonly<Record<AuthErrorCode, string>> = {
   /** `COPY-1`. */
   access_denied:
     "You cancelled before signing in. Nothing changed. Pick an option below when you're ready.",
-  /** `COPY-2`, pending. See the note above. */
-  account_exists: COPY_2_PENDING,
+  /**
+   * `COPY-2`, written by the engineer on 2026-08-30 once P10 was answered.
+   *
+   * IT DOES NOT NAME THE PROVIDER, and that is the spec's own architecture
+   * rather than a gap. The redirect carries only `?error=account_exists`, and
+   * AC-7 parses a closed enum with no provider dimension in it, so there is
+   * nothing on this page that could name one without widening what is parsed
+   * and letting provider derived text reach a rendered page (invariant 4). The
+   * hook's own refusal message DOES name the owning provider, which is what
+   * AC-9 asks of it, and nobody sees that message on this path.
+   *
+   * "the other sign in option" works precisely because the set is closed at
+   * two. If a third provider is ever added, this sentence stops being true and
+   * has to be rewritten, not merely reviewed.
+   */
+  account_exists:
+    "This email already has an account with the other sign in option. Try that one below.",
   /** `COPY-3`. */
   no_code: "Something was missing from that link. Start again below.",
   /** `COPY-4`. */

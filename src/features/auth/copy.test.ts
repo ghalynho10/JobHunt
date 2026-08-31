@@ -101,6 +101,34 @@ describe("the two sentences that carry a constraint of their own", () => {
   });
 
   /**
+   * `COPY-2` says "below", so it carries the same layout constraint the other
+   * four do: the error line renders ABOVE both provider forms. AC-5 makes that
+   * checkable rather than only documented, and this is the slot where it is
+   * easiest to lose, because it was wired a milestone after the rest.
+   */
+  it("keeps COPY-2 pointing at the controls below it (covers AC-5)", () => {
+    const sentence = signInErrorSentence("account_exists") ?? "";
+
+    expect(sentence).toBe(
+      "This email already has an account with the other sign in option. Try that one below.",
+    );
+    expect(sentence).toContain("below");
+  });
+
+  /**
+   * `COPY-2` names no provider, and that is architecture rather than tone. The
+   * redirect carries only the code, AC-7 parses a closed enum with no provider
+   * dimension, and invariant 4 keeps provider derived text off a rendered page.
+   * A sentence that named one could only have got there by widening what is
+   * parsed.
+   */
+  it("keeps COPY-2 from naming a provider (covers AC-7)", () => {
+    expect(signInErrorSentence("account_exists")).not.toMatch(
+      /google|github/iu,
+    );
+  });
+
+  /**
    * `COPY-5` stays generic rather than naming the failing provider. That was
    * settled in the spec so it is not reopened at build time: the redirect
    * carries only the code, and AC-7 parses a closed enum with no provider
