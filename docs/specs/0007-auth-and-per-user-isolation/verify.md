@@ -26,7 +26,7 @@ Each of these is a fact about an account or a dashboard, not about this reposito
 - [ ] Hook **enablement** confirmed in **both** hosted dashboards, not just the local `config.toml` stanza. The function ships in a migration, its enablement does not, so the two can drift → AC-19
 
 - [x] `COPY-1`, `COPY-3`, `COPY-4`, `COPY-5` and `COPY-6` are written and **final** → AC-5, AC-7 · **written by the engineer 2026-08-30**, in the spec's `## Copy` block. Used verbatim; `/develop` must not reword them
-- [ ] `COPY-2` is filled in before milestone 4, after P10 is answered, taking its escape hatch wording if the answer is no → AC-5, AC-9
+- [x] ~~`COPY-2` is filled in before milestone 4, after P10 is answered, taking its escape hatch wording if the answer is no~~ → AC-5, AC-9 · **WRITTEN AND WIRED 2026-08-30**, and the escape hatch was not needed: P10's answer was yes, so the refusal does reach this application's own callback and `account_exists` is a sentence somebody actually reads. `This email already has an account with the other sign in option. Try that one below.` **Confirmed rendering on production 2026-08-31**, above both provider forms, which is the placement its own "below" depends on
 
 ## Answered at milestone 4, not before
 
