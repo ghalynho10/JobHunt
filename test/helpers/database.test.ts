@@ -23,10 +23,7 @@ import { DirectDatabaseDisabledError, queryAsSuperuser } from "./database";
 
 beforeEach(() => {
   vi.stubEnv("TEST_DIRECT_DB_ENABLED", "true");
-  vi.stubEnv(
-    "SUPABASE_DB_URL",
-    "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
-  );
+  vi.stubEnv("SUPABASE_DB_URL", "postgresql://127.0.0.1:54322/postgres");
 });
 
 afterEach(() => {
@@ -35,6 +32,22 @@ afterEach(() => {
 
 /** Any statement will do: none of these ever reaches the database. */
 const ANY_QUERY = "select 1";
+
+/**
+ * NONE OF THE URLS BELOW CARRIES CREDENTIALS, AND THAT IS DELIBERATE. The guard
+ * reads `new URL(...).hostname` and nothing else, so a user and password would
+ * add no coverage while turning every literal here into a `user:password@host`
+ * string that a secret scanner cannot tell from a real one.
+ *
+ * That is not hypothetical. The first version of this file used the real
+ * development project's hostname in that shape and GitGuardian flagged it on the
+ * pull request. Nothing had leaked, since the password was the placeholder
+ * `postgres` and the project ref is already public in spec 0007's P3, but a
+ * scanner cannot know that, and neither can the next reader. It is the same
+ * reasoning `.env.test.example` gives for leaving its two keys blank.
+ *
+ * The hosted example uses a made up project ref for the same reason.
+ */
 
 describe("the flag that permits the connection", () => {
   /**
@@ -99,9 +112,9 @@ describe("the address it is willing to connect to", () => {
    * every machine that runs the suite.
    */
   it.each([
-    "postgresql://postgres:postgres@db.serbucmdtvbspkbmxewl.supabase.co:5432/postgres",
-    "postgresql://postgres:postgres@10.0.0.5:5432/postgres",
-    "postgresql://postgres:postgres@example.com:5432/postgres",
+    "postgresql://db.example-project-ref.supabase.co:5432/postgres",
+    "postgresql://10.0.0.5:5432/postgres",
+    "postgresql://example.com:5432/postgres",
   ])("refuses the non local host in %s", async (url) => {
     vi.stubEnv("SUPABASE_DB_URL", url);
 
