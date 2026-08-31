@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { capturedEvents } from "../../../test/setup/sentry-transport";
 
 import { classify } from "./callback";
 import { AUTH_FAILURES } from "./failure-codes";
@@ -88,5 +90,253 @@ describe("the severity each code carries", () => {
   it("keeps both ordinary denials out of the error level (covers AC-6)", () => {
     expect(AUTH_FAILURES.access_denied.severity).toBe("expected");
     expect(AUTH_FAILURES.account_exists.severity).toBe("expected");
+  });
+});
+
+/**
+ * `completeSignIn()` itself (spec 0007, AC-3, AC-4, AC-5, AC-6).
+ *
+ * WHY THIS BLOCK EXISTS. The `/check review` pass on 2026-08-31 found that only
+ * `classify()`, the pure helper, had any test, while the function that actually
+ * exchanges the code for a session had none. Its branching was proved once by
+ * hand during `/check verify` and nothing guarded it afterwards, so a refactor
+ * that reordered the guard and the exchange, or that returned `signedIn: true`
+ * on the error path, would have passed the whole suite.
+ *
+ * The boundary is mocked, nothing this project owns is. `createClient()` is the
+ * Supabase SDK and is replaced; `attempt()`, `failure()` and `classify()` all
+ * run for real, because they are the behaviour under test rather than scaffolding
+ * around it. `Sentry.startSpan` is wrapped by a proxy that records the span and
+ * then calls the real one, so binding rule 4 is observed rather than simulated.
+ */
+
+interface ExchangeError {
+  readonly status?: number;
+  readonly message: string;
+}
+
+/** Recorded per test, so an assertion can read what the SDK was actually asked. */
+let exchangeCalls: string[] = [];
+let openedSpans: { name: string; op?: string }[] = [];
+
+/** Set per test to choose how the boundary behaves. */
+let exchangeBehaviour: () => Promise<{ error: ExchangeError | null }>;
+
+beforeEach(() => {
+  vi.resetModules();
+  exchangeCalls = [];
+  openedSpans = [];
+  exchangeBehaviour = () => Promise.resolve({ error: null });
+});
+
+afterEach(() => {
+  vi.resetModules();
+});
+
+/**
+ * Re-imports the module with the Supabase boundary replaced.
+ *
+ * The `Sentry` wrapper is a proxy rather than a spread of the namespace: this
+ * module's `failure()` path reaches for `getActiveSpan`, and spreading the
+ * namespace silently drops exports, which surfaces far away as a missing
+ * function rather than as a mocking mistake.
+ */
+async function loadCallback() {
+  vi.doMock("@/lib/supabase/server", () => ({
+    createClient: () =>
+      Promise.resolve({
+        auth: {
+          exchangeCodeForSession: (code: string) => {
+            exchangeCalls.push(code);
+            return exchangeBehaviour();
+          },
+        },
+      }),
+  }));
+
+  const actualSentry =
+    await vi.importActual<typeof import("@sentry/nextjs")>("@sentry/nextjs");
+
+  vi.doMock(
+    "@sentry/nextjs",
+    () =>
+      new Proxy(actualSentry, {
+        get: (target, property, receiver) =>
+          property === "startSpan"
+            ? (
+                options: { name: string; op?: string },
+                callback: (...args: never[]) => unknown,
+              ) => {
+                openedSpans.push({ name: options.name, op: options.op });
+                return actualSentry.startSpan(
+                  options as Parameters<typeof actualSentry.startSpan>[0],
+                  callback as Parameters<typeof actualSentry.startSpan>[1],
+                );
+              }
+            : Reflect.get(target, property, receiver),
+      }),
+  );
+
+  return import("./callback");
+}
+
+describe("completing the sign in at the callback", () => {
+  it("returns signed in when the code exchanges cleanly (covers AC-3)", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    const outcome = await completeSignIn(
+      new URLSearchParams("code=a-real-looking-code"),
+    );
+
+    expect(outcome).toEqual({ signedIn: true });
+    expect(exchangeCalls).toEqual(["a-real-looking-code"]);
+  });
+
+  /**
+   * AC-4's host only cookie case lands here: a sign in started on one host and
+   * returned to another has no verifier to exchange against, so GoTrue answers
+   * with an error rather than throwing.
+   */
+  it("calls a returned exchange error exchange_failed (covers AC-5)", async () => {
+    exchangeBehaviour = () =>
+      Promise.resolve({
+        error: {
+          status: 400,
+          message: "invalid request: code verifier missing",
+        },
+      });
+
+    const { completeSignIn } = await loadCallback();
+
+    expect(await completeSignIn(new URLSearchParams("code=stale"))).toEqual({
+      signedIn: false,
+      code: "exchange_failed",
+    });
+  });
+
+  /**
+   * BINDING RULE 5: the auth client may throw rather than return, and
+   * `attempt()` is what stops that escaping. A throw has to land on the same
+   * code a returned error does, or one person sees a crash where another sees a
+   * sentence.
+   */
+  it("calls a thrown exchange exchange_failed too (covers AC-5)", async () => {
+    exchangeBehaviour = () => Promise.reject(new Error("socket hang up"));
+
+    const { completeSignIn } = await loadCallback();
+
+    expect(await completeSignIn(new URLSearchParams("code=whatever"))).toEqual({
+      signedIn: false,
+      code: "exchange_failed",
+    });
+  });
+
+  it("reports a failed exchange at error level, not as an ordinary denial (covers AC-6)", async () => {
+    exchangeBehaviour = () =>
+      Promise.resolve({ error: { status: 400, message: "verifier missing" } });
+
+    const { completeSignIn } = await loadCallback();
+
+    await completeSignIn(new URLSearchParams("code=stale"));
+
+    const reported = capturedEvents();
+    expect(reported).toHaveLength(1);
+    expect(reported[0]?.level).toBe("error");
+    expect(reported[0]?.tags).toMatchObject({
+      "failure.kind": "external_service_failed",
+      "failure.severity": "unexpected",
+    });
+  });
+});
+
+describe("the arrivals that never reach an exchange", () => {
+  /**
+   * A cancelled consent must not attempt an exchange. There is nothing to
+   * exchange, and trying would turn an ordinary denial into an SDK round trip
+   * and a second, misleading failure.
+   */
+  it("refuses a cancelled consent without calling the SDK (covers AC-5)", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    expect(
+      await completeSignIn(new URLSearchParams("error=access_denied")),
+    ).toEqual({ signedIn: false, code: "access_denied" });
+    expect(exchangeCalls).toEqual([]);
+  });
+
+  it("refuses an arrival with nothing on it without calling the SDK (covers AC-5)", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    expect(await completeSignIn(new URLSearchParams(""))).toEqual({
+      signedIn: false,
+      code: "no_code",
+    });
+    expect(exchangeCalls).toEqual([]);
+  });
+
+  /**
+   * The hook's refusal, driven through the whole function rather than through
+   * `classify()` alone, in the shape P10 proved it arrives in: `server_error`
+   * with the hook's own message in `error_description`.
+   */
+  it("carries the hook's refusal through to account_exists (covers AC-5, AC-9)", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    const outcome = await completeSignIn(
+      new URLSearchParams({
+        error: "server_error",
+        error_code: "",
+        error_description:
+          "That email address already signs in with Google. Use that option instead and you will reach the same account.",
+      }),
+    );
+
+    expect(outcome).toEqual({ signedIn: false, code: "account_exists" });
+    expect(exchangeCalls).toEqual([]);
+  });
+
+  /**
+   * AC-5, invariant 4. The provider's own words go to Sentry as context and
+   * reach the page nowhere. The outcome carries an enum member and nothing else,
+   * which is what stops provider text being rendered.
+   */
+  it("keeps the provider's words out of the outcome and sends them to Sentry (covers AC-5)", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    const outcome = await completeSignIn(
+      new URLSearchParams({
+        error: "access_denied",
+        error_description: "The user did not consent to scope xyz",
+      }),
+    );
+
+    expect(JSON.stringify(outcome)).not.toContain("scope xyz");
+    expect(Object.keys(outcome)).toEqual(["signedIn", "code"]);
+    expect(capturedEvents()).toHaveLength(1);
+  });
+});
+
+describe("binding rule 4 at the callback: the named span opens first", () => {
+  it("opens auth.callback on the path that exchanges a code", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    await completeSignIn(new URLSearchParams("code=a-real-looking-code"));
+
+    expect(openedSpans).toEqual([{ name: "auth.callback", op: "auth" }]);
+  });
+
+  /**
+   * THE ORDERING THE RULE IS ABOUT. The guard clause returns before any SDK call
+   * is made, so a span opened after it would leave every refused arrival
+   * unrecorded, the ratio would count only the arrivals that got as far as an
+   * exchange, and a total denial outage would produce no spans at all.
+   */
+  it("opens the span even when a guard clause returns before any SDK call", async () => {
+    const { completeSignIn } = await loadCallback();
+
+    await completeSignIn(new URLSearchParams("error=access_denied"));
+
+    expect(exchangeCalls).toEqual([]);
+    expect(openedSpans).toEqual([{ name: "auth.callback", op: "auth" }]);
   });
 });
