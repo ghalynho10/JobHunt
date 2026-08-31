@@ -1,0 +1,63 @@
+# Warn when this checkout is behind origin's main, before anything leaves the
+# machine.
+#
+# WHY THIS EXISTS. On 2026-08-31 two pull requests were opened from a checkout
+# three commits behind origin's main, and those three commits were the ones that
+# added a rule about how pull requests are written. Both pull requests nearly
+# shipped the thing that rule forbids. It was caught by noticing an unrelated
+# merge commit's name, not by any process, which is the part worth fixing.
+# `docs/reflexes.md` carries the rule; this is the mechanism.
+#
+# IT WARNS AND NEVER BLOCKS, deliberately. Being behind main is not wrong on its
+# own: a branch stacked on another, or one deliberately based on an older point,
+# is behind by design. A hook that blocked those would be bypassed with
+# `--no-verify` often enough to become habit, and a hook everybody skips protects
+# nothing. The failure this addresses is not knowing, so information is the whole
+# fix.
+#
+# The rule file case is called out separately, because that is the one that
+# actually produced a wrong artifact. Being behind on unrelated code is worth a
+# line; being behind on the rules you are about to follow is worth stopping to
+# read.
+
+# No origin to compare against, so there is nothing to check.
+git remote get-url origin >/dev/null 2>&1 || exit 0
+
+# Targeted rather than a full fetch: this runs on every push and only main's tip
+# is needed. A failure here is almost always being offline, which must never stop
+# a push, so it is reported and skipped rather than treated as an error.
+if ! git fetch --quiet origin main 2>/dev/null; then
+  echo "pre-push: could not reach origin, so the staleness check was skipped."
+  exit 0
+fi
+
+behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+
+[ "$behind" -eq 0 ] && exit 0
+
+echo ""
+echo "  This checkout is $behind commit(s) behind origin/main."
+
+# Only the commits that are on origin/main and not here, filtered to the files
+# that carry rules this project expects an agent or a person to have read.
+rules=$(git log --format= --name-only "HEAD..origin/main" -- \
+  docs/reflexes.md AGENTS.md CLAUDE.md .claude 2>/dev/null | sort -u)
+
+if [ -n "$rules" ]; then
+  echo ""
+  echo "  THOSE COMMITS CHANGE RULE FILES:"
+  echo "$rules" | sed 's/^/    /'
+  echo ""
+  echo "  Read them before this lands. A rule that changed since you branched is"
+  echo "  exactly what this check exists to catch."
+else
+  echo "  None of them touch a rule file, so this is informational."
+fi
+
+echo ""
+echo "  git log HEAD..origin/main    to see what landed"
+echo "  git merge origin/main        to bring it in"
+echo ""
+
+# Never blocks. See the note at the top.
+exit 0
