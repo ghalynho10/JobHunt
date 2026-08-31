@@ -2,6 +2,13 @@
 
 The reasoning behind [index.md](index.md). `/develop` does not read this file.
 
+**Revision 2, 2026-08-31.** The chosen option is unchanged. The sub decision on
+where the return path is carried is reversed, after the cross model review in
+[docs/reviews/2026-08-31-spec-0008-app-shell-and-navigation.md](../../reviews/2026-08-31-spec-0008-app-shell-and-navigation.md)
+found that the proxy written cookie broke the two tests that are binding rule
+6's only mechanical guard. The variant this file already recorded is now the
+chosen mechanism. See the sub decision below, which is rewritten.
+
 ## Context
 
 > ⚠️ **Premise note: the scope row's own done when clause contains one wording
@@ -139,18 +146,70 @@ The proxy sends a visitor with a live session from `/` to `/search`.
 - Removes the only place a signed in visitor can deliberately revisit the
   marketing page, and rewrites on every request rather than on one CTA.
 
-**Sub decision: where the return path is carried.** The protected layout
-writing the cookie was the intuitive answer and is not buildable (a Server
-Component cannot set a cookie, and a layout never sees the pathname; verified
-against `node_modules/next/dist/docs/`). The query parameter is buildable but
-visible and tamperable at every hop, and would put the path in `redirectTo`,
-which spec 0007's safeguard 3 deliberately keeps clean. The proxy written
-cookie (chosen) is unconditional, so the proxy never learns or decides
-anything about the session; the callback, a route handler, reads and clears
-it. A recorded variant exists should the proxy ever be forbidden from writing
-cookies: the proxy sets a request header only, the layout puts the path on
-its redirect, and the provider Server Action writes the cookie before leaving
-for the provider. Either way `redirectTo` stays untouched.
+**Sub decision: where the return path is carried.** Rewritten in revision 2.
+
+Two facts fence this decision, both verified against
+`node_modules/next/dist/docs/`. A Server Component cannot set a cookie
+(`cookies.md` line 81), and a layout never learns the requested pathname
+(`layout.md` lines 180 and 238 to 242). So the component that knows the path
+and the component that may write the cookie are never the same component, and
+the path has to be handed from one to the other.
+
+**Revision 1 chose the proxy written cookie** and was wrong, for a reason the
+design conversation did not surface and the cross model review did. Spec 0001
+line 133 does not say the proxy decides no authorisation and stop there. It
+says the proxy "refreshes the Supabase session cookie **and does nothing
+else**", a closed enumeration, and two tests enforce it:
+`src/proxy.test.ts` lines 49 to 62 assert the proxy treats a protected route
+exactly as it treats a public one, and lines 64 to 70 assert it sets no
+cookies. A proxy that recorded a return cookie for `(app)` paths would have
+had to break both. That is not a wording problem. It is the same "amends an
+Accepted contract" objection this file uses to reject Option 2, and applying
+it to Option 2 while waiving it here was the inconsistency the review caught.
+It also carried a second flaw: `src/proxy.ts` rebuilds `response` inside
+Supabase's `setAll` callback, so a cookie written before the session touch
+would have vanished on exactly the most common deep link case, an expired
+session, silently.
+
+**Revision 2 chooses the variant this file previously recorded and dismissed
+in a clause.** The proxy sets a request header carrying the pathname on every
+request, unconditionally and with no route knowledge at all; the `(app)`
+layout reads it through `headers()` at the moment it already redirects, and
+appends it as `?next=`; `/sign-in` carries the accepted value into a hidden
+field; the provider Server Action validates it and writes the cookie before
+leaving for the provider; the callback reads, validates, redirects and clears.
+
+It wins on three counts that are not close. The proxy never learns what
+`(app)` means, so there is no hand maintained route list to drift, which was
+the third severe finding. Both proxy tests stay true unmodified, because
+setting a request header on every request is still not telling a protected
+route from a public one, and is still not writing a cookie. And the cookie
+write moves to a component that is unambiguously allowed to make it
+(`cookies.md` lines 6 and 74), which removes the `setAll` hazard entirely.
+Binding rule 6 still needs a dated amendment, because "does nothing else" is
+still an enumeration and the proxy now does one more thing. But the amendment
+shrinks to "echoes the requested path as a request header", and the guard the
+rule actually exists for survives unbroken rather than being deleted.
+
+**What it costs, stated plainly.** The return path becomes visible and user
+supplied in the `?next=` parameter, where the cookie kept it opaque. Anyone
+can send a victim `/sign-in?next=<anything>`. That is a real widening of the
+threat surface and it is why the validator now runs at all three boundaries
+the value crosses rather than once, following the parse at every boundary
+rule instead of trusting an earlier parse. It also touches three components
+instead of two. Both were judged worth paying to keep binding rule 6's tests
+intact.
+
+**One mechanic is inferred rather than verified**: that a `Set-Cookie` written
+in a Server Action survives that same action's `redirect()` to an external
+URL. Server Functions may set cookies and the existing action already
+redirects off-site, so only the combination is unproven, and the docs do not
+address it. Build step 1 exists to prove it before anything is built on it,
+and a fallback is recorded in the spec's Consequences: the provider forms post
+to a route handler, which may unambiguously write a cookie and redirect.
+
+Either way `redirectTo` stays untouched, so spec 0007's safeguard 3 holds
+under both revisions.
 
 **Sub decision: the default landing.** `/search`, not `/`, per the premise
 note. The runner up was keeping the scope row's literal wording, rejected
@@ -214,7 +273,10 @@ grow into the onboarding flow the direction document explicitly ruled out.
 - [docs/design/jobhunt-app-shell.html](../../design/jobhunt-app-shell.html), the visual mock up this spec builds toward.
 - `ui-registry.md`, the "Design tool import audit, 2026-08-30" section, the token level record the header's styling must stay inside.
 - [scope.md](../../scope/scope.md), feature 32's done when clause, which seeded the acceptance criteria (with the one amendment in the premise note).
-- `src/proxy.ts`, the current proxy that binding rule 6 governs and that takes on the return path recording.
+- `src/proxy.ts`, the current proxy that binding rule 6 governs and that takes on echoing the requested path, and `src/proxy.test.ts` lines 49 to 70, the two assertions that are binding rule 6's mechanical guard and that revision 2 exists to keep true.
+- [docs/reviews/2026-08-31-spec-0008-app-shell-and-navigation.md](../../reviews/2026-08-31-spec-0008-app-shell-and-navigation.md), the cross model review of revision 1, which drove the mechanism change and the acceptance criteria rewrite.
+- `src/features/profile/queries.ts` lines 162 to 166, `readOwnProfile()`'s `record_not_found` path, which the landing rule must not reuse.
+- `src/features/entry-page/hero-section.tsx:216` and `src/features/entry-page/sign-in-band.tsx:56`, the two places `SignInControls` renders on `/`, both of which the door CTA replaces.
 - `src/features/entry-page/entry-header.tsx` and `src/components/ui/logo.tsx`, the half kept inheritance promise this feature completes.
 - Installed community skills: `supabase` and `supabase-postgres-best-practices` (`supabase/agent-skills`), `sentry-nextjs-sdk` (`getsentry/sentry-for-ai`), `vercel-react-best-practices` (`vercel-labs/agent-skills`).
 
