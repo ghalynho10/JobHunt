@@ -216,3 +216,42 @@ Recorded so coverage can be told from omission.
 - The scope row amendment from "everyone else on `/`" to `/search` is correct on the merits and recorded in the right three places, with `/develop` named as the agent that writes it to the row, consistent with the reflex that only `/develop` advances scope state. Excluded from re-litigation by instruction, and all three reviewers confirmed it independently.
 
 **Not checked**: the visual mock up HTML, and whether proxy `Set-Cookie` headers survive a layout `redirect()` response (inferred sound, since the existing Supabase refresh flow already depends on it).
+
+---
+
+## Round two, revision 2, 2026-08-31
+
+**Reviewed by**: two independent agents, on Claude Fable 5 and Claude Sonnet 5, both cold. Opus 5 was excluded this round because it authored revision 2. Each was asked to find new problems independently and, separately, to check whether round one's findings actually landed or were answered by rewording.
+**Verdict**: Accept with changes, from both. The mechanism swap holds.
+
+## Round one's findings, confirmed
+
+Both reviewers independently confirmed all three severe findings resolved **in substance, not wording**:
+
+- The `setAll` clobber is gone, because the proxy writes no cookie at all.
+- Both `src/proxy.test.ts` assertions survive an unconditional request header set. One reviewer traced this to the source rather than the docs: `handleMiddlewareField` in `next/dist/server/web/spec-extension/response.js:24-40` copies request headers onto the response as internal `x-middleware-request-*` entries, touching neither `response.cookies` nor the `location` header.
+- The `(app)` route list is dissolved, since the proxy holds no route knowledge.
+
+Of round one's other twenty findings, both reviewers marked the large majority resolved. Three were called still open and are addressed in revision 3 below. The spec 0001 amendment and the four supersession notes remain queued rather than written, which is the open decision at the end of this round.
+
+## New findings, applied in revision 3
+
+- **The hoist instruction in build step 3 was actively wrong.** Verified against the installed source: request headers passed to `NextResponse.next({ request: { headers } })` are read once at construction, a snapshot rather than a live view, and `request.cookies.set()` mutates `request.headers` in place. So one `Headers` object built early and reused by reference would snapshot **before** `setAll`'s cookie loop, and the rebuilt request would carry the pathname but lose the refreshed session cookie. The same request's Server Components would then read a stale session while the browser received a fresh one, and revision 2's own AC-10 test would have passed while that shipped. Now AC-10 (re-derive before each call, after the cookie loop) and AC-10a (assert both halves).
+- **AC-7 over corrected.** Banning `failure()` outright conflicts with binding rule 5, which requires a driver throw to go through `attempt()`. The natural reading would have mapped a database outage to `false` and landed the visitor on `/profile` as though their profile were merely empty. Now AC-7 (absent row only) plus AC-7a (a genuine error reports and sends the visitor to `/search`).
+- **AC-8's truncation was a silent corruption.** Truncating to the cap produces a valid looking wrong destination that AC-12 then accepts, so the visitor lands somewhere plausible and incorrect with nothing reporting it. Now the proxy omits the header when over cap, and the cap is a named 2048 character shared constant.
+- **The marketing layout's dead anchors were named in Consequences but no criterion prevented them.** An implementer following the ACs literally could reuse `EntryHeader`'s nav on `/sign-in` and `/ui-preview` and ship three dead links. Now AC-5a.
+- **The deep link did not survive either error retry path**, and the two paths behaved differently by accident. Now AC-14a.
+- **AC-2 and COPY-1 contradicted each other.** "Search comes next." is coming soon phrasing under a plain reading. The copy is right and AC-2's ban was mis-scoped: what spec 0007 AC-16 deleted was phrasing that had become **false**. AC-2 now bans the literal phrase and phrasing that will become false.
+- Smaller: AC-1's "no route reachable only by typing its URL" was falsified by `/health` (now scoped to product routes); `/health` kept a second sign out control under the new header (now removed); AC-12's stated reason for rejecting `/go` was wrong, since `/go` resolves in one hop rather than looping; AC-23 is now labelled a code review check rather than a criterion that cannot fail; AC-24 now says whether the session read sits inside the bounce span; AC-20 now honours an accepted `next` rather than discarding it.
+
+## Open decision, carried to the acceptance panel
+
+**Write the spec 0001 amendment and the four supersession notes now, or at ship time?**
+
+Both reviewers raised this, one as a Major finding. The precedent is real and cuts toward writing them now: spec 0007 wrote its dated amendment directly into spec 0001 (the `browser.ts` deletion) and its supersession note directly into spec 0006 (AC-7) as part of authoring itself, not as a follow up.
+
+The argument for waiting is that the statements are not false yet. Spec 0001 says the proxy does nothing else, and today it does nothing else. Writing "superseded" into three Accepted specs on the strength of a Proposed one describes a future that has not happened, and would be wrong if spec 0008 is never accepted or changes again.
+
+The argument for writing now is that this is exactly the state round one objected to, and a follow up checkbox is what a later `/sync` has to catch rather than what this spec guarantees.
+
+A middle option exists: write the notes now, each naming spec 0008 and its status, so the note is accurate about being pending rather than asserting a change that has not landed.
