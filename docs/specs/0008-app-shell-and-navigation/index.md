@@ -220,8 +220,9 @@ The build approach is the project default, Tracer Bullet: stand up the thinnest 
 
 ## Follow-up
 
-- [ ] Write the dated amendment into spec 0001's binding rule 6, naming what the proxy may now do and what it still may not, and pointing at `src/proxy.test.ts` lines 49 to 70 as the guard that stays.
-- [ ] Write the four supersession notes listed above into specs 0006 and 0007, dated, matching the format spec 0007 used for spec 0006's AC-7.
+- [x] Write the dated amendment into spec 0001's binding rule 6, naming what the proxy may now do and what it still may not, and pointing at `src/proxy.test.ts` lines 49 to 70 as the guard that stays. Done 2026-08-31, marked AMENDMENT PENDING, and it carries the route handler authorisation rule the same paragraph asks for.
+- [x] Write the four supersession notes into specs 0006 and 0007, dated, matching the format spec 0007 used for spec 0006's AC-7. Done 2026-08-31: spec 0006 AC-4's jump link clause, spec 0007 AC-1's `/health` destination, spec 0007 AC-16's first sentence, and spec 0007's security model line on `/sign-in`. All four are marked PENDING and name this spec's Proposed status, because none is false yet.
+- [ ] When this feature ships, revisit all five notes and drop the pending qualifier, or update them if the spec changed again. `/develop` owns this, at the same moment it advances the Status line.
 - [ ] Update scope feature 32's done when wording from "everyone else on `/`" to the landing rule of AC-6, when the feature ships (`/develop` records it against the row).
 - [ ] Mark the entry page invitation item in `docs/app-shell-direction.md` ("Still open, deliberately") as resolved by this spec, pointing at AC-18 and AC-17.
 - [ ] Feature 14 layers its scoring gate onto the landing rule's callers rather than replacing the rule; name that layering in feature 14's spec when it is designed.
