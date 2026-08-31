@@ -48,6 +48,8 @@ Three findings that cost real time and are easy to hit again:
 
 Unit tests sit beside the code (`pnpm test`, the `node` environment, no jsdom). They cover the pure decisions: which code an arrival is classified as, and what the page renders for a given query value.
 
+The two sign in actions and `completeSignIn()` are covered there too, at the boundary rather than around it: only the Supabase client, Next's throwing `redirect()` and a pass through wrapper on `Sentry.startSpan` are replaced, so `attempt()`, `failure()` and `classify()` all run for real. The wrapper is a proxy rather than a spread, because spreading the Sentry namespace drops exports and surfaces far away as `result.ts` losing `getActiveSpan`.
+
 Everything touching the database or a real session is an integration test against the real local stack (`pnpm test:integration`).
 
 **The hook cannot be tested through the Data API, deliberately.** Its `execute` is revoked from `public` and granted to `supabase_auth_admin` alone, so `service_role` gets `permission denied for function`, and GoTrue answers a duplicate signup with `user_already_exists` before the hook is consulted. So its tests call the real function over a direct connection, through [test/helpers/database.ts](../../../test/helpers/database.ts), which is guarded by `TEST_DIRECT_DB_ENABLED` and refuses any host that is not local.
