@@ -116,6 +116,25 @@ type ButtonAsLink = ButtonCommon & {
    * offsite is still marked correctly.
    */
   readonly external?: boolean;
+  /**
+   * Turns off `next/link`'s prefetching for this one link.
+   *
+   * IT EXISTS FOR THE DOOR AT `/go` (spec 0008, AC-18). That route is a redirect
+   * whose destination differs per visitor, so prefetching it would run the
+   * landing rule on hover, before anyone asked to go anywhere. `false` stops
+   * prefetching on entering the viewport AND on hover, per this version's own
+   * `link.md`. Left unset everywhere else, where prefetching is the point.
+   */
+  readonly prefetch?: false;
+  /**
+   * Marks this link as the page the reader is already on, rendering
+   * `aria-current="page"` (spec 0008, AC-5).
+   *
+   * PASSED IN, NEVER COMPUTED. No component here reads a pathname: the route
+   * composing the navigation is the only thing that knows which page it is, so
+   * it says so. That keeps the WCAG 2.2 AA commitment without a client boundary.
+   */
+  readonly current?: boolean;
   readonly disabled?: never;
   /** `type` is a button attribute; an anchor has no use for it. */
   readonly type?: never;
@@ -160,7 +179,7 @@ export function Button(props: ButtonProps) {
     );
   }
 
-  const { href, external = false } = props;
+  const { href, external = false, prefetch, current = false } = props;
 
   /**
    * `rel="noopener noreferrer"` on every external link: `noopener` closes the
@@ -182,7 +201,13 @@ export function Button(props: ButtonProps) {
 
   /** Internal navigation goes through `next/link` so the route prefetches. */
   return (
-    <Link href={href} aria-label={label} className={classes}>
+    <Link
+      href={href}
+      prefetch={prefetch}
+      aria-current={current ? "page" : undefined}
+      aria-label={label}
+      className={classes}
+    >
       {content}
     </Link>
   );
