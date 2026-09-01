@@ -114,5 +114,6 @@ this file instead; /reflex flags it and the engineer moves it.
 - [src/components/ui/AGENTS.md](src/components/ui/AGENTS.md): the design system, its token layer, and the rules that are easy to break by accident
 - [src/features/entry-page/AGENTS.md](src/features/entry-page/AGENTS.md): the entry page's section modules, and the invariants that keep the page honest
 - [src/features/auth/AGENTS.md](src/features/auth/AGENTS.md): the OAuth handshake, the failure code table, and the refusal hook's one shared string
+- [src/features/legal/AGENTS.md](src/features/legal/AGENTS.md): the terms and privacy notices, and the two registries that keep their claims true
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
