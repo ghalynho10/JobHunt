@@ -10,6 +10,7 @@ import {
   SignInWithGoogleForm,
 } from "@/features/auth/provider-forms";
 import { EntryHeader } from "@/features/entry-page/entry-header";
+import { LegalAcceptanceLine } from "@/features/legal/acceptance-line";
 import { landingPathFor } from "@/lib/landing-rule";
 import { attempt, isFailure } from "@/lib/result";
 import { parseReturnPath } from "@/lib/return-path";
@@ -94,6 +95,19 @@ export default async function SignInPage({
           <div className="mt-8 flex flex-col items-start gap-3">
             <SignInWithGoogleForm next={returnPath} />
             <SignInWithGitHubForm next={returnPath} />
+          </div>
+
+          {/*
+           * SPEC 0009, AC-19: BELOW BOTH FORMS, not above them. The error line
+           * sits above because five of its six sentences say "below"; this one
+           * is about what pressing either control commits you to, so it reads
+           * after the controls rather than before them.
+           *
+           * Two plain anchors and no checkbox, so the page still ships zero
+           * client JavaScript.
+           */}
+          <div className="mt-6">
+            <LegalAcceptanceLine />
           </div>
         </Section>
       </main>

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
-import { flatten, renderDeep } from "../../../../test/helpers/react-element";
+import {
+  flatten,
+  renderDeep,
+  textOf,
+} from "../../../../test/helpers/react-element";
 
 /**
  * Spec 0008, AC-20, AC-17a, AC-13 and AC-24: the `/sign-in` bounce.
@@ -327,5 +331,57 @@ describe("the deep link reaches the provider forms (AC-13)", () => {
     // `?next=a&next=b` arrives as an array. That is a malformed request, so it
     // carries nothing rather than quietly picking one.
     expect(await hiddenFields({ next: ["/search", "//evil.com"] })).toEqual([]);
+  });
+});
+
+describe("the acceptance line (spec 0009, AC-19)", () => {
+  /**
+   * SPEC 0009, AC-19. `/sign-in` is where somebody actually commits, so it is
+   * where they are told what they are committing to. The line is static copy
+   * with two links, and it has to stay that way: a checkbox would need client
+   * state, which this page forbids, and it would look like it recorded
+   * something when nothing is recorded until feature 9 exists to record it.
+   */
+  it("names both documents and links them", async () => {
+    const page = await renderWith({});
+    const anchors = flatten(renderDeep(page, [Button, Logo])).filter(
+      (element) => element.type === "a",
+    );
+    const hrefs = anchors.map(
+      (anchor) => (anchor.props as { readonly href?: string }).href,
+    );
+
+    expect(hrefs).toContain("/terms");
+    expect(hrefs).toContain("/privacy");
+  });
+
+  it("says what continuing means", async () => {
+    const page = await renderWith({});
+
+    expect(textOf(renderDeep(page, [Button, Logo]))).toMatch(
+      /By continuing you agree to the/,
+    );
+  });
+
+  /**
+   * BELOW BOTH FORMS, WHICH IS PART OF THE CRITERION. A sentence about what
+   * pressing a control commits you to, printed above the controls, is a
+   * sentence about nothing yet. The two provider forms are the last thing
+   * before it, so their position in the rendered order is what is asserted.
+   */
+  it("sits under both provider forms, not above them", async () => {
+    const page = await renderWith({});
+    const rendered = flatten(renderDeep(page, [Button, Logo]));
+
+    const lastForm = rendered.findLastIndex(
+      (element) => element.type === "form",
+    );
+    const firstLegalLink = rendered.findIndex((element) => {
+      const { href } = element.props as { readonly href?: string };
+      return href === "/terms" || href === "/privacy";
+    });
+
+    expect(lastForm).toBeGreaterThan(-1);
+    expect(firstLegalLink).toBeGreaterThan(lastForm);
   });
 });
