@@ -1,7 +1,7 @@
 # 0009 · Terms and privacy notices
 
 **Date**: 2026-09-01
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
