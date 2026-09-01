@@ -73,6 +73,7 @@ The design time gate only checked that each value HAS a named source. These step
 **These are the only steps standing between this feature and `done`.** Everything above is proved.
 
 - [ ] **deployed** Confirm `https://usejobhunt.dev/privacy` and `https://usejobhunt.dev/terms` both load over HTTPS on the apex domain, not a `vercel.app` address → AC-21
+- [ ] **deployed** Run `curl -sI https://usejobhunt.dev/privacy | grep -i x-robots-tag` and confirm it returns NOTHING → AC-17, AC-21. **This is the step that catches a silent failure, and it was found while checking the preview for pull request 67.** Vercel puts `x-robots-tag: noindex` on preview deployments, and an HTTP header beats the `<meta name="robots">` tag the page sets. If production ever carried that header, both pages would look perfect in view source while Google refused the policy URL, and the failure would read as a console problem rather than a header one. Run the same check on `/terms`
 - [ ] **deployed, engineer** In the Google Cloud console, add `usejobhunt.dev` as an authorized domain → AC-21
 - [ ] **deployed, engineer** Put both live URLs in the consent screen's privacy policy and terms of service fields → AC-21
 - [ ] **deployed, engineer** Move the app out of Testing and publish it → the 100 user cap is lifted. Confirm the cap is gone rather than assuming the button worked, because Google counts that cap over the app's whole lifetime and it never resets → AC-21
@@ -97,7 +98,7 @@ The design time gate only checked that each value HAS a named source. These step
 - AC-14 covered by the cookie read, the analytics break step and the cookie source step
 - AC-15 covered by the four settled clauses read and the governing law step
 - AC-16 covered by the effective date reads and the `EFFECTIVE_DATE` source step
-- AC-17 covered by the two view source steps, one on a legal page and one on `/`
+- AC-17 covered by the two view source steps, one on a legal page and one on `/`, plus the deployed `x-robots-tag` header check, because the header beats the meta tag
 - AC-18 covered by the footer link step
 - AC-19 covered by the sign in page step and the client boundary guard
 - AC-20 covered by the outline, keyboard, 320 pixel and metadata steps
