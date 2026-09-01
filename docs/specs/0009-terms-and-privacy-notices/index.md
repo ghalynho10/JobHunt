@@ -153,6 +153,21 @@ DataRecipient = {
 `envKeys` is what makes AC-5 enforceable, and an empty array is meaningful: it marks a recipient
 this app reaches without holding a credential of its own, which is exactly Google and GitHub.
 
+An empty array is not, however, the same as a key that reaches nobody, and the build needed a
+second shape to say so without lying (see invariant 2):
+
+```
+NonRecipientEnvKey = {
+  readonly key: string            // a key in src/env.ts
+  readonly why: string            // plain words, why it reaches no third party
+}
+```
+
+The AC-5 test asserts that the set of keys declared in `src/env.ts` is exactly the union of the two
+lists, with no key claimed twice and no entry naming a key that no longer exists. A stale entry
+fails just as loudly as an unclassified key, so the registry cannot quietly outlive the
+configuration it describes.
+
 A second registry does the same job for the stored field list, which the cross check found had no
 drift protection while the recipient list did:
 
@@ -212,7 +227,28 @@ one would add a client boundary these pages must not have.
    company name the registry does not hold. This is the shape that already failed once in this
    repo, where `hero-section.tsx` carried a written count beside a list that had moved on
    (`src/features/entry-page/AGENTS.md`).
-2. Every key in `src/env.ts` maps to exactly one recipient registry entry, or the suite fails.
+2. Every key in `src/env.ts` is accounted for by exactly one registry entry, or the suite fails.
+   Most map to the recipient that receives them. Three reach no third party at all, two local
+   switches and this site's own canonical address, and those are named in
+   `ENV_KEYS_WITH_NO_RECIPIENT` with a reason each. Two of Vercel's three system values sit there
+   too, because Vercel supplies them to the build rather than receiving them. The third,
+   `NEXT_PUBLIC_VERCEL_ENV`, does not: Sentry stamps it on every event, so it is filed under
+   Sentry. That mistake was made in this build and caught by a cross check, which is the case the
+   definition below exists to prevent.
+
+   **What "reaches" means**, since features 11, 13 and 14 will each have to apply it: a key reaches
+   a recipient when it is what connects this app to that company, its credential, its address, or a
+   value transmitted to it. It reaches nobody only when no company is on the other end of it at all.
+   A key supplied *by* a company is not thereby a key that reaches it, and if its value is sent
+   onward to somebody else it belongs to that somebody.
+
+   **Corrected on 2026-09-01, after the build.** This invariant first said every key maps to a
+   RECIPIENT, which cannot be satisfied honestly: the only way to obey it literally is to file a
+   local switch under a company, which would put a false sentence on a page whose entire value is
+   that every claim on it can be checked. AC-5 itself is unchanged, because its wording is broad
+   enough to cover a second list, and so is the forcing function. A new key still fails the suite until somebody decides which side of
+   the line it falls on, and landing one in the second list is exactly as visible in review as
+   adding a company.
 2b. Every column in a personal data table maps to exactly one field registry entry, or the suite
    fails. Invariants 1 and 2 protect the recipient list; this one protects the field list, and it
    exists because the cross check found the notice guarded on one side only.
@@ -345,14 +381,26 @@ URLs, not finished prose. The words thicken after the thread is proved.
 
 - [ ] Feature 27's scope row does not mention account deletion. If the privacy notice implies self
       serve deletion arrives later, that obligation belongs on row 27, the way feature 21's
-      dependency was recorded on row 7. For `/sync`.
+      dependency was recorded on row 7. **For `/scope`, not `/sync`**: corrected on 2026-09-01 after
+      the `/sync` run, whose boundary allows reconciling a feature's status but never adding to its
+      row. Sending a later session to `/sync` for this would have it do nothing and report nothing.
 - [ ] Features 11, 13 and 14 each add their own recipient registry entry as part of their own build.
-      Recorded in their scope rows by `/sync`, and enforced by the AC-5 test for any that add an
-      `src/env.ts` key.
+      Recorded in their scope rows by **`/scope`, not `/sync`** (corrected 2026-09-01, same reason as
+      the item above), and enforced by the AC-5 test for any that add an `src/env.ts` key.
 - [ ] Before features 13 and 14 send profile content to a model provider, read that provider's terms
       on retention and training, and update the notice's claim to match.
-- [ ] The scope row for feature 21 carries no `Design it (spec)` box, although the scope's own legend
-      says every feature has exactly one. Ratifying this spec is the moment to add it.
+- [ ] **Two recipient registry entries are wrong and need a code fix, for `/develop`.** Found by the
+      cross check on this revision, 2026-09-01. First, `NEXT_PUBLIC_VERCEL_ENV` sits in
+      `ENV_KEYS_WITH_NO_RECIPIENT` saying it "carries nothing outward", which is false: both Sentry
+      configs pass it as `environment`, so Sentry stamps it on every event. It belongs in Sentry's
+      `envKeys`. Second, `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`'s stated reason says it tags a Sentry
+      event, but the SDK infers the release from the separate unprefixed `VERCEL_GIT_COMMIT_SHA`;
+      the declared key is read nowhere in `src/`. The classification is right, the reason describes
+      a different variable. Neither is visible on the page, since that list is not rendered, so this
+      is a weakened guard rather than a false public claim.
+- [x] The scope row for feature 21 carries no `Design it (spec)` box, although the scope's own legend
+      says every feature has exactly one. **Done**: the box was added and ticked when this spec was
+      written on 2026-09-01, and it records why nothing had flagged the missing spec earlier.
 - [ ] If the terms change materially before feature 9 ships, revisit recording acceptance, since
       there is no record of which version anyone agreed to.
 - [ ] A lawyer's review is the only thing here that manages legal risk rather than reducing factual
