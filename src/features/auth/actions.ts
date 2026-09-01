@@ -1,9 +1,17 @@
 "use server";
 
 import * as Sentry from "@sentry/nextjs";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { currentOrigin } from "@/lib/origin";
+import {
+  RETURN_PATH_COOKIE,
+  RETURN_PATH_COOKIE_MAX_AGE,
+  RETURN_PATH_COOKIE_PATH,
+  RETURN_PATH_FIELD,
+  parseReturnPath,
+} from "@/lib/return-path";
 import {
   attempt,
   failure,
@@ -46,11 +54,12 @@ const CALLBACK_PATH = "/auth/callback";
  * it works by throwing, so a call inside either would be recorded as this
  * operation failing when it in fact succeeded.
  */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(formData: FormData): Promise<void> {
+  const returnPath = await rememberReturnPath(formData);
   const started = await startProviderSignIn("google");
 
   if (isFailure(started)) {
-    redirect(signInErrorPath("provider_unavailable"));
+    redirect(signInErrorPath("provider_unavailable", returnPath));
   }
 
   redirect(started.value);
@@ -71,14 +80,79 @@ export async function signInWithGoogle(): Promise<void> {
  * refuse a signup that should have linked, and the symptom would look like a
  * broken hook rather than a missing scope.
  */
-export async function signInWithGitHub(): Promise<void> {
+export async function signInWithGitHub(formData: FormData): Promise<void> {
+  const returnPath = await rememberReturnPath(formData);
   const started = await startProviderSignIn("github", "user:email");
 
   if (isFailure(started)) {
-    redirect(signInErrorPath("provider_unavailable"));
+    redirect(signInErrorPath("provider_unavailable", returnPath));
   }
 
   redirect(started.value);
+}
+
+/**
+ * Remember where this visitor was going, for the callback to read (AC-14).
+ *
+ * THE VALUE IS VALIDATED AGAIN HERE. It was parsed at `/sign-in` before being
+ * rendered into the form, and it is parsed again on the way out, because a
+ * Server Action is a callable endpoint whatever page renders it: nothing
+ * guarantees this `FormData` came from the page that built it.
+ *
+ * THE COOKIE IS WRITTEN BEFORE THE PROVIDER CALL, not after. `redirect()` works
+ * by throwing, so writing it afterwards would mean writing it on only one of the
+ * two ways out of this action. Written first, it is already on the response
+ * whichever way the call goes.
+ *
+ * `redirectTo` IS NOT TOUCHED. It still carries nothing but `currentOrigin()`
+ * and the callback path, so spec 0007's safeguard 3 stands: no untrusted input
+ * ever reaches the URL the provider is asked to return to.
+ *
+ * @param formData The submitted provider form.
+ * @returns The accepted return path, or `undefined` when there was none. The
+ * caller carries it onto an error redirect so a retry keeps the deep link.
+ */
+async function rememberReturnPath(
+  formData: FormData,
+): Promise<string | undefined> {
+  const submitted = formData.get(RETURN_PATH_FIELD);
+  const returnPath = parseReturnPath(
+    typeof submitted === "string" ? submitted : undefined,
+  );
+
+  if (returnPath === undefined) {
+    /**
+     * No cookie is written, and sign in proceeds normally. An absent or refused
+     * value is not a failure: it means the landing rule decides, which is a real
+     * destination rather than a default that reads like success.
+     */
+    return undefined;
+  }
+
+  const cookieStore = await cookies();
+
+  cookieStore.set(RETURN_PATH_COOKIE, encodeURIComponent(returnPath), {
+    /** Unreadable from any client script. It is nobody's business but the callback's. */
+    httpOnly: true,
+    /**
+     * `Lax`, not `Strict`, and this is load bearing rather than a default.
+     * `Strict` is not sent on the cross site top level GET a provider returns
+     * with, so it would silently disable this whole feature: the cookie would be
+     * written, held, and never presented at the one moment it is read.
+     */
+    sameSite: "lax",
+    /** Scoped so it is not carried on ordinary navigation. */
+    path: RETURN_PATH_COOKIE_PATH,
+    maxAge: RETURN_PATH_COOKIE_MAX_AGE,
+    /**
+     * Derived from the origin actually being served rather than from an
+     * environment name, so a preview gets a secure cookie and local work over
+     * plain HTTP still gets one the browser will store.
+     */
+    secure: currentOrigin().startsWith("https:"),
+  });
+
+  return returnPath;
 }
 
 /**
