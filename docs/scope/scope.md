@@ -19,7 +19,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 6 | Entry page & link metadata | Foundation | done |
 | 7 | Auth & per user isolation | Foundation | done |
 | 8 | Test foundation | Foundation | done |
-| 32 | App shell & navigation | Foundation | in-progress |
+| 32 | App shell & navigation | Foundation | done |
 | 21 | Terms & privacy notices | Foundation | planned |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
@@ -156,7 +156,7 @@ _spec [0004](../specs/0004-test-foundation/index.md) · code in `vitest.config.m
 - [x] Verify it: `/check verify test foundation` · PASS on 2026-08-27, all 13 acceptance criteria met, see [verify.md](../specs/0004-test-foundation/verify.md) for the evidenced checklist. The first run found AC-8 failing (the record mode warning was emitted and then swallowed by Vitest's console interception, so it never reached a human); fixed by writing it to `process.stderr`, and a regression test now fails if it moves back to `console.warn`. Both proofs were checked for vacuousness: disabling row level security fails five tests, and deleting the committed recording fails four with a message naming the file and the record command
 - [ ] Test it: `/test test foundation` · **skipped** 2026-08-27, by decision, not by omission. This feature IS the test layer: it ships 34 tests (25 unit, 9 integration), and `/test` here would mostly mean writing tests for test helpers. What would normally justify the box is already covered another way: the two claims that matter are checked for vacuousness rather than trusted (disabling row level security fails five tests, deleting the committed recording fails four), and the one bug this feature's own verify run found, the record mode warning being swallowed, now has a regression test that fails if it returns to `console.warn`. The durable steps a later `/test` would lock are in [verify.md](../specs/0004-test-foundation/verify.md), all 18 ticked.
 
-### 32. App shell & navigation · in-progress
+### 32. App shell & navigation · done
 The authenticated app's page inventory, navigation, post sign in destination and header, the gap features 9, 11 and 12 were each about to invent on their own. Must land before feature 9 starts; it does not block feature 7, whose done when clause needs no decided shell.
 **Done when:** `/search`, `/profile` and `/applications` exist as real routes with only the first two in the signed in nav; one header component renders its signed in variant from `(app)/layout.tsx` and its signed out variant from the marketing layout; a user with no profile row lands on `/profile` and everyone else on `/`, with feature 14's later scoring gate layered on top rather than replacing it; a deep link followed while signed out survives sign in and returns the visitor to it, rejecting anything that is not a single leading slash path; the signed in shell needs no hamburger, drawer or tab bar at 320 pixels; and a signed in visitor at `/` no longer sees a sign in invitation, without `/` reading the session.
 _spec [0008](../specs/0008-app-shell-and-navigation/index.md) · code in `src/app/`, `src/components/ui/site-header.tsx`, `src/features/app-shell/`, `src/lib/landing-rule.ts`, `src/lib/return-path.ts`, `src/proxy.ts`, and edits in `src/features/auth/`, `src/features/entry-page/`, `src/features/profile/`_
