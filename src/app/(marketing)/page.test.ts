@@ -189,6 +189,11 @@ describe("the entry page's links", () => {
      * header used to jump to the sign in band, which no longer signs anybody in,
      * so a jump there would be a link to a place that stopped doing the thing
      * the link promised. `/go` is a real route (`src/app/go/route.ts`).
+     *
+     * SPEC 0009, AC-18: `/terms` and `/privacy` join the list. They are the
+     * footer's reserved centre slot being filled, and both are real routes
+     * (`src/app/(marketing)/terms/page.tsx` and `.../privacy/page.tsx`), so the
+     * rule this test enforces still holds with them on the page.
      */
     expect([...hrefsOnThePage()].sort()).toEqual(
       [
@@ -199,6 +204,8 @@ describe("the entry page's links", () => {
         "/go",
         "/go",
         "/go",
+        "/privacy",
+        "/terms",
       ].sort(),
     );
   });
@@ -323,15 +330,39 @@ describe("the entry page's example result", () => {
 });
 
 describe("the entry page's footer", () => {
-  it("holds the lockup and the copyright and nothing between them (covers AC-13)", () => {
+  /**
+   * SPEC 0006 AC-13 LEFT THE CENTRE SLOT EMPTY AND RESERVED IT; SPEC 0009 AC-18
+   * FILLS IT. So this test changed shape rather than being deleted: what AC-13
+   * was actually protecting is that the most privileged position under
+   * `justify-between` never goes back to holding a stack brag aimed at the
+   * author. Asserting "nothing between them" protected that by forbidding
+   * everything, which stopped being possible the moment something belonged
+   * there. It now asserts exactly what does.
+   */
+  it("holds the lockup, the two legal links and the copyright (covers AC-13, spec 0009 AC-18)", () => {
     const footer = flatten(page).find((element) => element.type === "footer");
     const row = (footer?.props as { readonly children?: ReactNode }).children;
     const inner = flatten(row)[0];
     const slots = (inner?.props as { readonly children?: readonly unknown[] })
       .children;
 
-    expect(Array.isArray(slots) ? slots.length : 0).toBe(2);
+    expect(Array.isArray(slots) ? slots.length : 0).toBe(3);
     expect(textOf(footer)).toContain("© Ghaly Nicolas Jules");
     expect(findAllByType(footer, Logo)).toHaveLength(1);
+  });
+
+  it("puts nothing in the centre slot but Terms and Privacy (covers spec 0009 AC-18)", () => {
+    const footer = flatten(page).find((element) => element.type === "footer");
+    const nav = flatten(footer).find((element) => element.type === "nav");
+
+    expect(
+      (nav?.props as { readonly "aria-label"?: string })["aria-label"],
+    ).toBe("Legal");
+
+    const hrefs = flatten(nav)
+      .map((element) => (element.props as { readonly href?: string }).href)
+      .filter((href): href is string => href !== undefined);
+
+    expect(hrefs.sort()).toEqual(["/privacy", "/terms"]);
   });
 });
