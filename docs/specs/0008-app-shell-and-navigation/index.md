@@ -1,7 +1,7 @@
 # 0008. App shell and navigation
 
 **Date**: 2026-08-31
-**Status**: Proposed
+**Status**: In Progress
 
 **Revision 2, 2026-08-31.** The return path mechanism changed after the cross model review in [docs/reviews/2026-08-31-spec-0008-app-shell-and-navigation.md](../../reviews/2026-08-31-spec-0008-app-shell-and-navigation.md). Revision 1 had the proxy write the return cookie. It now echoes the requested path as a request header and writes nothing, and the provider Server Action writes the cookie. The acceptance criteria are renumbered, so an AC number cited in that review refers to revision 1.
 
