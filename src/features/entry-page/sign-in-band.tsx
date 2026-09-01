@@ -2,7 +2,7 @@ import { Heading } from "@/components/ui/heading";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 
-import { SignInControls } from "./sign-in-controls";
+import { DoorCta } from "./door-cta";
 
 /**
  * The sign in band (spec 0006, AC-2, AC-6, AC-7).
@@ -23,19 +23,27 @@ import { SignInControls } from "./sign-in-controls";
  * NO DIVIDER above or below: `paper` to dark and dark to the footer are both
  * background changes, which is the separation (spec 0005's adjacency rule).
  *
- * The controls in this band are not links (AC-7). The header's "Sign in" points
- * here, which is the one honest destination the word has until feature 7.
+ * SPEC 0008, AC-18: THE BAND NO LONGER SIGNS ANYBODY IN. It held the two
+ * provider forms, which invited every reader to sign in including the ones
+ * already signed in, on a page that cannot tell the difference because it reads
+ * no session. Both are replaced by the door, and the header's control no longer
+ * jumps here, because there is nothing here to jump to any more. The band keeps
+ * its job: saying what this costs and what it needs from you.
  */
 
 /**
- * Spec 0007, AC-16. The opening clause used to read "is coming soon", which
- * became false for every visitor the moment sign in shipped. The clause is
- * DELETED rather than reworded, the same operation AC-16 mandates for `COPY-1`
- * and the two status chips. Everything after it is the engineer's own sentence,
- * unchanged.
+ * THE OPENING CLAUSE HAS BEEN DELETED TWICE NOW, BOTH TIMES FOR THE SAME
+ * REASON: it stopped being true of every visitor.
+ *
+ * Spec 0007, AC-16 removed "is coming soon" the moment sign in shipped. Spec
+ * 0008, AC-18 removes "Sign in with Google or GitHub" for the same kind of
+ * reason: `/` reads no session, so it cannot tell whether the person reading it
+ * is already signed in, and this band no longer signs anybody in either way.
+ * Deleted at the engineer's direction on 2026-08-31, rather than reworded, which
+ * is the operation both criteria use. What is left is the engineer's own
+ * sentence, unchanged.
  */
-const BAND_BODY =
-  "Sign in with Google or GitHub. No email, no password, no subscription. JobHunt is free.";
+const BAND_BODY = "No email, no password, no subscription. JobHunt is free.";
 
 /** The page's closing section: where sign in will live, and what it will cost. */
 export function SignInBand() {
@@ -53,7 +61,7 @@ export function SignInBand() {
       <Text className="text-paper mt-3">{BAND_BODY}</Text>
 
       <div className="mt-8">
-        <SignInControls />
+        <DoorCta />
       </div>
     </Section>
   );

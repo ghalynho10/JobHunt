@@ -121,7 +121,7 @@ describe("the sign in band", () => {
    * The second assertion is unchanged and still spec 0006's: the band invites a
    * sign in, not a search, because search is feature 11.
    */
-  it("offers the action rather than deferring it (covers AC-16)", () => {
+  it("offers the action rather than deferring it (covers AC-16, AC-18)", () => {
     const body = flatten(band)
       .map((element) =>
         String(
@@ -131,7 +131,16 @@ describe("the sign in band", () => {
       .join(" ");
 
     expect(body).not.toContain("coming soon");
-    expect(body).toContain("Sign in with Google or GitHub.");
     expect(body).not.toContain("run your first search.");
+
+    /**
+     * SPEC 0008, AC-18. The clause naming the providers is gone too, and for
+     * the same kind of reason the two before it went: `/` reads no session, so
+     * it cannot know whether the person reading this is already signed in, and
+     * this band no longer signs anybody in either way. What is left is what is
+     * still true for every reader.
+     */
+    expect(body).not.toContain("Sign in with");
+    expect(body).toContain("No email, no password, no subscription.");
   });
 });
