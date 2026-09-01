@@ -1,0 +1,202 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { AppHeader } from "@/features/app-shell/app-header";
+import { success } from "@/lib/result";
+
+import {
+  findAllByType,
+  flatten,
+  textOf,
+} from "../../../test/helpers/react-element";
+
+/**
+ * Spec 0008, AC-1, AC-2 and AC-5: every route under `(app)` composes the shell.
+ *
+ * WHY THIS FILE EXISTS, AND IT IS NOT COVERAGE. Spec 0008 revision 5 moved the
+ * signed in header out of the `(app)` layout and into each route, because a
+ * layout never learns the pathname and AC-5 needs the current route passed in.
+ * That trade bought a correct `aria-current` and cost four call sites where
+ * there used to be one.
+ *
+ * `app-header.test.ts` does NOT cover that cost. It calls `AppHeader` with props
+ * written in the test, so it proves the component renders the marker correctly
+ * and can never fail when a ROUTE passes the wrong value. The dangerous mistake
+ * is not a missing header, which anyone would see. It is `/profile` shipping
+ * `current="search"` after a copy and paste: the page looks perfect and
+ * `aria-current="page"` quietly points a screen reader at the wrong item. The
+ * cross check on spec 0008 revision 5 named this gap, and this file closes it.
+ *
+ * These are the call sites, asserted as a set rather than one by one, because
+ * the invariant is about the group: no route under `(app)` may ship without the
+ * shell, and no two routes may claim to be the same page.
+ */
+
+/**
+ * `/health` reads real data, and this file is not about that data. Its two reads
+ * are replaced at the module boundary so the page can render; everything the
+ * assertions below touch, the header call site and the sign out control, is the
+ * page's own composition. `src/features/profile/queries.ts` and
+ * `src/lib/kill-switch.ts` have their own tests against the real stack.
+ */
+vi.mock("@/features/profile/queries", () => ({
+  readOwnProfile: () =>
+    Promise.resolve(
+      success({
+        id: "0f5f4f1e-3a2b-4c7d-9e8f-1a2b3c4d5e6f",
+        full_name: "Fixture Person",
+        location: undefined,
+        summary: undefined,
+      }),
+    ),
+}));
+
+vi.mock("@/lib/kill-switch", () => ({
+  readKillSwitch: () =>
+    Promise.resolve(success({ enabled: false, updatedAt: "2026-08-31" })),
+}));
+
+const { default: SearchPage } = await import("./search/page");
+const { default: ProfilePage } = await import("./profile/page");
+const { default: ApplicationsPage } = await import("./applications/page");
+const { default: HealthPage } = await import("./health/page");
+
+/** The one `AppHeader` a route composed, with the props it was given. */
+function headerOf(rendered: unknown) {
+  const headers = findAllByType(rendered as never, AppHeader);
+
+  expect(
+    headers,
+    "every route under (app) composes exactly one AppHeader",
+  ).toHaveLength(1);
+
+  return headers[0]?.props as { readonly current?: string };
+}
+
+describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
+  it("composes the header on all four routes, including the diagnostic", async () => {
+    /**
+     * `/health` is in the group and NOT in the navigation (AC-22), so it takes
+     * the header with no `current`. Leaving it out of this list is how a route
+     * quietly loses its chrome.
+     */
+    expect(headerOf(SearchPage())).toBeDefined();
+    expect(headerOf(ProfilePage())).toBeDefined();
+    expect(headerOf(ApplicationsPage())).toBeDefined();
+    expect(headerOf(await HealthPage())).toBeDefined();
+  });
+
+  it.each([
+    ["/search", () => SearchPage(), "search"],
+    ["/profile", () => ProfilePage(), "profile"],
+  ] as const)(
+    "%s tells the header it is the current page",
+    (_route, render, expected) => {
+      // covers: AC-5
+      expect(headerOf(render()).current).toBe(expected);
+    },
+  );
+
+  it.each([
+    ["/applications", () => ApplicationsPage()],
+    ["/health", async () => await HealthPage()],
+  ] as const)(
+    "%s claims no current page, because it is in no navigation",
+    async (_route, render) => {
+      /**
+       * AC-1 and AC-22: neither route is in the navigation, so neither may mark
+       * a nav item as the page being viewed. Marking one would tell a screen
+       * reader user they are somewhere they are not.
+       */
+      expect(headerOf(await render()).current).toBeUndefined();
+    },
+  );
+
+  it("gives no two routes the same current value", () => {
+    /**
+     * THE COPY AND PASTE GUARD, and the reason this file exists. Every earlier
+     * assertion here would still pass if `/profile` were changed to
+     * `current="search"`, as long as each was updated to match. This one would
+     * not: two routes claiming the same page is wrong however the individual
+     * expectations were edited.
+     */
+    const claimed = [SearchPage(), ProfilePage()]
+      .map((page) => headerOf(page).current)
+      .filter((current) => current !== undefined);
+
+    expect(new Set(claimed).size).toBe(claimed.length);
+  });
+});
+
+describe("the placeholder routes read as an ordinary state (AC-2)", () => {
+  it.each([
+    [
+      "/search",
+      () => SearchPage(),
+      "Search comes next. This is where real listings will appear, ranked, with the reasoning shown.",
+    ],
+    [
+      "/profile",
+      () => ProfilePage(),
+      "Your profile lives here. Once you fill it in, search has something to rank against.",
+    ],
+    [
+      "/applications",
+      () => ApplicationsPage(),
+      "Every job you apply to will be recorded here, so you can see what you sent and when.",
+    ],
+  ] as const)(
+    "%s renders its copy slot verbatim",
+    (_route, render, sentence) => {
+      /**
+       * The engineer's copy, used verbatim from spec 0008's Copy table. Asserted
+       * character for character because `/develop` is forbidden to reword it, and
+       * a paraphrase is exactly the change nobody notices in review.
+       */
+      expect(textOf(render())).toContain(sentence);
+    },
+  );
+
+  it.each([
+    ["/search", () => SearchPage()],
+    ["/profile", () => ProfilePage()],
+    ["/applications", () => ApplicationsPage()],
+  ] as const)("%s renders no failure treatment", (_route, render) => {
+    /**
+     * AC-2: a route that is not built yet is an ordinary expected state, not a
+     * failure. `role="alert"` here would teach people that the product is broken
+     * when it is merely young. `/health` is deliberately excluded: showing
+     * failures is its entire job (AC-22).
+     */
+    const alerts = flatten(render() as never).filter(
+      (element) =>
+        (element.props as { readonly role?: string }).role === "alert",
+    );
+
+    expect(alerts).toHaveLength(0);
+  });
+
+  it("says nothing that becomes false once the feature lands", () => {
+    /**
+     * The trap spec 0007 AC-16 had to delete from the sign in band: copy that
+     * was true when written and false for every visitor the moment the feature
+     * shipped. A sentence saying a route is not built yet is fine, because it
+     * gets replaced. "Coming soon" is not, because it survives as a lie.
+     */
+    for (const render of [SearchPage, ProfilePage, ApplicationsPage]) {
+      expect(textOf(render()).toLowerCase()).not.toContain("coming soon");
+    }
+  });
+});
+
+describe("/profile is the only way to reach /applications (AC-1)", () => {
+  it("links to it, so no product route is reachable only by typing a URL", () => {
+    const links = flatten(ProfilePage() as never).filter(
+      (element) =>
+        (element.props as { readonly href?: string }).href === "/applications",
+    );
+
+    expect(links).toHaveLength(1);
+    // `COPY-6`, the mock up's own wording.
+    expect(textOf(links[0])).toBe("Tracked applications");
+  });
+});
