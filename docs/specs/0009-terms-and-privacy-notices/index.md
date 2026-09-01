@@ -379,25 +379,43 @@ URLs, not finished prose. The words thicken after the thread is proved.
 
 ## Follow-up
 
-- [ ] Feature 27's scope row does not mention account deletion. If the privacy notice implies self
-      serve deletion arrives later, that obligation belongs on row 27, the way feature 21's
-      dependency was recorded on row 7. **For `/scope`, not `/sync`**: corrected on 2026-09-01 after
-      the `/sync` run, whose boundary allows reconciling a feature's status but never adding to its
-      row. Sending a later session to `/sync` for this would have it do nothing and report nothing.
-- [ ] Features 11, 13 and 14 each add their own recipient registry entry as part of their own build.
-      Recorded in their scope rows by **`/scope`, not `/sync`** (corrected 2026-09-01, same reason as
-      the item above), and enforced by the AC-5 test for any that add an `src/env.ts` key.
+- [x] **This item was written on a false premise, corrected 2026-09-01.** It said feature 27's scope
+      row does not mention account deletion. It does, and always did: that row's `Done when` clause
+      reads "account settings covers deletion". The obligation that is genuinely missing runs the
+      other way, and it is now recorded on row 27. This notice describes deletion as a request
+      emailed to the published address and fulfilled by hand, phrased that way deliberately, because
+      a sentence implying a control nobody can operate would be its one false claim (**AC-8**). The
+      day feature 27 ships a real control, the same prose becomes false in the opposite direction by
+      understating what a reader can do, so rewriting it is part of that build. No test guards it,
+      because the wording is prose.
+
+      Recorded by `/scope`, not `/sync`: `/sync` may reconcile a feature's status but never add to
+      its row, so a session sent there would have done nothing and reported nothing.
+- [x] Features 11, 13 and 14 each add their own recipient registry entry as part of their own build.
+      **Recorded on all three rows on 2026-09-01** by `/scope`, not `/sync` (same reason as the item
+      above). Enforced by the AC-5 test for any that add an `src/env.ts` key, which is every one of
+      them that arrives with a credential; spec 0009's definition of "reaches" is the rule for
+      classifying the rest of that feature's keys.
 - [ ] Before features 13 and 14 send profile content to a model provider, read that provider's terms
-      on retention and training, and update the notice's claim to match.
-- [x] **Two recipient registry entries are wrong and need a code fix, for `/develop`.** **Done 2026-09-01**, and the weakness behind them is now guarded: `recipients.test.ts` fails when a key filed as reaching nobody is read inside a module that configures a company's SDK. That guard was proved by restoring the original bug and watching it fail, naming both Sentry configs. Found by the
-      cross check on this revision, 2026-09-01. First, `NEXT_PUBLIC_VERCEL_ENV` sits in
-      `ENV_KEYS_WITH_NO_RECIPIENT` saying it "carries nothing outward", which is false: both Sentry
-      configs pass it as `environment`, so Sentry stamps it on every event. It belongs in Sentry's
-      `envKeys`. Second, `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`'s stated reason says it tags a Sentry
-      event, but the SDK infers the release from the separate unprefixed `VERCEL_GIT_COMMIT_SHA`;
-      the declared key is read nowhere in `src/`. The classification is right, the reason describes
-      a different variable. Neither is visible on the page, since that list is not rendered, so this
-      is a weakened guard rather than a false public claim.
+      on retention and training, and update the notice's claim to match. Still owed, and it is owed
+      at build time rather than now; recorded on row 14 on 2026-09-01, since 14 is the feature that
+      actually sends a person's profile and written summary. This is the one obligation here that no
+      test can catch, because it depends on a document held by somebody else.
+- [x] **Two recipient registry entries were wrong. Found by the cross check on this revision and
+      fixed the same day, 2026-09-01.** `NEXT_PUBLIC_VERCEL_ENV` sat in `ENV_KEYS_WITH_NO_RECIPIENT`
+      saying it "carries nothing outward", which was false: both Sentry configs pass it as
+      `environment`, so Sentry stamps it on every event, and it now sits in Sentry's `envKeys`.
+      `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`'s reason claimed it tags a Sentry event, but the SDK infers
+      the release from the separate unprefixed `VERCEL_GIT_COMMIT_SHA` and the declared key is read
+      nowhere under `src/`; the classification was right and only the reason was wrong. Neither was
+      ever visible on the page, since that list is not rendered, so both were a weakened guard rather
+      than a false public claim.
+
+      **The weakness behind them is now guarded**, which matters more than either fix: nothing
+      validated a `why` string, so a wrong classification hid behind prose that read plausibly and
+      took a different model to notice. `recipients.test.ts` now fails when a key filed as reaching
+      nobody is read inside a module that configures a company's SDK, proved by restoring the
+      original bug and watching it fail.
 - [x] The scope row for feature 21 carries no `Design it (spec)` box, although the scope's own legend
       says every feature has exactly one. **Done**: the box was added and ticked when this spec was
       written on 2026-09-01, and it records why nothing had flagged the missing spec earlier.
