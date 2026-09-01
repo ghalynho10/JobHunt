@@ -132,6 +132,30 @@ is manual because self serve deletion is feature 27, and because the honest phra
 deletion by contacting us, is what the scope row's own Done when clause asks for. Both are named in
 Consequences rather than left to be discovered.
 
+**On invariant 2, corrected after the build (2026-09-01).** As first written, invariant 2 said every
+key in `src/env.ts` maps to exactly one RECIPIENT registry entry. That was wrong, and the build
+found it: three keys reach no third party at all, and Vercel's three system values travel inward to
+the build rather than outward to a company. There were two ways to satisfy the invariant literally,
+and both were worse than changing it. Filing a local development switch under a company name would
+have put a false line on a page whose entire argument is that every claim on it can be checked,
+which is the one defect this feature exists to avoid. Adding a hidden recipient entry that the page
+does not render would have broken invariant 1 instead, since the registry and the printed list would
+no longer be the same list.
+
+So the registry classifies rather than assigns: a second exported list, `ENV_KEYS_WITH_NO_RECIPIENT`,
+holds those keys with a stated reason each. What matters is that nothing was weakened. AC-5 was
+wording, a key that no registry entry *accounts for*, is broad enough to cover a second list, so the
+criterion itself did not have to change and the invariant was the narrower, wrong restatement of it.
+That is worth stating accurately rather than as foresight: AC-5 reads correctly here because it was
+written loosely, not because it anticipated a second category. The lesson belongs to the invariant,
+not to AC-5. The forcing function is
+unchanged, which is the whole point of the guard: a new key added at feature 11, 13 or 14 still
+fails the suite until somebody classifies it, the test also fails on a stale entry naming a key that
+no longer exists, and putting a key in the second list is exactly as visible in code review as
+adding a company to the first. The lesson worth keeping is narrower than the fix: an invariant
+phrased as a total mapping onto one list is a bet that the second category will never exist, and
+here it already did on the day it was written.
+
 ## References
 
 **Project sources**
