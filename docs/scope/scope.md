@@ -20,7 +20,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 7 | Auth & per user isolation | Foundation | done |
 | 8 | Test foundation | Foundation | done |
 | 32 | App shell & navigation | Foundation | done |
-| 21 | Terms & privacy notices | Foundation | in-progress |
+| 21 | Terms & privacy notices | Foundation | done |
 | 9 | Profile entry | Slice 1 | planned |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
@@ -170,7 +170,7 @@ _Direction: [docs/app-shell-direction.md](../app-shell-direction.md), read down 
 - [x] Verify it: `/check verify app shell & navigation` · **PASS** on 2026-08-31, all 24 acceptance criteria met and all 28 steps in [verify.md](../specs/0008-app-shell-and-navigation/verify.md) ticked with the observation that proved each one. Twenty seven were driven against the real local stack in Chromium; the real Google handshake was run by the engineer on the branch preview, which is the one step a local run cannot reach. Two criteria the build had listed as unprovable were proved here: **AC-7a**, by stopping PostgREST so the profile read genuinely errored, after which the user with no profile row landed on `/search` rather than `/profile`, and the keyboard pass through the signed in header. **AC-4 is the one worth re measuring on any later change**, since it failed first during the build and now sits at exactly 320 by 320 on all seven routes
 - [x] Test it: `/test app shell & navigation` · done 2026-08-31, **57 new tests across four files**, all green, suite now 422 unit and 52 integration. They cover the surfaces the build left proved only by a browser walk: the door at `/go`, the `/sign-in` bounce, the `/auth/callback` handler, and the four `(app)` call sites. **The last of those was raised independently twice**, by the gap analysis at the start of this run and by the cross check on spec 0008 revision 5, which noticed that `app-header.test.ts` hands the component its own props and so can never fail when a route passes the wrong `current`. Each file was checked for vacuousness against the real code: changing `/profile` to `current="search"` fails two tests, and removing the callback's cookie clear plus the door's `no-store` fails seven
 
-### 21. Terms & privacy notices · in-progress · Alpha
+### 21. Terms & privacy notices · done · Alpha
 A plain terms page and a privacy notice saying what is stored, why, and how to have it deleted. Owed the day the first person other than the author signs in, because real resumes and personal details are in the database from Slice 1 onward. Written against the actual data model rather than from a template, so it is accurate.
 **Done when:** both pages exist and are linked from the entry page and from sign in, the privacy notice names the real stored fields and the real third parties data reaches, and a user can find out how to request deletion.
 _Moved here from Slice 5 on 2026-08-31, to build after feature 32. **The reason is a meter that only runs one way.** This feature is what lifts Google's 100 user cap: the Publish app button is greyed because the privacy policy and terms links are empty, and these pages are what fills them. Until then the app stays in Testing, capped at 100 users, and Google counts that cap over the app's whole lifetime, so it never resets. Every person who signs in before these pages exist spends one of those slots permanently, which is why waiting until launch readiness was the wrong place for it. The pages must be served from `usejobhunt.dev`, because Google will not accept a `vercel.app` address as an authorised domain. Publishing is also the remaining fix for the consent screen naming a Supabase host instead of JobHunt._
@@ -341,12 +341,13 @@ survives rather than the entry simply vanishing.
   and taken at the cheap moment, before feature 7 registers callback URLs.
   **What it fixed**: the product now serves from a domain it owns, and that
   redirect is what spec 0007 **AC-4** leans on to stop a sign in being started
-  on a hostname the callback never returns to. **What it did not fix**: Google's
-  consent screen still reads the Supabase host, because that is the OAuth
-  redirect host and the domain move did not touch it. The remaining fix is
-  publishing and verifying the Google app once feature 21 supplies a privacy
-  policy and terms on `usejobhunt.dev`, which is now a domain we own and can
-  register as an Authorized domain. The Supabase custom domain add on was
+  on a hostname the callback never returns to. **What it did not fix, and what since did**: Google's
+  consent screen read the Supabase host, because that is the OAuth redirect
+  host and the domain move did not touch it. **Closed on 2026-09-01 by feature
+  21**, which published a privacy policy and terms on `usejobhunt.dev`, letting
+  the app register that Authorized domain, leave Testing and submit brand
+  verification. Confirmed by starting a real sign in against production: the
+  screen now reads "to continue to JobHunt". The Supabase custom domain add on was
   considered and rejected on cost, since that route reaches the same place for
   the price of the domain alone. `from spec 0002` `from spec 0007`
 
