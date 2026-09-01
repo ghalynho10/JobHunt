@@ -145,3 +145,73 @@ describe("the list the page renders (covers AC-3, AC-6)", () => {
     for (const provider of providers) expect(provider.envKeys).toEqual([]);
   });
 });
+
+/**
+ * The classification guard (spec 0009, AC-3, AC-5, invariant 2).
+ *
+ * WHY THIS EXISTS. The tests above prove every key is accounted for exactly
+ * once. None of them proves the account is TRUE. A key filed under
+ * `ENV_KEYS_WITH_NO_RECIPIENT` carries a `why` string in prose, and prose is not
+ * checked by anything, so a wrong classification hides behind a reason that
+ * reads plausibly. That is not a hypothetical: `NEXT_PUBLIC_VERCEL_ENV` shipped
+ * in that list saying it "carries nothing outward" while both Sentry configs
+ * were passing it as `environment`, and it took a cross check on a different
+ * model to notice. This is that cross check, made permanent.
+ *
+ * WHAT IT CAN AND CANNOT DO. It cannot read prose. What it can do is catch the
+ * shape the mistake takes: a key said to reach nobody, read inside a module
+ * whose whole job is configuring a company's SDK. That is a narrow signal, and
+ * narrow is the point. A broader rule, "read in any file that also reads a
+ * recipient's key", was tried first and false positives immediately, because
+ * `origin.ts` reads `NEXT_PUBLIC_VERCEL_ENV` to pick an origin and has nothing
+ * to do with Sentry. A guard that cries wolf gets deleted.
+ */
+const RECIPIENT_CONFIG_MODULES = [
+  "../../sentry.server.config.ts",
+  "../../instrumentation-client.ts",
+  "../../lib/supabase/server.ts",
+  "../../lib/supabase/secret.ts",
+] as const;
+
+describe("a key said to reach nobody is not read where a recipient is configured", () => {
+  const modules = RECIPIENT_CONFIG_MODULES.map((relativePath) => ({
+    relativePath,
+    source: readFileSync(
+      fileURLToPath(new URL(relativePath, import.meta.url)),
+      "utf8",
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, ""),
+  }));
+
+  /**
+   * The module list is hand written, so it can rot silently in the one way that
+   * matters: a file moves, this stops reading anything, and the guard passes on
+   * nothing at all. `readFileSync` already throws on a missing path, and this
+   * asserts the contents are real.
+   */
+  it("reads real configuration modules, so the guard is not vacuous", () => {
+    expect(modules).toHaveLength(RECIPIENT_CONFIG_MODULES.length);
+    for (const { relativePath, source } of modules) {
+      expect(source.length, `${relativePath} is empty`).toBeGreaterThan(50);
+    }
+    expect(
+      modules.some(({ source }) => source.includes("Sentry.init")),
+      "No module here still calls Sentry.init. If the Sentry setup moved, point this list at its new home rather than deleting the guard.",
+    ).toBe(true);
+  });
+
+  it.each(ENV_KEYS_WITH_NO_RECIPIENT)(
+    "$key is not read in any recipient's configuration",
+    ({ key }) => {
+      const offenders = modules
+        .filter(({ source }) => new RegExp(`env\\.${key}\\b`).test(source))
+        .map(({ relativePath }) => relativePath);
+
+      expect(
+        offenders,
+        `${key} is filed as reaching no third party, but ${offenders.join(", ")} configures a company's SDK and reads it. Either its value is sent onward, in which case move it into that recipient's envKeys, or the read is incidental and the entry needs a reason that says so.`,
+      ).toEqual([]);
+    },
+  );
+});

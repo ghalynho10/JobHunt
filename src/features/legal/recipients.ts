@@ -80,6 +80,16 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
       "SENTRY_DSN",
       "NEXT_PUBLIC_SENTRY_DSN",
       "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
+      /*
+       * Vercel SUPPLIES this one, and it still belongs here, which is the case
+       * spec 0009's definition of "reaches" was written for. Both Sentry configs
+       * pass it as `environment`, so Sentry stamps it on every event: a key that
+       * arrives from one company and is sent onward to another belongs to the
+       * one it is sent to. It sat in `ENV_KEYS_WITH_NO_RECIPIENT` until a cross
+       * check on 2026-09-01 caught it, behind a reason that read plausibly and
+       * was false.
+       */
+      "NEXT_PUBLIC_VERCEL_ENV",
     ],
   },
   {
@@ -132,15 +142,11 @@ export const ENV_KEYS_WITH_NO_RECIPIENT: readonly NonRecipientEnvKey[] = [
     why: "This site's own canonical address, used to build links. It is a destination, not a recipient.",
   },
   {
-    key: "NEXT_PUBLIC_VERCEL_ENV",
-    why: "Supplied BY Vercel to the running build. It travels inward, so it carries nothing outward.",
-  },
-  {
     key: "NEXT_PUBLIC_VERCEL_BRANCH_URL",
-    why: "Supplied BY Vercel to the running build, for the same reason.",
+    why: "Supplied BY Vercel to the running build, for the same reason. It travels inward, and unlike NEXT_PUBLIC_VERCEL_ENV it is not sent onward to anybody.",
   },
   {
     key: "NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA",
-    why: "Supplied BY Vercel to the running build, and tags a Sentry event with the deployed commit rather than sending anything new.",
+    why: "Declared but read nowhere under src/. Sentry does tag events with the deployed commit, but its SDK infers that from the separate unprefixed VERCEL_GIT_COMMIT_SHA, which never passes through this schema.",
   },
 ];

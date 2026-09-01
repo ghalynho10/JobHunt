@@ -389,7 +389,7 @@ URLs, not finished prose. The words thicken after the thread is proved.
       the item above), and enforced by the AC-5 test for any that add an `src/env.ts` key.
 - [ ] Before features 13 and 14 send profile content to a model provider, read that provider's terms
       on retention and training, and update the notice's claim to match.
-- [ ] **Two recipient registry entries are wrong and need a code fix, for `/develop`.** Found by the
+- [x] **Two recipient registry entries are wrong and need a code fix, for `/develop`.** **Done 2026-09-01**, and the weakness behind them is now guarded: `recipients.test.ts` fails when a key filed as reaching nobody is read inside a module that configures a company's SDK. That guard was proved by restoring the original bug and watching it fail, naming both Sentry configs. Found by the
       cross check on this revision, 2026-09-01. First, `NEXT_PUBLIC_VERCEL_ENV` sits in
       `ENV_KEYS_WITH_NO_RECIPIENT` saying it "carries nothing outward", which is false: both Sentry
       configs pass it as `environment`, so Sentry stamps it on every event. It belongs in Sentry's
