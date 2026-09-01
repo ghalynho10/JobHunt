@@ -93,7 +93,27 @@ export const AUTH_FAILURES: Readonly<Record<AuthErrorCode, AuthFailureShape>> =
     },
   };
 
-/** Where every failing path sends the person (AC-5). */
-export function signInErrorPath(code: AuthErrorCode): string {
-  return `/sign-in?error=${code}`;
+/**
+ * Where every failing path sends the person (spec 0007, AC-5).
+ *
+ * IT CARRIES THE RETURN PATH FORWARD WHEN THERE IS ONE (spec 0008, AC-14a). A
+ * visitor who followed a deep link, failed to sign in, and retried from this
+ * page would otherwise lose the link that brought them here, and the two error
+ * paths into this page would behave differently from each other by accident.
+ * One function builds the URL so both stay the same.
+ *
+ * @param code The closed enum member the page renders a sentence for.
+ * @param returnPath An ALREADY VALIDATED return path, or `undefined`. Callers
+ * pass the output of `parseReturnPath()`, never a raw value: this function
+ * encodes what it is given and does not judge it.
+ */
+export function signInErrorPath(
+  code: AuthErrorCode,
+  returnPath?: string,
+): string {
+  const query = new URLSearchParams({ error: code });
+
+  if (returnPath !== undefined) query.set("next", returnPath);
+
+  return `/sign-in?${query.toString()}`;
 }

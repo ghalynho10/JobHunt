@@ -7,7 +7,7 @@ import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 
 import { ScoreBadge } from "./score-badge";
-import { SignInControls } from "./sign-in-controls";
+import { DoorCta } from "./door-cta";
 
 /**
  * The hero (spec 0006, AC-2, AC-5, AC-9, AC-17).
@@ -212,8 +212,13 @@ export function HeroSection() {
 
           <Text className="mt-5 text-muted">{HERO_SUBHEAD}</Text>
 
+          {/*
+           * AC-18: the door, not the provider controls. `/` cannot tell whether
+           * this visitor is signed in, so it stops guessing and lets `/go`
+           * decide.
+           */}
           <div className="mt-8">
-            <SignInControls />
+            <DoorCta />
           </div>
         </div>
 

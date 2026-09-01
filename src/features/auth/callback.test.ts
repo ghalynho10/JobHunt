@@ -119,14 +119,25 @@ interface ExchangeError {
 let exchangeCalls: string[] = [];
 let openedSpans: { name: string; op?: string }[] = [];
 
+/**
+ * The user the exchange resolves, whose id the callback hands to the landing
+ * rule (spec 0008, AC-15a). Shaped like the SDK's own response rather than
+ * invented: a successful exchange always carries a user.
+ */
+const EXCHANGED_USER_ID = "8f1a4e6c-2b3d-4f57-9a10-6d5c8e2b7a44";
+
 /** Set per test to choose how the boundary behaves. */
-let exchangeBehaviour: () => Promise<{ error: ExchangeError | null }>;
+let exchangeBehaviour: () => Promise<{
+  data: { user: { id: string } | null };
+  error: ExchangeError | null;
+}>;
 
 beforeEach(() => {
   vi.resetModules();
   exchangeCalls = [];
   openedSpans = [];
-  exchangeBehaviour = () => Promise.resolve({ error: null });
+  exchangeBehaviour = () =>
+    Promise.resolve({ data: { user: { id: EXCHANGED_USER_ID } }, error: null });
 });
 
 afterEach(() => {
@@ -188,7 +199,12 @@ describe("completing the sign in at the callback", () => {
       new URLSearchParams("code=a-real-looking-code"),
     );
 
-    expect(outcome).toEqual({ signedIn: true });
+    /**
+     * SPEC 0008, AC-15a: the identity comes back with the outcome, so the
+     * callback can run the landing rule without building a second client to ask
+     * who just signed in.
+     */
+    expect(outcome).toEqual({ signedIn: true, userId: EXCHANGED_USER_ID });
     expect(exchangeCalls).toEqual(["a-real-looking-code"]);
   });
 
@@ -200,6 +216,7 @@ describe("completing the sign in at the callback", () => {
   it("calls a returned exchange error exchange_failed (covers AC-5)", async () => {
     exchangeBehaviour = () =>
       Promise.resolve({
+        data: { user: null },
         error: {
           status: 400,
           message: "invalid request: code verifier missing",
@@ -233,7 +250,10 @@ describe("completing the sign in at the callback", () => {
 
   it("reports a failed exchange at error level, not as an ordinary denial (covers AC-6)", async () => {
     exchangeBehaviour = () =>
-      Promise.resolve({ error: { status: 400, message: "verifier missing" } });
+      Promise.resolve({
+        data: { user: null },
+        error: { status: 400, message: "verifier missing" },
+      });
 
     const { completeSignIn } = await loadCallback();
 
@@ -338,5 +358,27 @@ describe("binding rule 4 at the callback: the named span opens first", () => {
 
     expect(exchangeCalls).toEqual([]);
     expect(openedSpans).toEqual([{ name: "auth.callback", op: "auth" }]);
+  });
+});
+
+describe("an exchange that produced no user (spec 0008, AC-15a)", () => {
+  it("refuses rather than reporting a session nobody owns", async () => {
+    exchangeBehaviour = () =>
+      Promise.resolve({ data: { user: null }, error: null });
+
+    const { completeSignIn } = await loadCallback();
+
+    /**
+     * NO ERROR AND NO USER IS NOT A SESSION, whatever it looks like. Reporting
+     * it as signed in would run the landing rule for nobody, read as an empty
+     * profile, and send a stranger to `/profile` with no failure anywhere.
+     */
+    expect(await completeSignIn(new URLSearchParams("code=hollow"))).toEqual({
+      signedIn: false,
+      code: "exchange_failed",
+    });
+
+    // Visible, not silent: the impossible case still reports.
+    expect(capturedEvents()).toHaveLength(1);
   });
 });

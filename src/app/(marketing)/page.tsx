@@ -32,7 +32,11 @@ import { SignInBand } from "@/features/entry-page/sign-in-band";
 export default function HomePage() {
   return (
     <>
-      <EntryHeader />
+      {/*
+       * AC-5a: the in page anchors render on `/` and nowhere else, because `/`
+       * is the only marketing page that has those sections.
+       */}
+      <EntryHeader navigation="anchors" />
       <main className="flex-1">
         <HeroSection />
         <HowItWorksSection />

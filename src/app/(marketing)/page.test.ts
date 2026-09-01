@@ -184,8 +184,22 @@ describe("the entry page's links", () => {
    * than per section, because the rule is about the page.
    */
   it("renders links only to destinations that exist (covers AC-7, AC-17)", () => {
+    /**
+     * SPEC 0008, AC-18: `#start` is gone and `/go` has taken its place. The
+     * header used to jump to the sign in band, which no longer signs anybody in,
+     * so a jump there would be a link to a place that stopped doing the thing
+     * the link promised. `/go` is a real route (`src/app/go/route.ts`).
+     */
     expect([...hrefsOnThePage()].sort()).toEqual(
-      ["#about", "#how-it-works", "#reasoning", "#start", "/"].sort(),
+      [
+        "#about",
+        "#how-it-works",
+        "#reasoning",
+        "/",
+        "/go",
+        "/go",
+        "/go",
+      ].sort(),
     );
   });
 
@@ -219,49 +233,67 @@ describe("the entry page's links", () => {
   });
 
   /**
-   * The other half, inverted. The provider controls are real submits now, and
-   * they are still not ANCHORS, which matters for a different reason than
-   * before: a sign in that navigated by link would be a GET, and this handshake
-   * starts with a POST to a Server Action.
+   * SPEC 0008, AC-18, AND THIS ASSERTION IS THE INVERSE OF THE ONE IT REPLACES.
+   * Spec 0007 put four provider forms on this page and this test counted them.
+   * There are now zero: `/` is a static page that reads no session, so it cannot
+   * tell whether the person reading it is already signed in, and it was
+   * inviting all of them to sign in. The invitation moves to `/sign-in`, behind
+   * the door, and the count going to zero is what proves the page stopped
+   * guessing.
    */
-  it.each(["Sign in with Google", "Sign in with GitHub"])(
-    "renders %s as a real submit, not as a link (covers AC-16)",
-    (label) => {
-      const asLink = anchorsOnThePage().some((element) =>
-        textOf(element).includes(label),
-      );
-
-      expect(asLink).toBe(false);
-      expect(textOf(page)).toContain(label);
-    },
-  );
-
-  /**
-   * Asserted at PAGE level, not only per component, because the rule AC-16
-   * carries is about the page: every provider control the page renders posts to
-   * a server action. The controls appear twice, in the hero and in the band, and
-   * a component test cannot see that there are two of each.
-   */
-  it("posts every provider control to a server action (covers AC-16)", () => {
+  it("renders no form at all, and no sign in invitation (covers AC-18)", () => {
     const forms = flatten(page).filter((element) => element.type === "form");
 
-    expect(forms).toHaveLength(4);
-    for (const form of forms) {
-      expect((form.props as { readonly action?: unknown }).action).toBeTypeOf(
-        "function",
+    expect(forms).toHaveLength(0);
+
+    /**
+     * The controls themselves are gone, which is the checkable half. The band's
+     * remaining sentence still describes what JobHunt uses to sign people in;
+     * that is the engineer's copy and this feature does not reword it.
+     */
+    const buttons = findAllByType(page, Button);
+
+    for (const button of buttons) {
+      expect(textOf(button)).not.toContain("Sign in with");
+    }
+  });
+
+  /**
+   * The door replaces the jump, in both the header and the body, and both point
+   * at the same route. `COPY-4` and `COPY-5` carry the same sentence
+   * deliberately: two controls doing the same thing should not suggest two
+   * destinations.
+   */
+  it("sends both door controls to the door route (covers AC-17, AC-18)", () => {
+    const doors = findAllByType(page, Button).filter(
+      (b) => (b.props as { readonly href?: string }).href === "/go",
+    );
+
+    /**
+     * Three: the header control, and the two the provider controls used to
+     * occupy, in the hero and in the closing band.
+     */
+    expect(doors).toHaveLength(3);
+    for (const door of doors) {
+      expect(textOf(door)).toContain("Open JobHunt");
+      /**
+       * `/go` is a redirect whose destination differs per visitor, so
+       * prefetching it would run the landing rule on hover, before anyone asked
+       * to go anywhere.
+       */
+      expect((door.props as { readonly prefetch?: unknown }).prefetch).toBe(
+        false,
       );
     }
   });
 
-  it("keeps the header's sign in jump pointing at a section that exists (covers AC-7)", () => {
-    const jump = findAllByType(page, Button).find(
-      (b) => (b.props as { readonly href?: string }).href === "#start",
-    );
-
-    expect(jump).toBeDefined();
-    expect(sections.some((s) => (s.props as SectionProps).id === "start")).toBe(
-      true,
-    );
+  it("no longer jumps the header at the sign in band (covers AC-18)", () => {
+    /**
+     * The band still exists and still says what this costs; what it no longer
+     * does is sign anybody in, so a control pointing at it would promise
+     * something it stopped delivering.
+     */
+    expect(hrefsOnThePage()).not.toContain("#start");
   });
 });
 

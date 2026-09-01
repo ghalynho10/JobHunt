@@ -39,6 +39,12 @@ import { mintSession, type MintedSession } from "../helpers/session";
  */
 const requestScope = vi.hoisted(() => ({
   jar: undefined as CookieJar | undefined,
+  /**
+   * The pathname header `src/proxy.ts` echoes, as the layout would read it
+   * (spec 0008, AC-11). `undefined` is a request the proxy's matcher skipped, or
+   * a path over the shared length cap, which is the bare `/sign-in` case.
+   */
+  requestedPath: undefined as string | undefined,
 }));
 
 vi.mock("next/headers", () => ({
@@ -49,6 +55,14 @@ vi.mock("next/headers", () => ({
         requestScope.jar?.setAll?.([{ name, value, options }], {});
       },
     }),
+  headers: () =>
+    Promise.resolve(
+      new Headers(
+        requestScope.requestedPath === undefined
+          ? {}
+          : { "x-jobhunt-pathname": requestScope.requestedPath },
+      ),
+    ),
 }));
 
 /**
@@ -143,8 +157,12 @@ function redirectSignalOf(thrown: unknown): RedirectSignal {
  * for a caller it should have turned away is exactly the empty page that reads
  * as success DW-4 exists to rule out.
  */
-async function redirectFrom(jar: CookieJar): Promise<RedirectSignal> {
+async function redirectFrom(
+  jar: CookieJar,
+  requestedPath?: string,
+): Promise<RedirectSignal> {
   requestScope.jar = jar;
+  requestScope.requestedPath = requestedPath;
 
   try {
     await AppLayout({
@@ -179,6 +197,37 @@ describe("the protected layout is where the session is checked", () => {
     // `replace` rather than `push`: being turned away is not a history entry.
     expect(signal.type).toBe("replace");
     expect(signal.statusCode).toBe(307);
+  });
+
+  it("carries the requested path onto the sign in page it sends them to", async () => {
+    const signal = await redirectFrom(createCookieJar(), "/search?q=react");
+
+    /**
+     * SPEC 0008, AC-11. The deep link the visitor followed survives being turned
+     * away, as one percent encoded parameter rather than as a second query
+     * parameter of its own. Asserting the encoded form is the point: a nested
+     * query string that arrived unencoded would be read as `?next=/search` plus
+     * a separate `q`, and the visitor would land on a search with no term.
+     */
+    expect(signal.destination).toBe("/sign-in?next=%2Fsearch%3Fq%3Dreact");
+  });
+
+  it("sends them to a bare sign in page when there is no requested path", async () => {
+    const signal = await redirectFrom(createCookieJar(), undefined);
+
+    // Nothing fails when the header is absent; the landing rule decides instead.
+    expect(signal.destination).toBe("/sign-in");
+  });
+
+  it("refuses a hostile requested path and sends them to a bare sign in page", async () => {
+    /**
+     * The proxy overwrites any header a client sent, so this value cannot arrive
+     * in production. It is parsed anyway, because this project parses at every
+     * boundary, and this asserts the parse is really there rather than assumed.
+     */
+    const signal = await redirectFrom(createCookieJar(), "//evil.com");
+
+    expect(signal.destination).toBe("/sign-in");
   });
 
   it("renders its children for a real signed in user", async () => {

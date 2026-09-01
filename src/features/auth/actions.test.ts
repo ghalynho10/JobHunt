@@ -59,6 +59,16 @@ interface ProviderError {
 let oauthCalls: OAuthCall[] = [];
 let openedSpans: { name: string; attributes?: Record<string, unknown> }[] = [];
 
+/**
+ * Cookies the action actually wrote, recorded rather than asserted through a
+ * fake store, so a test can read back the exact attributes (spec 0008, AC-14).
+ */
+let writtenCookies: {
+  name: string;
+  value: string;
+  options: Record<string, unknown>;
+}[] = [];
+
 /** Set per test to choose how the boundary behaves. */
 let oauthBehaviour: () => Promise<{
   data: { url: string | null };
@@ -83,6 +93,7 @@ beforeEach(() => {
   vi.resetModules();
   oauthCalls = [];
   openedSpans = [];
+  writtenCookies = [];
   oauthBehaviour = () =>
     Promise.resolve({ data: { url: PROVIDER_URL }, error: null });
   signOutBehaviour = () => Promise.resolve({ error: null });
@@ -127,6 +138,26 @@ async function loadActions() {
     redirect: (url: string): never => {
       throw new RedirectSignal(url);
     },
+  }));
+
+  /**
+   * A Server Action writes cookies through this store, and there is no request
+   * in a test process, so `cookies()` would throw. The store is the framework's
+   * boundary, not an assumption the action makes: every decision about whether
+   * to write, what to write and with which attributes stays in `actions.ts` and
+   * in the real validator.
+   */
+  vi.doMock("next/headers", () => ({
+    cookies: () =>
+      Promise.resolve({
+        set: (
+          name: string,
+          value: string,
+          options: Record<string, unknown>,
+        ) => {
+          writtenCookies.push({ name, value, options });
+        },
+      }),
   }));
 
   /**
@@ -176,9 +207,12 @@ async function loadActions() {
  * the test, so this says so rather than returning a value that reads like a
  * destination.
  */
-async function redirectFrom(action: () => Promise<void>): Promise<string> {
+async function redirectFrom(
+  action: (formData: FormData) => Promise<void>,
+  formData: FormData = new FormData(),
+): Promise<string> {
   try {
-    await action();
+    await action(formData);
   } catch (thrown) {
     if (thrown instanceof RedirectSignal) return thrown.url;
     throw thrown;
@@ -187,6 +221,14 @@ async function redirectFrom(action: () => Promise<void>): Promise<string> {
   throw new Error(
     "The action returned without redirecting. Every path through it must end in a redirect.",
   );
+}
+
+/** A submitted provider form carrying a `next` field. */
+function formWithNext(next: string): FormData {
+  const formData = new FormData();
+  formData.set("next", next);
+
+  return formData;
 }
 
 /** The single `redirectTo` the SDK was asked for, read off the recorded call. */
@@ -460,5 +502,109 @@ describe("signing out when it does not go cleanly (AC-11)", () => {
     await redirectFrom(signOut);
 
     expect(openedSpans[0]?.name).toBe("auth.sign_out");
+  });
+});
+
+describe("the deep link the visitor followed (spec 0008, AC-14, AC-14a)", () => {
+  it("writes the return cookie before the provider call, with the attributes the spec fixes", async () => {
+    const { signInWithGoogle } = await loadActions();
+
+    await redirectFrom(signInWithGoogle, formWithNext("/search?q=react"));
+
+    const [cookie] = writtenCookies;
+
+    expect(cookie?.name).toBe("jobhunt_return_path");
+    /** Percent encoded on write, decoded before validation on read. */
+    expect(cookie?.value).toBe(encodeURIComponent("/search?q=react"));
+    expect(cookie?.options).toMatchObject({
+      httpOnly: true,
+      /**
+       * `Strict` is not sent on the cross site top level GET a provider returns
+       * with, so it would silently disable the whole feature. This is the one
+       * attribute whose wrong value looks harmless and breaks everything.
+       */
+      sameSite: "lax",
+      path: "/auth/callback",
+      maxAge: 600,
+    });
+  });
+
+  it("leaves redirectTo carrying nothing but the origin and the callback", async () => {
+    const { signInWithGoogle } = await loadActions();
+
+    await redirectFrom(signInWithGoogle, formWithNext("/search?q=react"));
+
+    /**
+     * SPEC 0007, SAFEGUARD 3, still standing after this feature. The return path
+     * travels in a cookie precisely so that no untrusted input ever reaches the
+     * URL the provider is asked to send the person back to.
+     */
+    expect(redirectToAskedFor()).toBe("http://localhost:3000/auth/callback");
+    expect(redirectToAskedFor()).not.toContain("search");
+  });
+
+  it("writes no cookie for a hostile value and signs in normally", async () => {
+    const { signInWithGitHub } = await loadActions();
+
+    /**
+     * The value was already parsed at `/sign-in`, and it is parsed again here,
+     * because a Server Action is a callable endpoint whatever page renders it.
+     * Nothing guarantees this form came from the page that built it.
+     */
+    const destination = await redirectFrom(
+      signInWithGitHub,
+      formWithNext("//evil.com"),
+    );
+
+    expect(writtenCookies).toEqual([]);
+    expect(destination).toBe(PROVIDER_URL);
+  });
+
+  it("writes no cookie when the form carries no return path", async () => {
+    const { signInWithGoogle } = await loadActions();
+
+    const destination = await redirectFrom(signInWithGoogle);
+
+    expect(writtenCookies).toEqual([]);
+    expect(destination).toBe(PROVIDER_URL);
+  });
+
+  it("carries the return path onto the error redirect so a retry keeps it", async () => {
+    oauthBehaviour = () =>
+      Promise.resolve({
+        data: { url: null },
+        error: { status: 503, message: "provider down" },
+      });
+
+    const { signInWithGoogle } = await loadActions();
+
+    const destination = await redirectFrom(
+      signInWithGoogle,
+      formWithNext("/search?q=react"),
+    );
+
+    /**
+     * AC-14a, the first of the two error paths. Without this a visitor who
+     * followed a deep link, hit a provider outage and retried would lose the
+     * link that brought them here, and the two error paths into `/sign-in` would
+     * behave differently from each other by accident.
+     */
+    expect(destination).toBe(
+      "/sign-in?error=provider_unavailable&next=%2Fsearch%3Fq%3Dreact",
+    );
+  });
+
+  it("still reaches the error page when there is no return path to carry", async () => {
+    oauthBehaviour = () =>
+      Promise.resolve({
+        data: { url: null },
+        error: { status: 503, message: "provider down" },
+      });
+
+    const { signInWithGitHub } = await loadActions();
+
+    const destination = await redirectFrom(signInWithGitHub);
+
+    expect(destination).toBe("/sign-in?error=provider_unavailable");
   });
 });

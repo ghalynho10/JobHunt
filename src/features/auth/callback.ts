@@ -34,7 +34,24 @@ import { AUTH_FAILURES, type AuthErrorCode } from "./failure-codes";
  * hand written `Result` that skipped the constructor.
  */
 export type SignInOutcome =
-  | { readonly signedIn: true }
+  | {
+      readonly signedIn: true;
+      /**
+       * WHO WAS JUST SIGNED IN, HANDED BACK RATHER THAN LEFT TO BE RE-READ
+       * (spec 0008, AC-15a). The callback needs an identity to run the landing
+       * rule against, and building a second Supabase client later in the same
+       * request to ask again would raise the question of whether that client
+       * observes cookies written earlier in this one, which is the same snapshot
+       * problem AC-10 exists for. Returning it here means the answer never has
+       * to be found out, and the session is read once per callback rather than
+       * twice.
+       *
+       * It comes from the exchange itself, which is the most authoritative
+       * source there is at this moment: it is the response that created the
+       * session, not a later reading of a cookie.
+       */
+      readonly userId: string;
+    }
   | { readonly signedIn: false; readonly code: AuthErrorCode };
 
 /**
@@ -73,7 +90,7 @@ export async function completeSignIn(
         return { signedIn: false, code: "exchange_failed" };
       }
 
-      const { error } = attempted.value;
+      const { data, error } = attempted.value;
 
       if (error) {
         failure({
@@ -94,7 +111,24 @@ export async function completeSignIn(
         return { signedIn: false, code: "exchange_failed" };
       }
 
-      return { signedIn: true };
+      if (data.user === null) {
+        /**
+         * An exchange that reported no error and produced no user is not a
+         * session, whatever it looks like. Saying so out loud is cheaper than a
+         * landing rule run for nobody, which would read as an empty profile and
+         * send a stranger to `/profile`.
+         */
+        failure({
+          kind: AUTH_FAILURES.exchange_failed.kind,
+          severity: AUTH_FAILURES.exchange_failed.severity,
+          message: AUTH_FAILURES.exchange_failed.message,
+          context: { detail: "the exchange returned no user" },
+        });
+
+        return { signedIn: false, code: "exchange_failed" };
+      }
+
+      return { signedIn: true, userId: data.user.id };
     },
   );
 }

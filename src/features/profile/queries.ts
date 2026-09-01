@@ -182,3 +182,79 @@ export async function readOwnProfile(): Promise<Result<Profile>> {
     },
   );
 }
+
+/**
+ * Whether the caller has a profile row at all (spec 0008, AC-7, AC-7a).
+ *
+ * A SEPARATE READ FROM `readOwnProfile()` ON PURPOSE, and the separation is the
+ * whole point of the criterion. `readOwnProfile()` treats an absent row as
+ * `record_not_found`, an EXPECTED failure that still reports to Sentry and still
+ * marks the `profile.read` span failed. That is right for a page whose job is to
+ * show the profile, and wrong here: a first time sign in has no row by
+ * definition, so reusing it would put the most ordinary event in the product
+ * into the failure ratio feature 9 will alert on.
+ *
+ * SO AN ABSENT ROW RETURNS `false` AND BUILDS NO `failure()`. Nothing is being
+ * hidden: an absent row is not a failure, it is the answer.
+ *
+ * A GENUINE QUERY ERROR IS STILL A FAILURE (AC-7a). The narrow exemption above
+ * is for the absent row and nothing else. Collapsing an error into `false` would
+ * land a visitor on `/profile` during a database outage as though their profile
+ * were merely empty, which is exactly the default that reads like success the
+ * error model forbids.
+ *
+ * IT OPENS NO SPAN OF ITS OWN, deliberately. It is only ever called inside
+ * `landing_rule.decide`, so its failures already have a denominator there.
+ * Reusing `profile.read` would merge two operations under one name and undo what
+ * this function exists for.
+ *
+ * THE `eq` FILTER IS PRESENT HERE AND ABSENT IN `readOwnProfile()`, which is a
+ * real difference and not an oversight. That read proves the policy works, so an
+ * application side filter would make it look correct even if the policy were
+ * broken. This one is called from route handlers deciding where to send a
+ * visitor whose id the caller has already resolved from verified claims, so
+ * naming the row makes the subject of the read explicit rather than ambient.
+ * Row level security still confines it either way.
+ *
+ * @param userId The caller's own id, from claims that have already been verified.
+ * @returns `true` when a row exists, `false` when none does, or a failure.
+ */
+export async function hasProfileRow(userId: string): Promise<Result<boolean>> {
+  const supabase = await createClient();
+
+  /** BINDING RULE 5: the database driver may throw rather than return. */
+  const attempted = await attempt(
+    {
+      kind: "database_unavailable",
+      message: "Could not check whether a profile exists.",
+    },
+    /**
+     * `async` so the awaited value is the response rather than the builder:
+     * PostgREST's builder is a thenable, not a `Promise`, so returning it raw
+     * would not satisfy `attempt()`'s contract and its rejection would escape.
+     */
+    async () =>
+      await supabase
+        .from("profile")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle(),
+  );
+
+  if (isFailure(attempted)) return attempted;
+
+  const { data, error } = attempted.value;
+
+  if (error) {
+    return failure({
+      kind: "database_unavailable",
+      severity: "unexpected",
+      message: "Could not check whether a profile exists.",
+      context: { code: error.code, hint: error.hint },
+      cause: error,
+    });
+  }
+
+  /** No row is an answer, not a failure. This is AC-7's exemption, in one line. */
+  return success(data !== null);
+}
