@@ -2,6 +2,11 @@
 
 The reasoning behind [index.md](index.md). `/develop` does not read this file.
 
+**Revision 5, 2026-08-31.** The chosen option is unchanged. A sub decision on
+who composes the header is added below, recording why per page composition
+beat the three alternatives, including the parallel route slot that would
+have preserved the original wording.
+
 **Revision 2, 2026-08-31.** The chosen option is unchanged. The sub decision on
 where the return path is carried is reversed, after the cross model review in
 [docs/reviews/2026-08-31-spec-0008-app-shell-and-navigation.md](../../reviews/2026-08-31-spec-0008-app-shell-and-navigation.md)
@@ -222,6 +227,82 @@ most likely thing here to calcify by accident", and this feature replaces it.
 mock up). The runner up, raising to the 44px AAA comfort tier, was rejected
 because the project has not committed to AAA and the shell reuses Button
 sizes the design system already governs.
+
+**Sub decision: who composes the header.** Rewritten in revision 5, after the
+build found the two criteria could not both hold.
+
+Revision 4 fixed this on the marketing side and left the signed in side
+saying the `(app)` layout composes the header once. AC-5 asks each route to
+pass its own `aria-current="page"` in, and says explicitly that no component
+computes it. A layout never learns the pathname (`layout.md` lines 238 to
+242), so a header composed in the `(app)` layout can never be told which page
+it is on. The two are not merely in tension, they are exclusive.
+
+Four ways out were weighed on 2026-08-31, with the engineer choosing the
+first:
+
+**Chosen: each route composes it.** Four one line call sites, `current`
+passed at composition time exactly as AC-5 asks, no pathname read anywhere,
+and the same shape the marketing side already uses.
+
+**The cost is real, and an earlier draft of this paragraph understated it.**
+That draft said the risk was a later route forgetting the header, and called
+it mitigated by `app-header.test.ts` plus the `verify.md` walk. The cross
+check on 2026-08-31 showed both halves were wrong, and the correction is kept
+here rather than quietly deleted:
+
+- `app-header.test.ts` calls `AppHeader` directly with props written in the
+  test. It proves the component renders `aria-current` correctly when given a
+  value. **It never touches the four call sites**, so it cannot fail when one
+  of them is wrong. No test under `src/app/(app)/` exists at all.
+- The dangerous failure is not the one that draft named. A **missing** header
+  is obvious on sight. A **wrong** `current`, say `/profile` shipping
+  `current="search"` after a copy and paste, renders a page that looks
+  entirely correct while `aria-current="page"` points a screen reader user at
+  the wrong item. That is silent, and it is the same class of harm this file
+  uses to reject the `usePathname()` option, so the argument as first written
+  undercut itself.
+
+Per route composition is still the right call, because AC-5's wording
+forecloses every alternative and the cross check confirmed the four options
+are exhaustive. But it is chosen **in spite of** this cost, not because the
+cost is small, and today the only thing standing between a wrong `current`
+and production is the one time browser walk recorded in `verify.md`. Closing
+that is a page level test asserting each route passes its own value, named in
+`## Follow-up`.
+
+**Rejected: the layout composes it and `aria-current` is dropped.** This keeps
+the original AC-3a wording and pays for it by removing the current page marker
+from the navigation, which is a WCAG 2.2 AA affordance this project committed
+to. Trading an accessibility affordance to preserve a sentence is the wrong
+way round.
+
+**Rejected: the layout composes it and a client component computes
+`aria-current` from `usePathname()`.** This works, and unlike the marketing
+side it breaks no zero JavaScript contract, since `/sign-in` is not involved.
+It was still rejected: it contradicts AC-5's "rather than any component
+computing it" outright, and it puts the first client boundary in the signed in
+shell to solve a problem that one prop solves. A client boundary is a thing
+you spend once and keep forever.
+
+**Rejected: a parallel route slot.** This is the option that would have kept
+the layout composing the header while still varying per route, so it deserved
+a real look rather than a dismissal. Next.js supports named slots with the
+`@folder` convention, passed to the parent layout as props
+(`parallel-routes.md`), so an `@header` slot with one page per route would let
+`(app)/layout.tsx` render `{header}` and still get a per route value. It was
+rejected on cost, verified in that same file rather than assumed: an unmatched
+slot on a hard navigation renders `default.js`, **or a 404 if there is none**,
+and `children` needs its own `default.js` too. For four routes that is six
+extra files, a 404 as the failure mode of forgetting one, and the header
+turned into a routing concern, which is exactly what AC-3 forbids of the
+primitive. It is the same per route decision wearing a layout costume, at
+several times the price.
+
+The lesson worth keeping is not about headers. Revision 4 caught this exact
+constraint on one side of the same criterion and did not check the other half
+of its own sentence. A criterion that says "differs by side" is a criterion to
+read twice.
 
 **Sub decision: placeholder treatment.** Ordinary expected state, one honest
 sentence per route, no alert role, no red border, no "coming soon". The
