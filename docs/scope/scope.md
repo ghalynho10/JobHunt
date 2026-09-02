@@ -21,7 +21,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 8 | Test foundation | Foundation | done |
 | 32 | App shell & navigation | Foundation | done |
 | 21 | Terms & privacy notices | Foundation | done |
-| 9 | Profile entry | Slice 1 | in-progress |
+| 9 | Profile entry | Slice 1 | done |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
 | 12 | Apply redirect & application record | Slice 1 | planned |
@@ -189,7 +189,7 @@ _spec [0009](../specs/0009-terms-and-privacy-notices/index.md) · code in `src/f
 
 The thinnest real thread through the whole product, touching every layer and actually working. Real auth, real database, real external search, real UI. Narrow, not faked: results are not ranked yet and filters are minimal, but nothing here is a placeholder to be thrown away.
 
-### 9. Profile entry
+### 9. Profile entry · done
 A form for the flat profile: personal details, skills, one layer of work history, and stated job preferences. Typed by hand, with no resume upload and no extraction, so it makes no external call at all. Scoring cannot function without this, and the completion test does not start without a way to get profile data in.
 **Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, the saved shape is exactly what scoring will later read, and the profile form's Server Action is driven once from a test with no browser. That last clause is spec 0001's third runner constraint, deferred to here by spec 0004 because there was no real write path to drive at feature 8; the technique is recorded in that spec's follow up list. Also, this feature moves its own claim (`profile`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**). It also **closes the deferred half of spec [0007](../specs/0007-auth-and-per-user-isolation/index.md) AC-15**: two real accounts, on the running app, each reading their OWN profile and not the other's. Feature 7 proved only the negative half, that neither account reaches the other's data, because at that point no `profile` row existed for anyone and both signed in users landed on the same named `record_not_found`. AC-15's wording assumes rows are there to be isolated, and this is the feature that first makes that true, so the proof lands here rather than being re run against the fixture pool it was written to go beyond.
 _spec [0010](../specs/0010-profile-entry/index.md) · code in `src/features/profile/`, `src/app/(app)/profile/`, `src/components/ui/`, proofs in `test/integration/profile-form.test.ts`_
