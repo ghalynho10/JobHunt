@@ -84,13 +84,6 @@ An elevated card that grows a border led look, or a flat card that grows a shado
 
 One sanctioned default animation exists: the match cell stagger. Nothing else animates on load. Delays and durations are both zeroed under `prefers-reduced-motion`, and [globals.test.ts](src/app/globals.test.ts) fails if a future motion property is added without a reset.
 
-## Components to fix
-
-Both are the audit's confirmed resolutions, not yet applied to the code.
-
-- `src/features/entry-page/score-badge.tsx`: the `compare` size uses `rounded-lg` where the `card` size uses `rounded-md`. Radius follows the object, not the size, so both become `rounded-md`.
-- `src/components/ui/chip.tsx`: the `status` state uses plain `rounded` and `text-[10px]`. Both are off pattern: it becomes `rounded-md` to match `matched` and `missing`, and `text-caption` instead of the arbitrary 10px, which keeps the closed scale meaningful rather than adding a seventh size for one badge.
-
 ## Design tool import audit, 2026-08-30
 
 Source: `docs/design/jobhunt-app-shell.html`, a design tool export of the app shell screens (search, dense search, role detail, profile, applications), checked against the baseline above, `brand-tokens.md`, and the real components in `src/components/ui`. This file is a reference mock, not shippable code, so there is nothing here to edit directly. The list below is what a future build of these screens must correct rather than carry over from the mock.
