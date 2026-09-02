@@ -135,6 +135,12 @@ function experienceView(state: PageState): ExperienceView {
   if (state.kind === "delete-experience") {
     return { kind: "delete", entryId: state.entryId };
   }
+  /**
+   * An `entry` that is not a uuid. It renders the list plus `COPY-4`, the same
+   * as an id that parsed and matched nothing, because the reader asked for an
+   * entry either way and it is not there (AC-13).
+   */
+  if (state.kind === "entry-gone") return { kind: "gone" };
 
   return { kind: "list" };
 }

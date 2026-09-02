@@ -30,7 +30,13 @@ export type ExperienceView =
   | { readonly kind: "list" }
   | { readonly kind: "add" }
   | { readonly kind: "edit"; readonly entryId: string }
-  | { readonly kind: "delete"; readonly entryId: string };
+  | { readonly kind: "delete"; readonly entryId: string }
+  /**
+   * An entry was named in the URL and its id is not even a uuid, so there is
+   * nothing to look up. It renders exactly what an id that looked fine and
+   * matched no row renders, because to the reader they are the same event.
+   */
+  | { readonly kind: "gone" };
 
 interface ExperienceSectionProps {
   readonly entries: readonly WorkExperienceEntry[];
@@ -44,6 +50,10 @@ export function ExperienceSection({
   view,
   years,
 }: ExperienceSectionProps) {
+  if (view.kind === "gone") {
+    return <EntryGone entries={entries} />;
+  }
+
   if (view.kind === "add") {
     return (
       <SectionCard heading={HEADINGS.experience}>
@@ -110,6 +120,32 @@ export function ExperienceSection({
   return (
     <SectionCard heading={HEADINGS.experience} control={<AddRoleControl />}>
       <EntryList entries={entries} />
+    </SectionCard>
+  );
+}
+
+/**
+ * The list, with `COPY-4` above it.
+ *
+ * ONE COMPONENT FOR BOTH WAYS OF GETTING HERE: an id that parsed and matched no
+ * row, and an id that never parsed at all. They are the same event to the reader
+ * and AC-13 asks for the same render, so a second copy of this markup is a
+ * second place for them to drift apart. That drift is exactly what the malformed
+ * id path did before 2026-09-02: it had no render of its own and fell through to
+ * the plain list.
+ */
+function EntryGone({
+  entries,
+}: {
+  readonly entries: readonly WorkExperienceEntry[];
+}) {
+  return (
+    <SectionCard heading={HEADINGS.experience} control={<AddRoleControl />}>
+      {/* `COPY-4`, the engineer's, used verbatim. */}
+      <Text className="text-muted">{ENTRY_GONE}</Text>
+      <div className="mt-6">
+        <EntryList entries={entries} />
+      </div>
     </SectionCard>
   );
 }

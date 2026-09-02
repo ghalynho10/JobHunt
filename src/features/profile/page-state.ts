@@ -38,10 +38,30 @@ export type PageState =
   | { readonly kind: "edit"; readonly section: Section }
   | { readonly kind: "add-experience" }
   | { readonly kind: "edit-experience"; readonly entryId: string }
-  | { readonly kind: "delete-experience"; readonly entryId: string };
+  | { readonly kind: "delete-experience"; readonly entryId: string }
+  /**
+   * An `entry` was named but its id is not a uuid, so no row can be looked up.
+   *
+   * IT IS ITS OWN STATE RATHER THAN A FALL BACK TO `view`, and that is the whole
+   * point of AC-13. A malformed id and a stale one are the same thing to the
+   * reader (the entry they clicked is not there), so they have to render the
+   * same thing. Collapsing this into `view` loses the only fact the page needs
+   * to say so, which is exactly the bug `/check verify` caught on 2026-09-02:
+   * the page rendered the list and silently ignored the request.
+   */
+  | { readonly kind: "entry-gone" };
 
 /** The plain view, which every unrecognised combination falls back to. */
 const VIEW: PageState = { kind: "view" };
+
+/**
+ * An entry was asked for and cannot be shown.
+ *
+ * Reached only when an `entry` value is actually present and fails the uuid
+ * parse. An ABSENT `entry` is a different thing: `?edit=experience` on its own
+ * names the section with no row in it, which is the plain view.
+ */
+const ENTRY_GONE: PageState = { kind: "entry-gone" };
 
 /**
  * A single string value, or `undefined`.
@@ -78,13 +98,16 @@ export function parsePageState(
 
   if (single(params.delete) === "experience") {
     /**
-     * A confirmation URL with no usable id is not a confirmation of anything, so
-     * it falls to the plain view. The page renders `COPY-4` beside it, which is
-     * the same thing a stale id gets (AC-13).
+     * A confirmation URL with no usable id is not a confirmation of anything.
+     * With an id present but malformed it is `entry-gone`, so the page says the
+     * entry is not there; with no id at all it is the plain view, because
+     * nothing was asked for (AC-13).
      */
-    return entry.success
-      ? { kind: "delete-experience", entryId: entry.data }
-      : VIEW;
+    if (entry.success) {
+      return { kind: "delete-experience", entryId: entry.data };
+    }
+
+    return single(params.entry) === undefined ? VIEW : ENTRY_GONE;
   }
 
   if (single(params.add) === "experience") {
@@ -97,35 +120,18 @@ export function parsePageState(
 
   /**
    * `?edit=experience` names the whole section, and one entry inside it is
-   * named by adding `entry`. Without a usable id it is the add form's URL
-   * without the add, so it falls to the plain view rather than opening a blank
-   * form that would silently turn an edit into an insert.
+   * named by adding `entry`. Either way it never opens a blank form, which
+   * would silently turn an edit into an insert. With no `entry` at all it is
+   * the add form's URL without the add, so it is the plain view; with a
+   * malformed one it is `entry-gone`.
    */
   if (section === "experience") {
-    return entry.success
-      ? { kind: "edit-experience", entryId: entry.data }
-      : VIEW;
+    if (entry.success) {
+      return { kind: "edit-experience", entryId: entry.data };
+    }
+
+    return single(params.entry) === undefined ? VIEW : ENTRY_GONE;
   }
 
   return { kind: "edit", section };
-}
-
-/**
- * Whether the URL asked for an entry that could not be shown.
- *
- * SEPARATE FROM `parsePageState` ON PURPOSE. The parse falls back to the plain
- * view, which is the right render, but falling back silently would leave
- * somebody who clicked a stale link looking at a page that simply ignored them.
- * This is what tells the page to show `COPY-4` alongside it.
- *
- * It answers `true` for a malformed id and for a well formed one, because
- * whether the id resolves to a row is not knowable from the URL. The page
- * checks the loaded entries for the second half.
- */
-export function askedForEntry(
-  params: Readonly<Record<string, string | string[] | undefined>>,
-): boolean {
-  const target = single(params.edit) ?? single(params.delete);
-
-  return target === "experience" && single(params.entry) !== undefined;
 }
