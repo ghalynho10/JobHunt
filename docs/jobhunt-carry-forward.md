@@ -198,7 +198,7 @@ Logo images: adzuna.co.uk/press.html
 
 ## Feature 14 — Fit scoring
 
-_Written: 2026-08-21 onward, backfill exact dates from git log · sources
+_Written: 2026-08-19, extended through 2026-08-25 · sources
 named per claim below · **TRUTH RE-AUDIT PENDING.**_
 
 **Not yet audited for truth.** The 2026-09-02 audit asked only whether
