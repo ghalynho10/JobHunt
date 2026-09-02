@@ -200,7 +200,7 @@ _spec [0010](../specs/0010-profile-entry/index.md) · code in `src/features/prof
   - [x] Thicken: skills (the diff based save) and work history (per entry add, edit, delete with a confirmation step) · AC-5 to AC-8, AC-7a
   - [x] Thicken: search preferences, the new spans registered, and the entry page's `profile` claim moved to working · AC-9, AC-10, AC-16
   - [x] Proofs: the no browser Server Action test, two account isolation, and the `/ui-preview` keyboard/focus/contrast pass · AC-14, AC-15, AC-17
-- [ ] Verify it: `/check verify profile entry`
+- [x] Verify it: `/check verify profile entry` · run 2026-09-02, **PASS**, all 18 acceptance criteria met, 51 of 53 steps ticked in [verify.md](../specs/0010-profile-entry/verify.md). A first run on the same day found **AC-13 half unbuilt**: a malformed `entry` id rendered the plain list and said nothing, while a well formed one that matched no row correctly said the entry was gone. `/debug` traced it to `parsePageState` collapsing an unusable id into the plain view, fixed in `8a59fdf`, and this run re-proved all four URL cases. The two unticked steps are recorded at the end of `verify.md` and neither is an acceptance criterion failure. The read failure state was proved by stopping the database container: `/profile` renders the failure treatment and never the first run form
 - [ ] Test it: `/test profile entry`
 
 ### 10. Usage gating & kill switch · needs a decision · GA
