@@ -119,6 +119,10 @@ export default defineConfig([
     // The defaults of eslint-config-next, restated because setting any
     // globalIgnores replaces them.
     ".next/**",
+    // The isolated output the AC-14 test server builds into (spec 0010). It is
+    // the same generated code as `.next/**`, in a second directory, so it takes
+    // the same exemption.
+    ".next-test/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

@@ -30,7 +30,14 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    // The AC-14 test server (spec 0010) builds into its own directory so it can
+    // run alongside `pnpm dev`, which holds a lock on `.next`. These two entries
+    // are declared here rather than left for Next.js to append, because it
+    // rewrites the whole file in its own formatting when it has to add
+    // something, and that rewrite fails `pnpm format:check`.
+    ".next-test/types/**/*.ts",
+    ".next-test/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

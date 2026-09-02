@@ -12,6 +12,9 @@ import {
 } from "@/lib/result";
 import { createClient } from "@/lib/supabase/server";
 
+import { PROFILE_FAILURES } from "./failures";
+import { REMOTE_PREFERENCES } from "./schemas";
+
 /**
  * Spec 0003: the caller's own profile, read through the real server client under
  * a real policy.
@@ -257,4 +260,233 @@ export async function hasProfileRow(userId: string): Promise<Result<boolean>> {
 
   /** No row is an answer, not a failure. This is AC-7's exemption, in one line. */
   return success(data !== null);
+}
+
+/**
+ * A skill, as the page renders it (spec 0010).
+ *
+ * `id` IS CARRIED EVEN THOUGH THE SKILLS SECTION EDITS BY NAME. `profile_skill`
+ * has no update path at all (spec 0003 gives it three policies, not four), so a
+ * renamed skill is a delete plus an insert and the diff in `saveSkills` works on
+ * names, not ids. The id is here because it is the stable React key for the
+ * rendered list, which a name is not: two saves apart, the same name is a
+ * different row.
+ */
+const skillSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+});
+
+export type Skill = z.infer<typeof skillSchema>;
+
+/**
+ * A work history entry, as the page renders it.
+ *
+ * The two dates stay the raw `YYYY-MM-DD` strings Postgres returns. They are
+ * formatted at render by `formatMonth()` and read back into the edit form's two
+ * selects by `monthOf()`, per `AGENTS.md`'s store raw and format at render rule.
+ * An absent `ended_on` means the role is current (spec 0003's own reason for
+ * having no `is_current` column).
+ */
+const workExperienceRowSchema = z.object({
+  id: z.uuid(),
+  company: z.string().min(1),
+  title: z.string().min(1),
+  location: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
+  description: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
+  started_on: z.string().min(1),
+  ended_on: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
+});
+
+export type WorkExperienceEntry = z.infer<typeof workExperienceRowSchema>;
+
+/**
+ * The caller's stated search preferences.
+ *
+ * `minimum_pay` IS PARSED AS A NUMBER AND NEVER FORMATTED HERE. The column is
+ * `numeric(12, 2)`, whose whole range is representable exactly in cents, and
+ * formatting happens at render beside the currency it is paired with. Storing or
+ * carrying it as a formatted string would be the thing `AGENTS.md` forbids.
+ *
+ * The pairing with `minimum_pay_currency` is guaranteed by the table's own
+ * `job_preference_pay_paired` constraint, so nothing here has to defend against
+ * an amount arriving without its currency.
+ */
+const preferencesRowSchema = z.object({
+  desired_titles: z.array(z.string()),
+  desired_locations: z.array(z.string()),
+  /**
+   * The four values the column's check constraint allows. Spec 0003 recorded
+   * the cost of a check constraint over an enum type in terms: the generated
+   * TypeScript is `string`, so the allowed values are named again in Zod and the
+   * two can drift. This is that second naming, and it is the boundary that
+   * catches the drift rather than passing it on as a widened type.
+   */
+  remote_preference: z.enum(REMOTE_PREFERENCES),
+  minimum_pay: z
+    .number()
+    .nullable()
+    .transform((value) => value ?? undefined),
+  minimum_pay_currency: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
+});
+
+export type Preferences = z.infer<typeof preferencesRowSchema>;
+
+/** The three sections that hang off a profile row. */
+export interface ProfileSections {
+  readonly skills: readonly Skill[];
+  readonly experience: readonly WorkExperienceEntry[];
+  /**
+   * Absent until the preferences section is explicitly saved for the first time
+   * (invariant 5, AC-10). `undefined` is a real state the page renders as "not
+   * set yet", never a row full of defaults standing in for a choice nobody made.
+   */
+  readonly preferences: Preferences | undefined;
+}
+
+/**
+ * The caller's skills, work history and search preferences (spec 0010).
+ *
+ * CALLED ONLY ONCE `readOwnProfile()` HAS ALREADY RESOLVED A ROW, and it does
+ * not touch that function. `readOwnProfile()`'s `record_not_found` path marks
+ * the `profile.read` span failed on purpose, and spec 0008 AC-7 already depends
+ * on that span keeping its own failure ratio. Folding these three reads into it
+ * would change what that ratio counts.
+ *
+ * NO `eq` FILTER ON ANY OF THE THREE, the same as `readOwnProfile()`. The
+ * policies are what confine each select to the caller's own rows. An application
+ * side filter would make all three look correct even if a policy were broken.
+ *
+ * THE THREE RUN CONCURRENTLY. They are independent selects on one connection's
+ * worth of work, and running them in series would make the page wait three round
+ * trips to show one screen.
+ */
+export async function readProfileSections(): Promise<Result<ProfileSections>> {
+  /** BINDING RULE 4: the named span opens as the first statement. */
+  return Sentry.startSpan(
+    { name: "profile.read_sections", op: "db.query" },
+    async (): Promise<Result<ProfileSections>> => {
+      const supabase = await createClient();
+
+      /** BINDING RULE 5: the database driver may throw rather than return. */
+      const attempted = await attempt(
+        {
+          kind: PROFILE_FAILURES.database_unavailable.kind,
+          message: PROFILE_FAILURES.database_unavailable.message,
+        },
+        async () =>
+          await Promise.all([
+            supabase.from("profile_skill").select("id, name"),
+            supabase
+              .from("work_experience")
+              .select(
+                "id, company, title, location, description, started_on, ended_on",
+              )
+              /**
+               * Current roles first, then most recent, then most recently
+               * added. `nullsFirst` is what puts a role with no end date at the
+               * top: an absent `ended_on` IS the current role.
+               */
+              .order("ended_on", { ascending: false, nullsFirst: true })
+              .order("started_on", { ascending: false })
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("job_preference")
+              .select(
+                "desired_titles, desired_locations, remote_preference, minimum_pay, minimum_pay_currency",
+              )
+              .maybeSingle(),
+          ]),
+      );
+
+      if (isFailure(attempted)) return attempted;
+
+      const [skills, experience, preferences] = attempted.value;
+
+      for (const response of [skills, experience, preferences]) {
+        if (response.error) {
+          return failure({
+            kind: PROFILE_FAILURES.database_unavailable.kind,
+            severity: PROFILE_FAILURES.database_unavailable.severity,
+            message: PROFILE_FAILURES.database_unavailable.message,
+            context: {
+              code: response.error.code,
+              hint: response.error.hint,
+            },
+            cause: response.error,
+          });
+        }
+      }
+
+      const parsedSkills = z.array(skillSchema).safeParse(skills.data ?? []);
+
+      if (!parsedSkills.success) return malformed(parsedSkills.error);
+
+      const parsedExperience = z
+        .array(workExperienceRowSchema)
+        .safeParse(experience.data ?? []);
+
+      if (!parsedExperience.success) return malformed(parsedExperience.error);
+
+      /**
+       * `null` is the answer, not a failure: no row means the section has never
+       * been saved. It is parsed only when there is something to parse.
+       */
+      const parsedPreferences =
+        preferences.data === null
+          ? undefined
+          : preferencesRowSchema.safeParse(preferences.data);
+
+      if (parsedPreferences !== undefined && !parsedPreferences.success) {
+        return malformed(parsedPreferences.error);
+      }
+
+      return success({
+        /**
+         * ORDERED BY `lower(name)` IN THE APPLICATION, NOT IN THE QUERY, and
+         * that is a limit of the transport rather than a preference. PostgREST
+         * orders by columns, not by expressions, so `lower(name)` cannot be
+         * asked for over the Data API. Ordering by `name` instead would sort
+         * every capitalised skill above every lowercase one, which is a visibly
+         * different list from the one the spec asked for. The sort is stable and
+         * runs over one profile's own skills.
+         */
+        skills: [...parsedSkills.data].sort((left, right) =>
+          left.name.toLowerCase().localeCompare(right.name.toLowerCase()),
+        ),
+        experience: parsedExperience.data,
+        preferences: parsedPreferences?.data,
+      });
+    },
+  );
+}
+
+/**
+ * A row that did not match the shape this feature parses.
+ *
+ * One helper for the three reads, so all three report the same kind at the same
+ * severity, exactly as `readOwnProfile()` reports its own (`response_malformed`,
+ * unexpected). A wrong declared type is what no strictness flag disagrees with,
+ * which is why every one of these rows is parsed rather than asserted.
+ */
+function malformed(error: z.ZodError): Result<never> {
+  return failure({
+    kind: PROFILE_FAILURES.response_malformed.kind,
+    severity: PROFILE_FAILURES.response_malformed.severity,
+    message: PROFILE_FAILURES.response_malformed.message,
+    context: { issues: z.treeifyError(error) },
+    cause: error,
+  });
 }

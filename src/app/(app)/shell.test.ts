@@ -48,6 +48,15 @@ vi.mock("@/features/profile/queries", () => ({
         summary: undefined,
       }),
     ),
+  /**
+   * Added when feature 9 gave `/profile` its real reads (spec 0010). This file
+   * asserts the shell, not the data, and a page that cannot render reads its
+   * header to nobody.
+   */
+  readProfileSections: () =>
+    Promise.resolve(
+      success({ skills: [], experience: [], preferences: undefined }),
+    ),
 }));
 
 vi.mock("@/lib/kill-switch", () => ({
@@ -57,6 +66,18 @@ vi.mock("@/lib/kill-switch", () => ({
 
 const { default: SearchPage } = await import("./search/page");
 const { default: ProfilePage } = await import("./profile/page");
+
+/**
+ * `/profile` takes route props and reads the query string since feature 9 (spec
+ * 0010, AC-13). An empty search string is the plain view, which is the state
+ * every assertion in this file is about.
+ */
+function renderProfile() {
+  return ProfilePage({
+    params: Promise.resolve({}),
+    searchParams: Promise.resolve({}),
+  });
+}
 const { default: ApplicationsPage } = await import("./applications/page");
 const { default: HealthPage } = await import("./health/page");
 
@@ -80,19 +101,19 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
      * quietly loses its chrome.
      */
     expect(headerOf(SearchPage())).toBeDefined();
-    expect(headerOf(ProfilePage())).toBeDefined();
+    expect(headerOf(await renderProfile())).toBeDefined();
     expect(headerOf(ApplicationsPage())).toBeDefined();
     expect(headerOf(await HealthPage())).toBeDefined();
   });
 
   it.each([
-    ["/search", () => SearchPage(), "search"],
-    ["/profile", () => ProfilePage(), "profile"],
+    ["/search", async () => SearchPage(), "search"],
+    ["/profile", renderProfile, "profile"],
   ] as const)(
     "%s tells the header it is the current page",
-    (_route, render, expected) => {
+    async (_route, render, expected) => {
       // covers: AC-5
-      expect(headerOf(render()).current).toBe(expected);
+      expect(headerOf(await render()).current).toBe(expected);
     },
   );
 
@@ -111,7 +132,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
     },
   );
 
-  it("gives no two routes the same current value", () => {
+  it("gives no two routes the same current value", async () => {
     /**
      * THE COPY AND PASTE GUARD, and the reason this file exists. Every earlier
      * assertion here would still pass if `/profile` were changed to
@@ -119,7 +140,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
      * not: two routes claiming the same page is wrong however the individual
      * expectations were edited.
      */
-    const claimed = [SearchPage(), ProfilePage()]
+    const claimed = [SearchPage(), await renderProfile()]
       .map((page) => headerOf(page).current)
       .filter((current) => current !== undefined);
 
@@ -127,17 +148,22 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
   });
 });
 
+/**
+ * `/profile` LEFT THE COPY SLOT LIST WHEN FEATURE 9 BUILT IT (spec 0010). Spec
+ * 0008's placeholder sentence ("Your profile lives here...") is gone from that
+ * page, because the page now IS the thing the sentence was standing in for.
+ * `/search` and `/applications` are still placeholders and their slots still
+ * hold. The route stays in the two checks below it, which are about the shape of
+ * any route rather than about a placeholder: a built route must still not shout
+ * failure at an ordinary state, and must still not say something that becomes
+ * false later.
+ */
 describe("the placeholder routes read as an ordinary state (AC-2)", () => {
   it.each([
     [
       "/search",
       () => SearchPage(),
       "Search comes next. This is where real listings will appear, ranked, with the reasoning shown.",
-    ],
-    [
-      "/profile",
-      () => ProfilePage(),
-      "Your profile lives here. Once you fill it in, search has something to rank against.",
     ],
     [
       "/applications",
@@ -157,17 +183,17 @@ describe("the placeholder routes read as an ordinary state (AC-2)", () => {
   );
 
   it.each([
-    ["/search", () => SearchPage()],
-    ["/profile", () => ProfilePage()],
-    ["/applications", () => ApplicationsPage()],
-  ] as const)("%s renders no failure treatment", (_route, render) => {
+    ["/search", async () => SearchPage()],
+    ["/profile", renderProfile],
+    ["/applications", async () => ApplicationsPage()],
+  ] as const)("%s renders no failure treatment", async (_route, render) => {
     /**
      * AC-2: a route that is not built yet is an ordinary expected state, not a
      * failure. `role="alert"` here would teach people that the product is broken
      * when it is merely young. `/health` is deliberately excluded: showing
      * failures is its entire job (AC-22).
      */
-    const alerts = flatten(render() as never).filter(
+    const alerts = flatten((await render()) as never).filter(
       (element) =>
         (element.props as { readonly role?: string }).role === "alert",
     );
@@ -175,22 +201,28 @@ describe("the placeholder routes read as an ordinary state (AC-2)", () => {
     expect(alerts).toHaveLength(0);
   });
 
-  it("says nothing that becomes false once the feature lands", () => {
+  it("says nothing that becomes false once the feature lands", async () => {
     /**
      * The trap spec 0007 AC-16 had to delete from the sign in band: copy that
      * was true when written and false for every visitor the moment the feature
      * shipped. A sentence saying a route is not built yet is fine, because it
      * gets replaced. "Coming soon" is not, because it survives as a lie.
      */
-    for (const render of [SearchPage, ProfilePage, ApplicationsPage]) {
-      expect(textOf(render()).toLowerCase()).not.toContain("coming soon");
+    for (const render of [
+      async () => SearchPage(),
+      renderProfile,
+      async () => ApplicationsPage(),
+    ]) {
+      expect(textOf((await render()) as never).toLowerCase()).not.toContain(
+        "coming soon",
+      );
     }
   });
 });
 
 describe("/profile is the only way to reach /applications (AC-1)", () => {
-  it("links to it, so no product route is reachable only by typing a URL", () => {
-    const links = flatten(ProfilePage() as never).filter(
+  it("links to it, so no product route is reachable only by typing a URL", async () => {
+    const links = flatten((await renderProfile()) as never).filter(
       (element) =>
         (element.props as { readonly href?: string }).href === "/applications",
     );

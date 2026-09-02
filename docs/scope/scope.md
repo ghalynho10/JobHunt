@@ -21,7 +21,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 8 | Test foundation | Foundation | done |
 | 32 | App shell & navigation | Foundation | done |
 | 21 | Terms & privacy notices | Foundation | done |
-| 9 | Profile entry | Slice 1 | in-progress |
+| 9 | Profile entry | Slice 1 | done |
 | 10 | Usage gating & kill switch | Slice 1 | planned |
 | 11 | Job search & results list | Slice 1 | planned |
 | 12 | Apply redirect & application record | Slice 1 | planned |
@@ -189,19 +189,19 @@ _spec [0009](../specs/0009-terms-and-privacy-notices/index.md) · code in `src/f
 
 The thinnest real thread through the whole product, touching every layer and actually working. Real auth, real database, real external search, real UI. Narrow, not faked: results are not ranked yet and filters are minimal, but nothing here is a placeholder to be thrown away.
 
-### 9. Profile entry
+### 9. Profile entry · done
 A form for the flat profile: personal details, skills, one layer of work history, and stated job preferences. Typed by hand, with no resume upload and no extraction, so it makes no external call at all. Scoring cannot function without this, and the completion test does not start without a way to get profile data in.
 **Done when:** a signed in user can create and edit their profile, it survives a reload, validation errors are shown rather than swallowed, the saved shape is exactly what scoring will later read, and the profile form's Server Action is driven once from a test with no browser. That last clause is spec 0001's third runner constraint, deferred to here by spec 0004 because there was no real write path to drive at feature 8; the technique is recorded in that spec's follow up list. Also, this feature moves its own claim (`profile`) from planned to working in the entry page's "What's real today" card (spec 0006, **AC-8**). It also **closes the deferred half of spec [0007](../specs/0007-auth-and-per-user-isolation/index.md) AC-15**: two real accounts, on the running app, each reading their OWN profile and not the other's. Feature 7 proved only the negative half, that neither account reaches the other's data, because at that point no `profile` row existed for anyone and both signed in users landed on the same named `record_not_found`. AC-15's wording assumes rows are there to be isolated, and this is the feature that first makes that true, so the proof lands here rather than being re run against the fixture pool it was written to go beyond.
-_spec [0010](../specs/0010-profile-entry/index.md) · code in `src/features/profile/`, `src/app/(app)/profile/`, `src/components/ui/`_
+_spec [0010](../specs/0010-profile-entry/index.md) · code in `src/features/profile/`, `src/app/(app)/profile/`, `src/components/ui/`, proofs in `test/integration/profile-form.test.ts`_
 - [x] Design it (spec): `/architect profile entry`
-- [ ] Build it: `/develop profile entry`
-  - [ ] Four new base components (`Input`, `Textarea`, `Select`, a `Field`/`Label` wrapper) added to `src/components/ui/`, extending spec 0005's inventory the way spec 0006 added `Logo` · AC-17
-  - [ ] Thin slice: the identity section end to end (create, reload, edit) via `saveIdentity` and the URL driven `/profile` page · AC-1 to AC-4, AC-11 to AC-14
-  - [ ] Thicken: skills (the diff based save) and work history (per entry add, edit, delete with a confirmation step) · AC-5 to AC-8, AC-7a
-  - [ ] Thicken: search preferences, the new spans registered, and the entry page's `profile` claim moved to working · AC-9, AC-10, AC-16
-  - [ ] Proofs: the no browser Server Action test, two account isolation, and the `/ui-preview` keyboard/focus/contrast pass · AC-14, AC-15, AC-17
-- [ ] Verify it: `/check verify profile entry`
-- [ ] Test it: `/test profile entry`
+- [x] Build it: `/develop profile entry`
+  - [x] Four new base components (`Input`, `Textarea`, `Select`, a `Field`/`Label` wrapper) added to `src/components/ui/`, extending spec 0005's inventory the way spec 0006 added `Logo` · AC-17
+  - [x] Thin slice: the identity section end to end (create, reload, edit) via `saveIdentity` and the URL driven `/profile` page · AC-1 to AC-4, AC-11 to AC-14
+  - [x] Thicken: skills (the diff based save) and work history (per entry add, edit, delete with a confirmation step) · AC-5 to AC-8, AC-7a
+  - [x] Thicken: search preferences, the new spans registered, and the entry page's `profile` claim moved to working · AC-9, AC-10, AC-16
+  - [x] Proofs: the no browser Server Action test, two account isolation, and the `/ui-preview` keyboard/focus/contrast pass · AC-14, AC-15, AC-17
+- [x] Verify it: `/check verify profile entry` · run 2026-09-02, **PASS**, all 18 acceptance criteria met, 51 of 53 steps ticked in [verify.md](../specs/0010-profile-entry/verify.md). A first run on the same day found **AC-13 half unbuilt**: a malformed `entry` id rendered the plain list and said nothing, while a well formed one that matched no row correctly said the entry was gone. `/debug` traced it to `parsePageState` collapsing an unusable id into the plain view, fixed in `8a59fdf`, and this run re-proved all four URL cases. The two unticked steps are recorded at the end of `verify.md` and neither is an acceptance criterion failure. The read failure state was proved by stopping the database container: `/profile` renders the failure treatment and never the first run form
+- [x] Test it: `/test profile entry` · run 2026-09-02, 222 new tests across 12 files, all passing (unit 751, integration 58). Covers the validation rules behind AC-3, AC-5 to AC-7a and AC-9 at the schema boundary, the four new base components against their own `AGENTS.md` convention, the work history section's four states, and the AC-13 regression at both the parser and the page. It also closes **the two steps `/check verify` could not observe from outside the app**, in `test/integration/profile-actions.test.ts`: the action's own caller check (unreachable over HTTP, because the protected layout redirects first) and invariant 9's write ordering (proved by breaking the delete at the driver and showing the caller ends with more skills than they started with, never fewer)
 
 ### 10. Usage gating & kill switch · needs a decision · GA
 Per account caps on the call types the app actually makes, checked atomically so a burst cannot slip past, failing closed by default, plus a single global kill switch operated from outside the app. Built before the first external call rather than after it. This is here under the named risk rule: the risk is uncontrolled external API cost during unemployment, and it is only removed by deciding that risk is acceptable, never by trimming for time.

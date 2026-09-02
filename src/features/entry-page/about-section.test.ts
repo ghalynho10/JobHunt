@@ -82,3 +82,68 @@ describe("the status card's shape", () => {
     expect(textOf(about).toLowerCase()).not.toContain("email digest");
   });
 });
+
+/**
+ * ADDED BY FEATURE 9 (spec 0010, AC-16), when `profile` became the first claim
+ * to move from `planned` to `working`.
+ *
+ * THIS IS STILL NOT A TRUTH CHECK, and the header above still holds: whether the
+ * card matches `docs/scope/scope.md` is a human read, because a test asserting
+ * against the same prose would only encode the same reading twice. What is
+ * checkable without reading the scope is the SHAPE of a move: a claim belongs to
+ * exactly one row, and moving it means deleting it from one and adding it to the
+ * other. Doing only half of that is the specific mistake four features in a row
+ * are set up to make, and it is invisible on the page, because a claim listed
+ * under both rows reads correctly in each.
+ */
+describe("moving a claim across is a move, not a copy (AC-16)", () => {
+  /**
+   * The two claim lines, working first and planned second, read off the card's
+   * own rows. `monoData` is the register the card gives each line, so this finds
+   * them by what they are rather than by their position in the markup.
+   */
+  const claimLines = findAllByType(about, Text).filter(
+    (text) => (text.props as { variant?: string }).variant === "monoData",
+  );
+
+  const claimsOf = (row: 0 | 1): readonly string[] =>
+    textOf(claimLines[row])
+      .split("·")
+      .map((claim) => claim.trim())
+      .filter((claim) => claim.length > 0);
+
+  const working = () => claimsOf(0);
+  const planned = () => claimsOf(1);
+
+  it("lists no claim under both working and planned", () => {
+    /**
+     * The half done move. Feature 7 left the opposite mistake on the live site
+     * for two days (a placeholder that outlived the thing it stood in for), and
+     * this is the same class of error in the other direction.
+     */
+    const both = working().filter((claim) => planned().includes(claim));
+
+    expect(both, "a claim is either working or planned, never both").toEqual(
+      [],
+    );
+  });
+
+  it("has moved the profile claim to working, now that the form exists", () => {
+    // covers: AC-16
+    expect(working()).toContain("profile");
+    expect(planned()).not.toContain("profile");
+  });
+
+  it("still lists the four claims whose features have not shipped", () => {
+    /**
+     * Named individually so the next feature to ship has to come here and remove
+     * its own, rather than the row quietly emptying or growing.
+     */
+    expect(planned()).toEqual([
+      "filtered search",
+      "ranked results with reasoning",
+      "application tracking",
+      "a no sign in demo account",
+    ]);
+  });
+});

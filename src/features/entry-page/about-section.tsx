@@ -23,14 +23,20 @@ import { Text } from "@/components/ui/text";
  * here (its only trace is a deferred idea, not a planned feature) and why
  * `a no sign in demo account` is (feature 31).
  *
- * WHY `working` READS THE WAY IT DOES. Sign in is the only thing a visitor can
- * actually use today, so it is the only thing listed. It is deliberately not
- * one of the five under `planned`: those are product capabilities, and sign in
- * was never among them, which is why feature 7 shipping retired the old
- * placeholder rather than moving a claim across. Features 9, 11, 12 and 14 each
- * carry a line in their own `Done when` requiring them to move their claim over
- * when they ship, so this row fills in from `planned` rather than being
- * rewritten by hand again.
+ * WHY `working` READS THE WAY IT DOES. Sign in was the only thing a visitor
+ * could actually use when this card was written, so it was the only thing
+ * listed. It is deliberately not one of the five under `planned`: those are
+ * product capabilities, and sign in was never among them, which is why feature 7
+ * shipping retired the old placeholder rather than moving a claim across.
+ * Features 9, 11, 12 and 14 each carry a line in their own `Done when` requiring
+ * them to move their claim over when they ship, so this row fills in from
+ * `planned` rather than being rewritten by hand again.
+ *
+ * `profile` MOVED ACROSS ON 2026-09-02, when feature 9 shipped the form (spec
+ * 0010, AC-16). That is the mechanism above working as intended for the first
+ * time: a claim left `planned` and joined `working` because the thing it names
+ * now exists. Four remain under `planned`, each owned by the feature that will
+ * move it.
  *
  * THE PLACEHOLDER OUTLIVED ITS OWN DEADLINE, and that is worth recording here
  * rather than only in the scope. It read `nothing yet · this page is the first
@@ -41,10 +47,10 @@ import { Text } from "@/components/ui/text";
  * no test guards this card, and that reasoning still holds. This is what it
  * costs: the only guard is somebody reading the page and knowing better.
  */
-const WORKING = "sign in with Google or GitHub";
+const WORKING = "sign in with Google or GitHub · profile";
 
 const PLANNED =
-  "profile · filtered search · ranked results with reasoning · application tracking · a no sign in demo account";
+  "filtered search · ranked results with reasoning · application tracking · a no sign in demo account";
 
 const ABOUT_PARAGRAPHS = [
   "JobHunt is a real product in progress, built and run by one engineer. I use it for my own search, so the parts that are broken get fixed because I run into them too.",
