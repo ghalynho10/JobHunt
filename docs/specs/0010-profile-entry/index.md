@@ -1,7 +1,7 @@
 # 0010. Profile entry
 
 **Date**: 2026-09-01
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
