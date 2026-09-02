@@ -4,9 +4,42 @@ Research findings that landed before the spec that owns them was written.
 Each is tagged with the feature that inherits it. Delete an entry once it
 is written into that feature's spec.
 
+**Every entry carries a status line:** when it was written, its source with
+a URL where the source is external, and whether each claim is verified or
+inferred. This mirrors the "verify before you recommend" standing rule in
+`AGENTS.md`. Without it a claim written months ago reads today as current
+fact, which is how three errors survived in the feature 10 entry below.
+
+**Auditing this file asks two separate questions, not one.** *Did it land*
+in the owning spec — that is the deletion rule above. *Is it still true* —
+that is a different pass, and an entry can be correctly undeletable and
+wrong on its face at the same time. Entries that make claims about **other**
+features' state are the ones that rot: they are written before that feature
+ships and are not revisited when it does.
+
+**Dates below marked `unknown` must be backfilled from `git log` on this
+file**, not from memory. A guessed date is worse than none, because it
+looks verified.
 ---
 
 ## Feature 4 — Data model
+
+_Written: 2026-08-19 · source: Supabase docs · key
+format verified in `src/env.ts`._
+
+**Audited 2026-09-02: this entry did NOT land in spec 0003 and stays.**
+The key format landed elsewhere — spec 0001 index line 38, and spec 0002
+index lines 191–192 for the env vars. The `apikey` header transport
+difference appears in no spec at all, only here and in
+`docs/experiments/0002-deployment-and-environments.md:63`.
+
+**The verbatim RLS line below is nowhere in any spec, and spec 0003's
+`rationale.md:106` claims it was adopted verbatim.** Someone recorded that
+it landed; it did not. Related substance exists in other shapes (0003 index
+line 195 forces RLS, line 211 says no table is reachable by the secret-key
+client), but not the named line. **Fix the rationale's claim as well as
+this entry** — a document asserting a decision its own spec does not carry
+stops anyone looking again.
 
 **Supabase API keys changed. Start on the new ones.**
 Legacy `anon` and `service_role` keys are deprecated by end of 2026.
@@ -26,6 +59,25 @@ did. Key rotation is not a substitute for RLS.
 ---
 
 ## Feature 7 — Auth & per user isolation
+
+_Written: 2026-08-19 · source: Supabase SSR docs ·
+audited 2026-09-02._
+
+**Audited 2026-09-02: this entry stays, and two of its three claims are
+recorded nowhere.**
+
+- The `@supabase/ssr` choice is in spec 0001 index lines 14 and 33.
+  **The rejection of the legacy auth-helpers package is in no spec, no
+  `AGENTS.md`, and no code** — a repo-wide search hits only this file.
+- The root `proxy.ts` requirement LANDED: spec 0001 binding rule 6,
+  index line 133, with the amendment note at 137–139.
+- **The `getUser()` / never `getSession()` prohibition is recorded
+  nowhere.** Not a spec, not `AGENTS.md`, not code. The only mention is a
+  test-mechanics comment at `src/proxy.test.ts:18`. Feature 7 is done and
+  this never landed, so it is a live gap rather than a stale note — and by
+  this entry's own argument it belongs in a spec as a named prohibition,
+  because a check that passes without proving anything is exactly the
+  silent-failure shape.
 
 **Use `@supabase/ssr`, not the legacy auth-helpers package.**
 
@@ -48,9 +100,26 @@ the spec as a named prohibition, not just a preference.
 
 ## Feature 10 — Usage gating & kill switch
 
-**Confirmed rate limits, from Adzuna's own terms of service:**
+_Written 2026-08-19 · corrected 2026-09-02 · source: Adzuna developer
+docs, heading "Default API access limits" · numbers verified, two claims
+below marked inferred._
+
+**Confirmed rate limits, from Adzuna's own docs:**
 25 hits/minute, 250/day, 1,000/week, 2,500/month.
 (An earlier third-party figure of ~1,000/month was wrong.)
+
+**Look in the docs, not the terms.** An earlier version of this entry
+attributed these to Adzuna's terms of service. They are not there. Three
+public pages — `developer.adzuna.com/docs/search`, `/overview` and
+`/terms` — state no limits at all, so a wrong pointer costs real time on
+re-verification. The heading to look for is **"Default API access
+limits"**.
+
+**"Default" is load bearing.** These are per-key defaults, not a hard
+platform ceiling. That makes raising them a lever that exists *before*
+2,500 is treated as immovable — an option no decision so far has weighed.
+Whether Adzuna grants increases, and on what terms, is unverified and
+worth asking before the cap numbers are treated as fixed.
 
 **The monthly window is the binding constraint.** Working down from
 2,500/month: that is roughly 577/week or 82/day — well under both the
@@ -69,7 +138,17 @@ into a spec.
 **Two budgets, not one.** The limits are against a single API key, so
 per-account caps alone do not protect the aggregate — one heavy user or
 twenty enthusiastic friends drain the same 1,000. Needs a per-account cap
-*and* a global counter. The kill switch is the manual backstop under both.
+*and* a global counter.
+
+**The kill switch already exists; this feature is its first caller.** An
+earlier version of this entry described it as future work. It shipped in
+feature 3: a single-row table with no policies, read behind the secret key
+client, flipped from the dashboard with no deploy and proved on preview,
+with 22 tests in `src/lib/kill-switch.test.ts` plus an integration test.
+`docs/observability/spans.md` already carries `kill_switch.read` with the
+note that feature 10 puts this read inside every gated call. So the
+mechanism is the manual backstop under both budgets, and what this feature
+adds is the call site, not the switch.
 
 **Suggested starting point:** 20–25 searches per user per week, and
 configurable rather than hardcoded. Against the real budget (~577/week
@@ -77,14 +156,29 @@ derived from the monthly cap), ten users at 25/week is 250 — comfortable,
 but half the headroom a weekly-cap reading would suggest. Recheck once
 the calls-per-search question above is answered.
 
-**A permanent constraint, not a v1 limitation:** creating multiple
-accounts for a single entity or individual is explicitly treated as
-misuse in the terms. Provisioning per-user API keys to expand the budget
-is not available, ever.
+**A permanent constraint, not a v1 limitation — INFERRED, not verified.**
+Creating multiple accounts for a single entity or individual is understood
+to be treated as misuse, which would mean provisioning per-user API keys to
+expand the budget is not available. Plausible and consistent with how such
+terms usually read, but **not checked against Adzuna's current text**. Verify
+before relying on it, particularly now that the ceiling above is known to be
+a raisable default rather than a hard limit — the two interact.
 
 ---
 
 ## Features 5 and 11 — Design system, and job search results
+
+_Written: 2026-08-19 · source: Adzuna terms · audited
+2026-09-02 · verified._
+
+**Audited 2026-09-02: LANDED, and correctly stays.** The 116×23 rule with
+both word and logo linked is in feature 11's Done when at `scope.md:213`.
+The per-advert wording and the logo source both sit at
+`brand-tokens.md:219–227`. The design-input half is in spec 0005 (AC-10
+line 27, `Card.Footer` row line 86, rationale line 66, `verify.md` line
+47). What remains genuinely owed to feature 11 is the image asset itself
+and its link targets, parked as a follow-up at spec 0005 index line 180 —
+and feature 11 has no spec yet, so this entry has a future reader.
 
 **Adzuna attribution is per displayed advert, not per screen.**
 
@@ -103,6 +197,17 @@ Logo images: adzuna.co.uk/press.html
 ---
 
 ## Feature 14 — Fit scoring
+
+_Written: 2026-08-21 onward, backfill exact dates from git log · sources
+named per claim below · **TRUTH RE-AUDIT PENDING.**_
+
+**Not yet audited for truth.** The 2026-09-02 audit asked only whether
+entries landed in their spec, and feature 14 is still planned so nothing
+could have landed. That is a different question from whether these claims
+are still correct. **This entry makes claims about feature 3's state** —
+the MCP disclosure below — and feature 3 has since shipped, which is
+exactly the pattern that made the kill-switch line in feature 10 wrong.
+Re-read those before this spec is written.
 
 **Adzuna returns only a snippet of the job description, not full text.**
 
@@ -192,6 +297,10 @@ proven by either repo and should not be written up as though it were.
 
 ## Feature 25 — Resume tailoring (v1.5)
 
+_Written 2026-08-21 · source: `MadsLorentzen/ai-job-search` (MIT), read
+directly · verified against that repo at the time · **TRUTH RE-AUDIT
+PENDING** — the upstream repo may have changed._
+
 **Verify the rendered PDF's text layer, not the source.**
 
 Verified in ai-job-search: the compiled CV's text layer is extracted with
@@ -208,6 +317,10 @@ behaves; checking the output proves it.
 ---
 
 ## Feature 19 — Listing data quality
+
+_Written: 2026-08-19 · source: Adzuna terms and docs ·
+**TRUTH RE-AUDIT PENDING**, though this entry makes no claims about other
+features' state, so it is lower risk than feature 10's or 14's were._
 
 **Adzuna salaries are often model-predicted, not stated by the employer.**
 
@@ -229,10 +342,26 @@ count as Jobsworth estimates before displaying them.
 *(The feature 1 half is spent: spec 0001 records Tailwind v4 in the stack
 table and the scaffold is built on it.)*
 
+_Written: 2026-08-20 · audited 2026-09-02 · port
+constraints verified as landed; one item below has no owner._
+
+**Audited 2026-09-02: the port constraints LANDED and are spent.**
+Non-inline `@theme` is spec 0005 AC-1 (index line 18); all four
+accessibility media features are AC-12 (line 29), with the build-plan step
+at line 148. Verified in code: `globals.css` uses `@theme`, deliberately
+not `inline`.
+
+**The sentence below about the landing page was true when written and is
+false now.** The shipped page is `src/app/(marketing)/page.tsx` on the v4
+token layer. The only remaining CDN script is in the throwaway prototype
+`docs/design/jobhunt-landing_3.html` lines 12–15, which
+`brand-tokens.md:208` already labels prototyping-only and must-not-ship.
+Kept here as the record of a claim that rotted, not as current fact.
+
 **Tailwind v4 removed the JavaScript config file.** Current is 4.3.x.
 Customization lives in CSS via `@theme`. `brand-tokens.md` has been
-annotated, but the landing page HTML is still v3-shaped and loads the
-CDN script.
+annotated. ~~the landing page HTML is still v3-shaped and loads the CDN
+script~~ — no longer true, see above.
 
 Port constraints: raw channel values in `:root` mapped by a **non-inline**
 `@theme` (`@theme inline` bakes values at build time and breaks runtime
@@ -240,12 +369,22 @@ theming); v4 supports `prefers-contrast`, `forced-colors`,
 `prefers-reduced-motion` and `:focus-visible` directly in CSS, which is
 where the WCAG 2.2 AA groundwork should land.
 
-Deprecation to avoid: `start-*` and `end-*` in favor of `inline-s-*` and
-`inline-e-*`.
+**Deprecation to avoid — THE ONE ITEM IN THIS FILE WITH NO OWNER
+ANYWHERE:** `start-*` and `end-*` in favor of `inline-s-*` and
+`inline-e-*`. Not in spec 0005, not in `brand-tokens.md`, not in the UI
+`AGENTS.md`. Everything else in this section is spent; this is not.
+**Give it a home in feature 5's context before this section is pruned**,
+or it disappears with the rest.
 
 ---
 
 ## Unowned — TypeScript 7
+
+_Written: 2026-08-20 · audited 2026-09-02 · **DELETE
+CANDIDATE — fully spent.** Its input feature (1, Stack & architecture) is
+done and the language-strictness decision is recorded at spec 0001 index
+line 27. The entry itself declares TS7 an optional upgrade with no pending
+decision, so nothing is owed. Nothing is lost by keeping it either._
 
 *(The rest of this entry is spent. The `next dev` `AGENTS.md` block was
 preserved byte for byte during `/audit`; Node 24 is pinned in `.nvmrc`
@@ -262,6 +401,24 @@ free.
 ---
 
 ## Feature 3 — Supabase MCP server
+
+_Written: 2026-08-20 · audited 2026-09-02 · **DELETE
+CANDIDATE — landed in spec 0002, kept only so removal is a deliberate
+act.**_
+
+**Audited 2026-09-02: this LANDED and is not an orphan.** Spec 0002 AC-17
+(index line 38) scopes the server to the development project with
+`read_only=true` and per-call confirmation, no production ref anywhere;
+line 181 records that this closes the environment half of binding rule 7;
+build-plan step 18 (line 265) is the human connection step. `verify.md`
+line 166 confirms nothing is connected, so `AGENTS.md` saying "no MCP
+servers connected" is accurate — **the decision was made and the
+connection deliberately not yet performed.** Those are different things.
+
+**Side finding, not about this file:** spec 0001's follow-up at line 195
+("Feature 3 owns the environment half…") is still unticked even though
+spec 0002 discharged it. Same class as the spec 0003 rationale problem
+above — a document disagreeing with what actually happened.
 
 **This is the one with a named, demonstrated risk.** The feature 2 half
 is spent: binding rule 7 in spec 0001 states all five conditions, and
