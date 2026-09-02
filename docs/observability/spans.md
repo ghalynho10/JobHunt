@@ -18,7 +18,20 @@ exactly the failure it exists to catch.
 | `kill_switch.read` | `db.query` | `src/lib/kill-switch.ts` | Not yet. Feature 10 puts this read inside every gated call, and its failure rate is alerted on from there. |
 | `landing_rule.decide` | `function` | `src/lib/landing-rule.ts` | Not yet. It is the one place deciding where a signed in visitor lands, and all three of its callers run through it, so it has a single denominator by construction. Feature 14 layers its scoring gate onto those callers, which is when the rate starts meaning something. |
 | `door.decide` | `function` | `src/app/go/route.ts` | Not yet. The door reads the session and hands off to the landing rule, so a failure here is a visitor who cannot get in at all. Worth an alert the day `/` is the main way in. |
+| `profile.read_sections` | `db.query` | `src/features/profile/queries.ts` | Not yet. It reads the three tables that hang off a profile row, and it is deliberately separate from `profile.read`, whose failure ratio spec 0008 AC-7 already depends on. Folding the two together would change what that ratio counts. |
+| `profile.save_identity` | `db.query` | `src/features/profile/actions.ts` | Not yet, and it is the strongest candidate here. It is the first write path in the product and the parent every other profile row depends on, so a failure means nobody can start. Feature 10 brings the first alert rule. |
+| `profile.save_skills` | `db.query` | `src/features/profile/actions.ts` | Not yet. It is the only operation in the feature that writes twice (an insert then a delete), so its failure rate is the one that would show a partial write becoming common. |
+| `profile.save_work_experience` | `db.query` | `src/features/profile/actions.ts` | Not yet. ONE NAME FOR THE INSERT AND THE UPDATE, deliberately, the same way `auth.sign_in` covers both providers: the operation is an `operation` span attribute, so every work history save groups under one name and binding rule 4's ratio has a single denominator rather than two half sized ones. |
+| `profile.delete_work_experience` | `db.query` | `src/features/profile/actions.ts` | Not yet. It has its own name rather than joining the save above, because a delete that matches zero rows is reported as a failure (spec 0010, invariant 4) and folding it in would put that expected outcome into the save's ratio. |
+| `profile.save_preferences` | `db.query` | `src/features/profile/actions.ts` | Not yet. It is the section feature 11's search and feature 14's scoring both read, so a failure here is silent until something else looks wrong. |
 | `sign_in.bounce` | `function` | `src/app/(marketing)/sign-in/page.tsx` | No. It decides whether an already signed in visitor is sent onward, and its failure mode is showing the sign in page to somebody who did not need it, which is the harmless direction. It is registered because the convention applies to every named operation, not only the alarming ones. |
+
+The six spans feature 9 added all carry `op: "db.query"`, including the five in
+Server Actions. The op describes what the operation actually does, and each of
+those actions is one statement against Postgres wrapped in a caller check and a
+parse. `profile.save_work_experience` is the one name covering two operations,
+told apart by an attribute rather than by a second name, for the reason its row
+gives.
 
 The three spans feature 32 added all carry `op: "function"` rather than a
 transport specific op. They are decisions rather than queries or requests: the
