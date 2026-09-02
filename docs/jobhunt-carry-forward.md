@@ -71,7 +71,7 @@ recorded nowhere.**
   `AGENTS.md`, and no code** — a repo-wide search hits only this file.
 - The root `proxy.ts` requirement LANDED: spec 0001 binding rule 6,
   index line 133, with the amendment note at 137–139.
-- **The `getUser()` / never `getSession()` prohibition is recorded
+- **The `getClaims()` / never `getSession()` prohibition is recorded
   nowhere.** Not a spec, not `AGENTS.md`, not code. The only mention is a
   test-mechanics comment at `src/proxy.test.ts:18`. Feature 7 is done and
   this never landed, so it is a live gap rather than a stale note — and by
@@ -85,16 +85,22 @@ recorded nowhere.**
 `proxy.ts`, and the named export with it; it sits beside `app`, so
 `src/proxy.ts` here). Server Components cannot write
 cookies, so the proxy refreshes expired auth tokens: it calls
-`supabase.auth.getUser`, passes the refreshed token to Server Components
+`supabase.auth.getClaims`, passes the refreshed token to Server Components
 via `request.cookies.set`, and back to the browser via
 `response.cookies.set`. Use a matcher so it does not run on routes that
 never touch Supabase.
 
-**In server code, check auth with `getUser()`, never `getSession()`.**
+**In server code, check auth with `getClaims()`, never `getSession()`.**
 `getSession()` reads the cookie without verifying it against the auth
-server — a check that passes without proving anything. That is exactly
-the silent-failure shape feature 7 exists to prevent, so it belongs in
-the spec as a named prohibition, not just a preference.
+server — a check that passes without proving anything; `getClaims()`
+verifies the token instead, which is why `src/app/(app)/layout.tsx:32`
+uses it. That is exactly the silent-failure shape feature 7 exists to
+prevent, so it belongs in the spec as a named prohibition, not just a
+preference. **Corrected 2026-09-02:** an earlier version of this claim
+said `getUser()`, but `getUser()` appears nowhere in `src/` — every auth
+check calls `getClaims()` (`src/proxy.ts`, `src/app/(app)/layout.tsx`,
+`src/app/go/route.ts`, `src/app/(marketing)/sign-in/page.tsx`,
+`src/features/profile/queries.ts` and `src/features/profile/actions.ts`).
 
 ---
 
