@@ -4,6 +4,7 @@ import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
 import { Heading } from "@/components/ui/heading";
 import {
   CheckIcon,
@@ -12,10 +13,14 @@ import {
   GitHubIcon,
   GoogleIcon,
 } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
 import { MatchBar } from "@/components/ui/match-bar";
 import { Section } from "@/components/ui/section";
+import { Select } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
+import { Textarea } from "@/components/ui/textarea";
 import { EntryHeader } from "@/features/entry-page/entry-header";
+import { MONTH_OPTIONS } from "@/features/profile/calendar";
 
 /** Stands in for the 116 by 23 pixel Adzuna block feature 11 supplies. */
 function AttributionPlaceholder() {
@@ -35,6 +40,18 @@ const MATCHED = [
   "CI/CD",
 ];
 const MISSING = ["Airflow", "Kafka"];
+
+/**
+ * The four remote preference values, copied from `public.job_preference`'s own
+ * check constraint. Spec 0010's own list is the one the action parses against;
+ * this page only needs something real to render.
+ */
+const REMOTE_OPTIONS = [
+  { value: "no_preference", label: "No preference" },
+  { value: "on_site", label: "On site" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "remote", label: "Remote" },
+] as const;
 
 export default function UiPreviewPage() {
   /**
@@ -210,6 +227,153 @@ export default function UiPreviewPage() {
             Three weights exist so the page can say what matters. This one is
             the widest, the section above it the tightest.
           </Text>
+        </Section>
+        {/*
+         * SPEC 0010, AC-17. The four form components feature 9 adds, at every
+         * variant, so the keyboard, focus, contrast and responsive passes cover
+         * them the same way spec 0005's own inventory is covered.
+         *
+         * `paper` WITH A HAIRLINE, and both halves are deliberate. It shares
+         * `paper` with the section above it, so spec 0005's adjacency rule
+         * asks for the divider. And `paper` is the ground these controls
+         * actually sit on in the product: every profile form is inside a flat
+         * `Card`, which takes `paper` too. Proving them on `sunken` would
+         * measure a combination nothing ships, and it measures worse:
+         * `--muted` reads 4.42:1 there against 4.74:1 on paper, so the pass
+         * would fail on a surface that does not exist.
+         *
+         * Nothing here posts anywhere: the controls are rendered outside a
+         * form on purpose, because this page proves appearance and keyboard
+         * behaviour, not a write path.
+         */}
+        <Section weight="standard" background="paper" divider="hairline">
+          <Text variant="eyebrow">Spec 0010, form controls</Text>
+          <Heading level={2} className="mt-2">
+            Field, Input, Textarea, Select
+          </Heading>
+
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Field id="preview-name" label="Full name">
+              <Input
+                id="preview-name"
+                name="preview-name"
+                defaultValue="Ada Lovelace"
+                maxLength={200}
+                required
+                autoComplete="name"
+              />
+            </Field>
+
+            <Field id="preview-location" label="Location" optional>
+              <Input
+                id="preview-location"
+                name="preview-location"
+                placeholder="Berlin"
+                autoComplete="address-level2"
+              />
+            </Field>
+
+            <Field id="preview-name-invalid" label="Full name">
+              <Input
+                id="preview-name-invalid"
+                name="preview-name-invalid"
+                defaultValue=""
+                error="Enter your name."
+                required
+              />
+            </Field>
+
+            <Field id="preview-disabled" label="A control you cannot edit">
+              <Input
+                id="preview-disabled"
+                name="preview-disabled"
+                defaultValue="Locked"
+                disabled
+              />
+            </Field>
+
+            <Field
+              id="preview-summary"
+              label="Summary"
+              optional
+              className="lg:col-span-2"
+            >
+              <Textarea
+                id="preview-summary"
+                name="preview-summary"
+                rows={4}
+                maxLength={4000}
+                defaultValue="Backend engineer, ten years, mostly Go and Postgres."
+              />
+            </Field>
+
+            <Field
+              id="preview-skills"
+              label={
+                <>
+                  Skills{" "}
+                  <span className="font-normal text-muted">one per line</span>
+                </>
+              }
+            >
+              <Textarea
+                id="preview-skills"
+                name="preview-skills"
+                rows={4}
+                defaultValue={"Go\nPostgreSQL\nTerraform"}
+              />
+            </Field>
+
+            <Field id="preview-skills-invalid" label="Skills, with an error">
+              <Textarea
+                id="preview-skills-invalid"
+                name="preview-skills-invalid"
+                rows={4}
+                defaultValue={"React\nreact"}
+                error="React is listed twice. Remove one of them."
+              />
+            </Field>
+
+            <Field id="preview-remote" label="Remote preference">
+              <Select
+                id="preview-remote"
+                name="preview-remote"
+                options={REMOTE_OPTIONS}
+                defaultValue="hybrid"
+              />
+            </Field>
+
+            <Field id="preview-ended" label="Ended" optional>
+              <Select
+                id="preview-ended"
+                name="preview-ended"
+                options={MONTH_OPTIONS}
+                emptyLabel="Still there"
+              />
+            </Field>
+
+            <Field id="preview-remote-invalid" label="Remote preference">
+              <Select
+                id="preview-remote-invalid"
+                name="preview-remote-invalid"
+                options={REMOTE_OPTIONS}
+                error="Choose one of the four."
+              />
+            </Field>
+
+            <Field
+              id="preview-select-disabled"
+              label="A choice you cannot make"
+            >
+              <Select
+                id="preview-select-disabled"
+                name="preview-select-disabled"
+                options={REMOTE_OPTIONS}
+                defaultValue="remote"
+                disabled
+              />
+            </Field>
+          </div>
         </Section>
       </main>
     </>
