@@ -107,14 +107,24 @@ Neither is a failure. Both are steps whose wording asks for something the runnin
 app cannot show from outside, which is worth recording so a later run does not
 read them as skipped work.
 
+**Both were proved by `/test` on 2026 09 02**, in
+`test/integration/profile-actions.test.ts`, which calls the actions directly
+instead of driving them over HTTP. They stay unticked here because this file
+records what THIS gate observed, and neither is observable from where this gate
+stands. A later `/check verify` run should leave them unticked for the same
+reason.
+
 - **"Save skills, watching the database, inserts before deletes" (invariant 9).**
   The outcome was verified (the diff writes only what changed, and nothing the
   caller already had was lost), but the STATEMENT ORDER was not observed. Seeing
   it needs statement level logging on the connection, or a fault injected between
   the two writes so the half written state is visible. The ordering is what
-  protects a caller when the second write fails, so it is worth a real proof:
-  `/test` is the place, by stubbing the delete to throw and asserting every prior
-  skill is still present.
+  protects a caller when the second write fails, so it is worth a real proof.
+  **Now proved**: the test breaks `delete()` at the driver, leaving the read and
+  the insert on the real database, and asserts the outcome the ordering exists
+  for, that the caller ends with more skills than they started with and never
+  fewer. It discriminates the order rather than restating it, because an insert
+  that ran second would leave the new skill absent.
 
 - **"Call any of the six actions with no session, refused visibly with 'Your
   session has ended.'"** A request with no cookie never reaches the action: the
@@ -125,5 +135,8 @@ read them as skipped work.
   defence in depth against a call that bypasses the page, and there is no way to
   stage that over HTTP, because the page is the only thing that hands out the
   action id. Proving it needs a test that calls the exported action directly with
-  an empty cookie jar, which is `/test`'s to write, not something this gate can
-  observe.
+  an empty cookie jar, which is not something this gate can observe.
+  **Now proved**: the test stubs `next/headers` with an empty jar and calls
+  `saveIdentity` directly, and the action returns its own session message
+  instead of writing, so binding rule 6 is checked where it actually lives
+  rather than at the layout above it.
