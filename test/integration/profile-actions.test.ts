@@ -87,6 +87,27 @@ function formOf(entries: Record<string, string>): FormData {
   return data;
 }
 
+/**
+ * The caller's own name, read through the application's own client.
+ *
+ * IT READS `profile`, THE TABLE `saveIdentity` ACTUALLY WRITES. The first
+ * version of the check below read `profile_skill` instead, a table
+ * `saveIdentity` never touches, so "nothing was written" was true of somewhere
+ * nothing was ever going to be written. It passed, and it would have passed
+ * just as happily if the refused call had overwritten the name. Found by the
+ * cross check on 2026-09-02, and worth keeping as a note: an assertion aimed at
+ * the wrong table is indistinguishable from a passing one.
+ */
+async function storedName(): Promise<string | undefined> {
+  const supabase = await createClient(session.jar);
+  const { data } = await supabase
+    .from("profile")
+    .select("full_name")
+    .maybeSingle();
+
+  return data?.full_name;
+}
+
 /** The caller's own skills, read through the application's own client. */
 async function storedSkills(): Promise<readonly string[]> {
   const supabase = await createClient(session.jar);
@@ -106,7 +127,11 @@ describe("an action refuses a caller with no session, on its own (AC-11)", () =>
      */
     // covers: AC-11
     const empty = createCookieJar();
-    const before = await storedSkills();
+
+    expect(
+      await storedName(),
+      "the caller starts with a name there is something to overwrite",
+    ).toBe("Skills Owner");
 
     requestScope.jar = empty;
 
@@ -121,7 +146,11 @@ describe("an action refuses a caller with no session, on its own (AC-11)", () =>
     expect(state.message).toBe(
       "Your session has ended. Sign in again to save this.",
     );
-    expect(await storedSkills()).toEqual(before);
+    /**
+     * The name is untouched, which is the half that actually says nothing was
+     * written. Reading any other table here would prove nothing about this call.
+     */
+    expect(await storedName()).toBe("Skills Owner");
   });
 
   it("keeps what the caller typed, so nothing is lost to a expired session", async () => {
