@@ -145,8 +145,8 @@ only ever cross during an actively searching session, staying silent on an
 ordinary quiet day exactly when a real misconfiguration would too. Revisit both
 numbers if traffic ever grows enough to change that assumption.
 
-Both rules filter by **failure kind** (the span status message `failure()`
-already sets), never by "any failed span":
+Both rules filter by **failure kind** (the `failure.kind` span attribute
+`failure()` sets), never by "any failed span":
 
 - **`usage_gate.check`**: numerator is `usage_gate_misconfigured` and
   `database_unavailable` only. Never AC-3/AC-4's five refusal reasons
@@ -156,6 +156,17 @@ already sets), never by "any failed span":
 - **`kill_switch.read`**: numerator is its own existing failure kinds
   (`database_unavailable`, `record_not_found`, `response_malformed`),
   unchanged.
+
+**The attribute exists because the span's own status message is not
+queryable.** `failure()` still sets the status too, which is what marks the
+span failed at all and gives the ratio its denominator, but Sentry does not
+expose that status message as a field a rule can filter on: verified
+2026-09-02 against a real forced failure, a failed span carries
+`span.status: internal_error` in the dashboard and nothing naming which kind
+failed. Without the attribute, `usage_gate.check`'s rule could not tell
+`usage_gate_misconfigured` from `session_missing` and would let an ordinary
+expired token into its numerator
+([docs/experiments/0011-usage-gating-and-kill-switch.md](../experiments/0011-usage-gating-and-kill-switch.md)).
 
 Still to be **configured by hand** in the Sentry development and production
 projects (this is a dashboard action, not something a migration or a code
