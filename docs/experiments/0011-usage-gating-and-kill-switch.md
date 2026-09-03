@@ -78,3 +78,58 @@ screen proving AC-6 was `localhost:3000`, not the preview it was taken for).
 This is the same shape again, not the same mistake: right instrumentation,
 right question, aimed at a host that can never carry the answer, because
 Sentry itself was configured to discard everything sent from it.
+
+---
+
+## 2. Configuring the alert rules: what the Sentry forms actually allow
+
+Run 2026-09-03 in the `jobhunt` Sentry project (org `ghalys-org`), dashboard
+configuration, during the same `/develop usage gating & kill switch` pass.
+
+**What was configured.** Four metric monitors, `usage_gate.check` and
+`kill_switch.read`, each in the `development` and `production` environments —
+two rules times two environment-scoped copies in the one Sentry project. There
+is no separate development Sentry project: spec 0002 index line 79 records the
+setup as "an organisation and a project", and the environments are separated
+by the `environment` tag. Each monitor is dataset `Spans`, visualize
+`failure_rate()`, interval `1 day`, High priority Above `0.2`, Medium Above
+`0.19`, Resolve default. Filters: the `usage_gate.check` pair filters
+`span.description:usage_gate.check` and `failure.kind is not session_missing`;
+the `kill_switch.read` pair filters `span.description:kill_switch.read` only.
+Each has an alert connected that notifies `mghalynho@gmail.com` on all four
+issue triggers.
+
+**Finding one: there is no attempt floor.** AC-10 specifies "a ratio with an
+absolute attempt floor". Sentry's metric monitor form offers Threshold, Change
+or Dynamic; Threshold is a bare value on the metric, and no minimum sample
+count exists anywhere in the form. Verified in the form on 2026-09-03. A lone
+failure in a quiet 24 hour window therefore reads as 100%; the 1 day interval
+is the partial mitigation. Spec 0011's follow-up now considers an absolute
+count threshold instead, which would give a natural floor at this app's
+volume.
+
+**Finding two: Sentry requires two priority thresholds where the spec defines
+one.** Medium is pinned at 0.19, just under High's 0.2, so the two fire
+together rather than expressing a second alerting policy no document
+describes.
+
+**Finding three: a metric monitor detects but does not notify.** Creating the
+monitor does not create an alert. The first firing on 2026-09-03 produced a
+Critical issue, correctly assigned, and delivered nothing at all, because the
+monitor's Connected Alerts list was empty. Detection and notification are
+separate objects and the second must be attached by hand. This is exactly the
+failure AC-11 exists to catch, and a paper review of the alert rule would pass
+it every time: the rule is written, the filter matches, the issue appears —
+and nobody is told.
+
+**Finding four: delivery itself is proven.** The alert builder's Send Test
+Notification button delivered an email to `mghalynho@gmail.com` on 2026-09-03.
+A real threshold-breach delivery is still being forced at the time of writing;
+that half of AC-11 is recorded as pending rather than claimed.
+
+**Conclusion.** AC-10's draft "floor of 20 attempts" is not expressible in
+Sentry's Threshold form; the spec now records the configured reality (no
+floor, two thresholds, a 1 day interval) and carries a follow-up for an
+absolute count threshold. AC-11's smoke test must confirm an alert is
+connected to the monitor, not merely that an issue was created, and must end
+with a real delivery rather than the builder's test email.
