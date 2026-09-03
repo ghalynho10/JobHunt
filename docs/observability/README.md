@@ -165,6 +165,14 @@ Sentry projects only, never production and never a Vercel Preview deployment,
 since Preview samples at 0.1 and roughly nine in ten forced failures there
 would never be captured.
 
+**`/health` traces never reach Sentry, by design, not by bug.** The project's
+own inbound filter "Filter out health check transactions" discards the whole
+`GET /health` transaction, and every span nested inside it, at ingest; its
+error events are unaffected and arrive normally. `/health` is the diagnostic
+route, so a future forced failure test or a manual span check will reach for
+it again: use `/profile` instead (confirmed 2026-09-03,
+[docs/experiments/0011-usage-gating-and-kill-switch.md](../experiments/0011-usage-gating-and-kill-switch.md)).
+
 ## Status
 
 The two rules are **defined here**, but not yet configured in Sentry, and the
