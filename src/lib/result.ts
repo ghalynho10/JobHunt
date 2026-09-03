@@ -108,9 +108,23 @@ export function failure(input: FailureInput): Failure {
  * early return, denial or guard clause. Otherwise a total denial outage produces
  * no spans, the ratio has no denominator, and the alert stays silent through
  * exactly the failure it exists to catch.
+ *
+ * BOTH THE STATUS AND THE ATTRIBUTE ARE SET, AND NEITHER IS DUPLICATION OF THE
+ * OTHER (spec 0011, AC-10). The status is what marks the span failed at all,
+ * which is what gives the ratio its denominator. But the status message is not
+ * a queryable field in Sentry: verified 2026-09-02 against a real forced
+ * failure, a failed span carries `span.status: internal_error` in the
+ * dashboard and nothing naming which kind failed, so an alert cannot filter by
+ * kind against it. The attribute is what a query actually filters on, and it
+ * carries the same name as the `failure.kind` tag `report()` sets on the event
+ * below, so the two stay easy to recognise as the same fact told twice, on
+ * purpose, to two different consumers (the span's own ratio, and the event's
+ * search index).
  */
 function markActiveSpanFailed(kind: FailureKind): void {
-  Sentry.getActiveSpan()?.setStatus({ code: SPAN_STATUS_ERROR, message: kind });
+  const span = Sentry.getActiveSpan();
+  span?.setStatus({ code: SPAN_STATUS_ERROR, message: kind });
+  span?.setAttribute("failure.kind", kind);
 }
 
 /**
