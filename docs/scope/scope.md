@@ -216,7 +216,7 @@ _spec [0011](../specs/0011-usage-gating-and-kill-switch/index.md) · code in `sr
 - [ ] Verify it: `/check verify usage gating & kill switch`
 - [ ] Test it: `/test usage gating & kill switch`
 - [ ] Review it (fresh model): `/check review usage gating & kill switch`
-- [ ] Document it: `/document usage gating & kill switch`
+- [x] Document it: `/document usage gating & kill switch` · [PR #86](https://github.com/ghalynho10/JobHunt/pull/86) opened 2026-09-03, before `Build it`, `Verify it`, `Test it` and `Review it` are all ticked; this box records the PR text being written, not the feature being finished
 
 ### 11. Job search & results list · needs a decision
 Search real listings by title and location and render them. Deliberately narrow for this slice: the structured filters and the data quality fixes come in Slice 3, and ranking comes in Slice 2. Results are fresh per search and never persist, which is what removes the need for any staleness or expiry state machine.
