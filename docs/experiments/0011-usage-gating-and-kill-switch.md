@@ -99,6 +99,19 @@ the `kill_switch.read` pair filters `span.description:kill_switch.read` only.
 Each has an alert connected that notifies `mghalynho@gmail.com` on all four
 issue triggers.
 
+**Confirmed by hand on 2026-09-03.** The engineer opened each monitor in the
+dashboard and confirmed: `usage_gate.check` and `kill_switch.read`, each in
+the `development` and `production` environments — four monitors — all showing
+High Above `0.2` and Medium Above `0.19`; the `usage_gate.check` pair
+filtering `span.description:usage_gate.check` plus `failure.kind is not
+session_missing`; the `kill_switch.read` pair filtering
+`span.description:kill_switch.read` only; each with a connected alert; and
+the development gate monitor's alert assigned to `mghalynho@gmail.com`, with
+its last issue visible on the monitor. This hands-on pass is recorded because
+`/check verify` refused to accept the configuration as verified on paper: a
+record in git is not an observation of Sentry, and the AC-10 step in spec
+0011's `verify.md` is ticked only with this observation.
+
 **Finding one: there is no attempt floor.** AC-10 specifies "a ratio with an
 absolute attempt floor". Sentry's metric monitor form offers Threshold, Change
 or Dynamic; Threshold is a bare value on the metric, and no minimum sample
