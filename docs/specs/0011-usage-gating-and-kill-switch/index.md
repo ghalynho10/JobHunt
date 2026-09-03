@@ -1,7 +1,7 @@
 # 0011. Usage gating and kill switch
 
 **Date**: 2026-09-02
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

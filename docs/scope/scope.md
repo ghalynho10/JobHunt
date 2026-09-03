@@ -22,7 +22,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 32 | App shell & navigation | Foundation | done |
 | 21 | Terms & privacy notices | Foundation | done |
 | 9 | Profile entry | Slice 1 | done |
-| 10 | Usage gating & kill switch | Slice 1 | planned |
+| 10 | Usage gating & kill switch | Slice 1 | in-progress |
 | 11 | Job search & results list | Slice 1 | planned |
 | 12 | Apply redirect & application record | Slice 1 | planned |
 | 13 | Model client router | Slice 2 | planned |
@@ -203,10 +203,20 @@ _spec [0010](../specs/0010-profile-entry/index.md) · code in `src/features/prof
 - [x] Verify it: `/check verify profile entry` · run 2026-09-02, **PASS**, all 18 acceptance criteria met, 51 of 53 steps ticked in [verify.md](../specs/0010-profile-entry/verify.md). A first run on the same day found **AC-13 half unbuilt**: a malformed `entry` id rendered the plain list and said nothing, while a well formed one that matched no row correctly said the entry was gone. `/debug` traced it to `parsePageState` collapsing an unusable id into the plain view, fixed in `8a59fdf`, and this run re-proved all four URL cases. The two unticked steps are recorded at the end of `verify.md` and neither is an acceptance criterion failure. The read failure state was proved by stopping the database container: `/profile` renders the failure treatment and never the first run form
 - [x] Test it: `/test profile entry` · run 2026-09-02, 222 new tests across 12 files, all passing (unit 751, integration 58). Covers the validation rules behind AC-3, AC-5 to AC-7a and AC-9 at the schema boundary, the four new base components against their own `AGENTS.md` convention, the work history section's four states, and the AC-13 regression at both the parser and the page. It also closes **the two steps `/check verify` could not observe from outside the app**, in `test/integration/profile-actions.test.ts`: the action's own caller check (unreachable over HTTP, because the protected layout redirects first) and invariant 9's write ordering (proved by breaking the delete at the driver and showing the caller ends with more skills than they started with, never fewer)
 
-### 10. Usage gating & kill switch · needs a decision · GA
+### 10. Usage gating & kill switch · in-progress · GA
 Per account caps on the call types the app actually makes, checked atomically so a burst cannot slip past, failing closed by default, plus a single global kill switch operated from outside the app. Built before the first external call rather than after it. This is here under the named risk rule: the risk is uncontrolled external API cost during unemployment, and it is only removed by deciding that risk is acceptable, never by trimming for time.
-**Done when:** the jobs search call type is capped per account and the check is atomic under concurrent calls proven against a real database connection, not a mock; a blocked call tells the user plainly why; flipping the external kill switch stops all gated calls without a deploy; the atomic gate function increments an attempt counter alongside its decision; trace sampling is 1.0 on gated operations; the expected-failure rate alert rule is defined in docs/observability/ and applied; and a forced-failure smoke test proves the alert actually fires.
-- [ ] Design it (spec): `/architect usage gating & kill switch`
+**Done when:** the jobs search call type is capped per account and the check is atomic under concurrent calls proven against a real database connection, not a mock; a blocked call tells the user plainly why; flipping the external kill switch stops all gated calls without a deploy; the atomic gate function increments an attempt counter alongside its decision; trace sampling is 1.0 on gated operations; the expected-failure rate alert rule is defined in docs/observability/ and applied; and a forced-failure smoke test proves the alert actually fires, in a non production project.
+_spec [0011](../specs/0011-usage-gating-and-kill-switch/index.md) · code in `src/features/usage-gating/`, `src/lib/result.ts`, `supabase/migrations/`, `docs/observability/`_
+- [x] Design it (spec): `/architect usage gating & kill switch`
+- [ ] Build it: `/develop usage gating & kill switch`
+  - [x] Schema and the atomic gate function: `usage_cap` and `usage_gate_counter` with their checks, partial unique indexes, row level security enabled and forced, the fixed lock order, UTC computed windows, and the `configured` output column, satisfies AC-1, AC-2, AC-6, AC-9, AC-12, AC-14, AC-15
+  - [x] The TypeScript gate module: `src/features/usage-gating/` (`checkUsageGate()`, the five member `UsageGateReason` union, the `readKillSwitch()` pre-check, `copy.ts`), plus the new `usage_gate_misconfigured` `FailureKind` member, satisfies AC-3, AC-4, AC-5, AC-6, AC-13
+  - [ ] The thin end to end proof: the `usage_gate.check` span registered and opened first, and the integration test suite proving atomicity, every refusal reason, and the fail closed database error path, satisfies AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-13, AC-14
+  - [ ] The alert rules, defined and proven: both `usage_gate.check`'s and `kill_switch.read`'s failure rate rules in `docs/observability/`, configured in Sentry for development and production, and the forced failure smoke test run in development only, satisfies AC-10, AC-11
+- [ ] Verify it: `/check verify usage gating & kill switch`
+- [ ] Test it: `/test usage gating & kill switch`
+- [ ] Review it (fresh model): `/check review usage gating & kill switch`
+- [ ] Document it: `/document usage gating & kill switch`
 
 ### 11. Job search & results list · needs a decision
 Search real listings by title and location and render them. Deliberately narrow for this slice: the structured filters and the data quality fixes come in Slice 3, and ranking comes in Slice 2. Results are fresh per search and never persist, which is what removes the need for any staleness or expiry state machine.
