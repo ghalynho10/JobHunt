@@ -43,7 +43,9 @@ export type FailureKind =
   /** A call to something outside this application failed or timed out. */
   | "external_service_failed"
   /** An external service answered, but not in the shape we parse. */
-  | "response_malformed";
+  | "response_malformed"
+  /** A gated call type has no cap configured, or only partially. */
+  | "usage_gate_misconfigured";
 
 export interface Failure {
   readonly ok: false;
