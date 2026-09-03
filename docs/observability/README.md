@@ -18,6 +18,13 @@ So an alert here combines two conditions:
 - an **absolute floor**: a minimum number of attempts before the ratio may fire,
   so one failure out of two attempts does not page anyone
 
+The absolute floor is the design intent, not something Sentry's metric monitor
+Threshold form can express: Threshold is a bare value on the metric, with no
+minimum sample count anywhere in the form (verified 2026-09-03). Feature 10's
+monitors therefore use the 1 day interval as the partial mitigation, and spec
+0011's follow-up list considers an absolute count threshold, which would give a
+natural floor at this app's volume — see `## Alert rules`.
+
 ## Where the denominator comes from
 
 A ratio needs attempts counted, not just failures. Two mechanisms, deliberately
@@ -137,25 +144,36 @@ with different causes and different spans (`kill_switch.read` and
 `usage_gate.check`, both in [spans.md](spans.md)). Folding them into one rule
 would leave one of the two invisible.
 
-Both rules share the same shape: a rolling 24 hour window, a floor of 20
-attempts, and a 20% failure threshold. The numbers come from this app's real
-traffic: at the global monthly ceiling of 2,000 `job_search` calls this app
-averages under 3 calls an hour, so a floor reachable inside a single hour would
-only ever cross during an actively searching session, staying silent on an
-ordinary quiet day exactly when a real misconfiguration would too. Revisit both
-numbers if traffic ever grows enough to change that assumption.
+Both rules are configured in Sentry as metric monitors (2026-09-03), each a
+`Spans` dataset visualizing `failure_rate()`, interval `1 day`, High priority
+Above `0.2`, Medium Above `0.19`, Resolve default. The design wanted an
+absolute attempt floor: at the global monthly ceiling of 2,000 `job_search`
+calls this app averages under 3 calls an hour, so a floor reachable inside a
+single hour would only ever cross during an actively searching session,
+staying silent on an ordinary quiet day exactly when a real misconfiguration
+would too. Sentry's Threshold form has no such floor, so a lone failure in a
+quiet 24 hour window reads as 100% and the 1 day interval is the partial
+mitigation; spec 0011's follow-up list considers an absolute count threshold
+as the way to recover a natural floor at this app's volume. Sentry also
+requires two priority thresholds where the spec defines one; Medium is pinned
+at 0.19, just under High's 0.2, so the two fire together rather than
+expressing a second alerting policy. Revisit the numbers if traffic ever grows
+enough to change that assumption.
 
 Both rules filter by **failure kind** (the `failure.kind` span attribute
 `failure()` sets), never by "any failed span":
 
-- **`usage_gate.check`**: numerator is `usage_gate_misconfigured` and
-  `database_unavailable` only. Never AC-3/AC-4's five refusal reasons
-  (`success({ allowed: false, reason })` is never a failed span in the first
-  place, per `checkUsageGate()`'s own AC-5), and never `session_missing` (a
-  caller with an expired token is not evidence the gate is broken).
-- **`kill_switch.read`**: numerator is its own existing failure kinds
-  (`database_unavailable`, `record_not_found`, `response_malformed`),
-  unchanged.
+- **`usage_gate.check`**: filters `span.description:usage_gate.check` and
+  `failure.kind is not session_missing`. That keeps the intended numerator —
+  `usage_gate_misconfigured` and `database_unavailable`, the unexpected kinds
+  this span can carry — because AC-3/AC-4's five refusal reasons are successes
+  that never mark the span failed in the first place (`success({ allowed:
+  false, reason })`, per `checkUsageGate()`'s own AC-5), and `session_missing`
+  is the one expected failure excluded by name (a caller with an expired token
+  is not evidence the gate is broken).
+- **`kill_switch.read`**: filters `span.description:kill_switch.read` only;
+  the numerator is its own existing failure kinds (`database_unavailable`,
+  `record_not_found`, `response_malformed`), unchanged.
 
 **The attribute exists because the span's own status message is not
 queryable.** `failure()` still sets the status too, which is what marks the
@@ -168,13 +186,26 @@ failed. Without the attribute, `usage_gate.check`'s rule could not tell
 expired token into its numerator
 ([docs/experiments/0011-usage-gating-and-kill-switch.md](../experiments/0011-usage-gating-and-kill-switch.md)).
 
-Still to be **configured by hand** in the Sentry development and production
-projects (this is a dashboard action, not something a migration or a code
-change can do): both rules, as written above. Then the forced failure smoke
-test (AC-11) has to be run locally against the development Supabase and
-Sentry projects only, never production and never a Vercel Preview deployment,
-since Preview samples at 0.1 and roughly nine in ten forced failures there
-would never be captured.
+**Configured by hand on 2026-09-03** (this is a dashboard action, not
+something a migration or a code change can do) in the one `jobhunt` Sentry
+project (org `ghalys-org`): four monitors, the two rules times the
+`development` and `production` environments — there is no separate Sentry
+project per environment; spec 0002 index line 79 records "an organisation and
+a project", and the environments are separated by the `environment` tag —
+each with an alert connected that notifies `mghalynho@gmail.com` on all four
+issue triggers. **A metric monitor detects but does not notify**: creating the
+monitor created no alert, and the first firing on 2026-09-03 produced a
+Critical issue, correctly assigned, with nothing delivered until an alert was
+attached by hand — exactly the failure AC-11 exists to catch, and one a paper
+review of the alert rule passes every time (`docs/reflexes.md` now carries the
+standing rule). The alert builder's Send Test Notification button delivered an
+email to `mghalynho@gmail.com` on 2026-09-03, so delivery is proven; the real
+threshold-breach delivery the forced failure smoke test (AC-11) demands is
+still pending at the time of writing. The smoke test runs locally against the
+development Supabase project and the `development` environment of the Sentry
+project only, never the `production` environment and never a Vercel Preview
+deployment, since Preview samples at 0.1 and roughly nine in ten forced
+failures there would never be captured.
 
 **`/health` traces never reach Sentry, by design, not by bug.** The project's
 own inbound filter "Filter out health check transactions" discards the whole
@@ -186,11 +217,14 @@ it again: use `/profile` instead (confirmed 2026-09-03,
 
 ## Status
 
-The two rules are **defined here**, but not yet configured in Sentry, and the
-forced failure smoke test has not yet been run. A rule that exists on paper is
-not the same as a rule that fires: `/check verify` (AC-10, AC-11) is where that
-gap closes, once someone with Sentry dashboard access configures both rules in
-the development and production projects and runs the smoke test locally.
+The four monitors are **configured and connected** (2026-09-03) in both the
+`development` and `production` environments of the one `jobhunt` Sentry
+project, and delivery is proven by the alert builder's Send Test Notification
+email. What is still open is the forced failure smoke test (AC-11): it has not
+yet produced a real threshold-breach delivery, and `/check verify` (AC-10,
+AC-11) is where that gap closes, once someone runs the smoke test locally
+against the development environment and confirms a real alert arrives. This
+section will be rewritten when that delivery is proven.
 
 Drift detection between Sentry's live rules and this directory is a v1.5 item,
 not v1.

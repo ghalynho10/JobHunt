@@ -40,6 +40,10 @@ database read inside `landing_rule.decide` is deliberately not given an op or a
 name of its own, because it exists only to answer that decision and a second
 name would split one operation's failure ratio in two.
 
-None of the spans above is alerted on yet. They are registered because the convention
-starts at the first operation written, not at the first one that matters, and a
-convention adopted late is one nobody follows.
+Two of the spans above — `kill_switch.read` and `usage_gate.check` — are
+alerted on: feature 10's rules became Sentry metric monitors on 2026-09-03, in
+both the `development` and `production` environments of the one `jobhunt`
+Sentry project, each with an alert connected (see README.md's `## Alert
+rules`). The rest are registered but not yet alerted on, because the
+convention starts at the first operation written, not at the first one that
+matters, and a convention adopted late is one nobody follows.
