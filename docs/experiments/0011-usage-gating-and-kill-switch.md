@@ -122,23 +122,38 @@ failure AC-11 exists to catch, and a paper review of the alert rule would pass
 it every time: the rule is written, the filter matches, the issue appears —
 and nobody is told.
 
-**Finding four: delivery is proven twice over, and the recovery path with
+**Finding four: delivery is proven three times over, and the full chain with
 it.** The alert builder's Send Test Notification button delivered an email to
 `mghalynho@gmail.com` on 2026-09-03. A second, non test delivery followed the
 same day: raising the monitor thresholds to High 0.95 / Medium 0.94 resolved
 Sentry issue 592127114 at 2026-09-03 21:49 local, the connected alert's "An
 issue is resolved" trigger fired, and a real email was delivered to
 `mghalynho@gmail.com`. That is a genuine state transition through the
-connected alert, not the Send Test Notification button, and it also proves
-the recovery notification path. The threshold-breach **creation** delivery is
-still pending: the thresholds are back at 0.2 / 0.19, and a new issue is
-expected on the next evaluation.
+connected alert, not the Send Test Notification button, and it proves the
+recovery notification path. The threshold-breach creation delivery then
+landed: with the thresholds back at High 0.2 / Medium 0.19, the monitor's next
+evaluation created a new issue and the connected alert's "A new issue is
+created" trigger delivered a real email to `mghalynho@gmail.com` on
+2026-09-03. That is the exact delivery AC-11 names — not a test notification
+and not the resolve transition.
+
+**The chain AC-11 asks for is complete, recorded in one place.** Forced
+failure: deliberate `usage_gate_misconfigured` loaded through `/profile`.
+Span recorded: `usage_gate.check` arrived in the `development` environment.
+Sampling captured: local trace sampling at 1.0. Fingerprint grouped: the
+events grouped into one issue. Threshold crossed: the failure rate passed
+High's 0.2. New issue created: by the monitor's own next evaluation after the
+thresholds returned to 0.2 / 0.19. Connected alert fired: the "A new issue is
+created" trigger. Email delivered: to `mghalynho@gmail.com`. All eight links
+proven on 2026-09-03; the chain is complete rather than composed of parts.
 
 **Conclusion.** AC-10's draft "floor of 20 attempts" is not expressible in
 Sentry's Threshold form; the spec now records the configured reality (no
 floor, two thresholds, a 1 day interval) and carries a follow-up for an
 absolute count threshold. AC-11's smoke test must confirm an alert is
 connected to the monitor, not merely that an issue was created, and must end
-with a real threshold-breach creation delivery: the resolved-issue delivery
-proves the notification path but not the creation side, which is still
-pending.
+with a real threshold-breach creation delivery. That delivery has now landed:
+alert connected, threshold crossed by the monitor's own evaluation, a new
+issue created, the connected alert's "A new issue is created" trigger fired,
+and a real email delivered — not the Send Test button and not the resolve
+transition.
