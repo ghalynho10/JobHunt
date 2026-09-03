@@ -198,14 +198,19 @@ monitor created no alert, and the first firing on 2026-09-03 produced a
 Critical issue, correctly assigned, with nothing delivered until an alert was
 attached by hand — exactly the failure AC-11 exists to catch, and one a paper
 review of the alert rule passes every time (`docs/reflexes.md` now carries the
-standing rule). The alert builder's Send Test Notification button delivered an
-email to `mghalynho@gmail.com` on 2026-09-03, so delivery is proven; the real
-threshold-breach delivery the forced failure smoke test (AC-11) demands is
-still pending at the time of writing. The smoke test runs locally against the
-development Supabase project and the `development` environment of the Sentry
-project only, never the `production` environment and never a Vercel Preview
-deployment, since Preview samples at 0.1 and roughly nine in ten forced
-failures there would never be captured.
+standing rule). Delivery is proven twice over on 2026-09-03: the alert
+builder's Send Test Notification button delivered an email to
+`mghalynho@gmail.com`, and raising the thresholds to High 0.95 / Medium 0.94
+resolved Sentry issue 592127114 at 21:49 local, firing the connected alert's
+"An issue is resolved" trigger and delivering a real email — a genuine state
+transition through the connected alert that also proves the recovery
+notification path. Still pending is the threshold-breach **creation**
+delivery the forced failure smoke test (AC-11) demands: the thresholds are
+back at 0.2 / 0.19 and a new issue is expected on the next evaluation. The
+smoke test runs locally against the development Supabase project and the
+`development` environment of the Sentry project only, never the `production`
+environment and never a Vercel Preview deployment, since Preview samples at
+0.1 and roughly nine in ten forced failures there would never be captured.
 
 **`/health` traces never reach Sentry, by design, not by bug.** The project's
 own inbound filter "Filter out health check transactions" discards the whole
@@ -219,12 +224,16 @@ it again: use `/profile` instead (confirmed 2026-09-03,
 
 The four monitors are **configured and connected** (2026-09-03) in both the
 `development` and `production` environments of the one `jobhunt` Sentry
-project, and delivery is proven by the alert builder's Send Test Notification
-email. What is still open is the forced failure smoke test (AC-11): it has not
-yet produced a real threshold-breach delivery, and `/check verify` (AC-10,
-AC-11) is where that gap closes, once someone runs the smoke test locally
-against the development environment and confirms a real alert arrives. This
-section will be rewritten when that delivery is proven.
+project, and delivery is proven by two real emails on 2026-09-03: the alert
+builder's Send Test Notification button, then the connected alert's "An issue
+is resolved" trigger when the thresholds were raised to High 0.95 / Medium
+0.94 and resolved Sentry issue 592127114. What is still open is the
+threshold-breach **creation** delivery AC-11 demands: it has not yet arrived —
+the thresholds are back at 0.2 / 0.19 and a new issue is expected on the next
+evaluation — and `/check verify` (AC-10, AC-11) is where that gap closes, once
+someone runs the smoke test locally against the development environment and
+confirms a real alert arrives. This section will be rewritten when that
+creation delivery is proven.
 
 Drift detection between Sentry's live rules and this directory is a v1.5 item,
 not v1.
