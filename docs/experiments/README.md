@@ -23,3 +23,4 @@ failure mode this project has already met once and recorded below.
 | File | Feature |
 |---|---|
 | [0002-deployment-and-environments.md](0002-deployment-and-environments.md) | Deployment and environments |
+| [0011-usage-gating-and-kill-switch.md](0011-usage-gating-and-kill-switch.md) | Usage gating and kill switch |
