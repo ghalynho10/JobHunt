@@ -49,6 +49,7 @@ export const PERSONAL_DATA_TABLES: readonly PersonalDataTable[] = [
     table: "application_answer",
     heading: "Answers you wrote on an application",
   },
+  { table: "usage_gate_counter", heading: "Your job search usage" },
 ];
 
 /**
@@ -69,6 +70,10 @@ export const NON_PERSONAL_TABLES: readonly NonPersonalTable[] = [
   {
     table: "app_settings",
     why: "One row of operator settings, holding the global kill switch. It has no person attached to it.",
+  },
+  {
+    table: "usage_cap",
+    why: "The usage caps checked before a job search call. These are fixed configuration values, the same for everyone, with no person attached to any row.",
   },
 ];
 
@@ -345,6 +350,55 @@ export const STORED_FIELDS: readonly StoredField[] = [
     table: "application_answer",
     column: "updated_at",
     describedAs: "when you last changed it",
+  },
+
+  // usage_gate_counter
+  {
+    table: "usage_gate_counter",
+    column: "id",
+    describedAs: "an identifier for the entry",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "call_type",
+    describedAs: "which kind of call this counts (job search today)",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "scope",
+    describedAs:
+      "whether the row counts your own usage or the whole app's shared usage",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "profile_id",
+    describedAs:
+      "your profile, on a row that counts your own usage rather than the whole app's",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "period",
+    describedAs: "whether the window is a day, a week or a month",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "period_start",
+    describedAs: "when that window began",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "attempt_count",
+    describedAs: "how many times this was checked, allowed or not",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "consumed_count",
+    describedAs: "how many of those checks were actually allowed",
+  },
+  {
+    table: "usage_gate_counter",
+    column: "updated_at",
+    describedAs: "when it was last changed",
   },
 ];
 
