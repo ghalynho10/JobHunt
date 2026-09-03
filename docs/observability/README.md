@@ -129,12 +129,49 @@ wrong, which is the failure mode this project exists to learn from.
    invariant 1 having been followed: additive changes are safe to roll back
    under, drops are not. A migration is undone by writing another migration.
 
+## Alert rules
+
+Spec 0011 builds this project's first two failure rate alert rules, one per
+span, because a kill switch outage and a gate outage are different failures
+with different causes and different spans (`kill_switch.read` and
+`usage_gate.check`, both in [spans.md](spans.md)). Folding them into one rule
+would leave one of the two invisible.
+
+Both rules share the same shape: a rolling 24 hour window, a floor of 20
+attempts, and a 20% failure threshold. The numbers come from this app's real
+traffic: at the global monthly ceiling of 2,000 `job_search` calls this app
+averages under 3 calls an hour, so a floor reachable inside a single hour would
+only ever cross during an actively searching session, staying silent on an
+ordinary quiet day exactly when a real misconfiguration would too. Revisit both
+numbers if traffic ever grows enough to change that assumption.
+
+Both rules filter by **failure kind** (the span status message `failure()`
+already sets), never by "any failed span":
+
+- **`usage_gate.check`**: numerator is `usage_gate_misconfigured` and
+  `database_unavailable` only. Never AC-3/AC-4's five refusal reasons
+  (`success({ allowed: false, reason })` is never a failed span in the first
+  place, per `checkUsageGate()`'s own AC-5), and never `session_missing` (a
+  caller with an expired token is not evidence the gate is broken).
+- **`kill_switch.read`**: numerator is its own existing failure kinds
+  (`database_unavailable`, `record_not_found`, `response_malformed`),
+  unchanged.
+
+Still to be **configured by hand** in the Sentry development and production
+projects (this is a dashboard action, not something a migration or a code
+change can do): both rules, as written above. Then the forced failure smoke
+test (AC-11) has to be run locally against the development Supabase and
+Sentry projects only, never production and never a Vercel Preview deployment,
+since Preview samples at 0.1 and roughly nine in ten forced failures there
+would never be captured.
+
 ## Status
 
-No alert rule is defined yet. Feature 10 (usage gating and kill switch) owns
-building the first one, together with the forced failure smoke test that proves
-the whole chain fires: span, sampling, fingerprint, threshold, delivery. A rule
-that exists on paper is not the same as a rule that fires.
+The two rules are **defined here**, but not yet configured in Sentry, and the
+forced failure smoke test has not yet been run. A rule that exists on paper is
+not the same as a rule that fires: `/check verify` (AC-10, AC-11) is where that
+gap closes, once someone with Sentry dashboard access configures both rules in
+the development and production projects and runs the smoke test locally.
 
 Drift detection between Sentry's live rules and this directory is a v1.5 item,
 not v1.
