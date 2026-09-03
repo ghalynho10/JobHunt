@@ -198,16 +198,20 @@ monitor created no alert, and the first firing on 2026-09-03 produced a
 Critical issue, correctly assigned, with nothing delivered until an alert was
 attached by hand — exactly the failure AC-11 exists to catch, and one a paper
 review of the alert rule passes every time (`docs/reflexes.md` now carries the
-standing rule). Delivery is proven twice over on 2026-09-03: the alert
+standing rule). Delivery is proven three times over on 2026-09-03: the alert
 builder's Send Test Notification button delivered an email to
-`mghalynho@gmail.com`, and raising the thresholds to High 0.95 / Medium 0.94
+`mghalynho@gmail.com`; raising the thresholds to High 0.95 / Medium 0.94
 resolved Sentry issue 592127114 at 21:49 local, firing the connected alert's
-"An issue is resolved" trigger and delivering a real email — a genuine state
-transition through the connected alert that also proves the recovery
-notification path. Still pending is the threshold-breach **creation**
-delivery the forced failure smoke test (AC-11) demands: the thresholds are
-back at 0.2 / 0.19 and a new issue is expected on the next evaluation. The
-smoke test runs locally against the development Supabase project and the
+"An issue is resolved" trigger and delivering a real email (a genuine state
+transition that also proves the recovery notification path); and, with the
+thresholds back at High 0.2 / Medium 0.19, the monitor's next evaluation
+created a new issue and the connected alert's "A new issue is created" trigger
+delivered a real email to `mghalynho@gmail.com` — the exact threshold-breach
+**creation** delivery AC-11 names. The full chain — forced failure, span
+recorded, sampling captured, fingerprint grouped, threshold crossed, new issue
+created, connected alert fired, email delivered — is recorded in
+[docs/experiments/0011-usage-gating-and-kill-switch.md](../experiments/0011-usage-gating-and-kill-switch.md).
+The smoke test runs locally against the development Supabase project and the
 `development` environment of the Sentry project only, never the `production`
 environment and never a Vercel Preview deployment, since Preview samples at
 0.1 and roughly nine in ten forced failures there would never be captured.
@@ -224,16 +228,16 @@ it again: use `/profile` instead (confirmed 2026-09-03,
 
 The four monitors are **configured and connected** (2026-09-03) in both the
 `development` and `production` environments of the one `jobhunt` Sentry
-project, and delivery is proven by two real emails on 2026-09-03: the alert
-builder's Send Test Notification button, then the connected alert's "An issue
-is resolved" trigger when the thresholds were raised to High 0.95 / Medium
-0.94 and resolved Sentry issue 592127114. What is still open is the
-threshold-breach **creation** delivery AC-11 demands: it has not yet arrived —
-the thresholds are back at 0.2 / 0.19 and a new issue is expected on the next
-evaluation — and `/check verify` (AC-10, AC-11) is where that gap closes, once
-someone runs the smoke test locally against the development environment and
-confirms a real alert arrives. This section will be rewritten when that
-creation delivery is proven.
+project, and the alert chain AC-11 names is proven end to end: three real
+emails arrived on 2026-09-03 (the Send Test Notification button; the "An
+issue is resolved" trigger when the thresholds were raised to High 0.95 /
+Medium 0.94 and resolved Sentry issue 592127114; and the "A new issue is
+created" trigger when the monitor's next evaluation crossed High 0.2 after
+the thresholds returned to 0.2 / 0.19). The forced failure smoke test's
+delivery step in spec 0011's `verify.md` is ticked with that evidence, and
+the full chain is recorded in the experiments file. AC-10 and AC-11 are
+satisfied; the feature's remaining `Verify it`, `Test it`, `Review it` and
+`Document it` milestones are separate and still to run.
 
 Drift detection between Sentry's live rules and this directory is a v1.5 item,
 not v1.
