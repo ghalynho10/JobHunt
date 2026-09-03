@@ -42,6 +42,11 @@ const A_KILL_SWITCH_STATE: KillSwitch = {
   updatedAt: "2026-09-02T00:00:00+00:00",
 };
 
+const KILL_SWITCH_OFF: KillSwitch = {
+  enabled: false,
+  updatedAt: "2026-09-02T00:00:00+00:00",
+};
+
 function signedInAs(userId: string): void {
   getClaims.mockResolvedValue({
     data: { claims: { sub: userId } },
@@ -87,5 +92,35 @@ describe("checkUsageGate: the kill switch pre-check (AC-4, AC-5)", () => {
     });
 
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("checkUsageGate: a response with neither data nor an error (AC-14)", () => {
+  /**
+   * `{ data: null, error: null }` cannot be produced by the real stack:
+   * `.single()` either returns the one row `check_usage_gate` always emits
+   * via `return query select ...`, or PostgREST turns zero or multiple rows
+   * into an `error` (`PGRST116`). Proved here instead, mocking the RPC
+   * response directly, because it is `checkUsageGate()`'s own defensive read
+   * under test, not anything the database does: `attempt()` only converts a
+   * thrown exception, and this shape is neither a thrown exception nor a
+   * populated `error`, so a caller reading only `configured`/`allowed`/
+   * `reason` off `row` would see nothing and decide nothing at all, which is
+   * a silent open rather than a fail closed one.
+   */
+  it("returns database_unavailable rather than an absent, harmless decision", async () => {
+    signedInAs("user-1");
+    vi.mocked(readKillSwitch).mockResolvedValue(success(KILL_SWITCH_OFF));
+    rpc.mockReturnValue({
+      single: () => Promise.resolve({ data: null, error: null }),
+    });
+
+    const result = await checkUsageGate("job_search");
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.kind).toBe("database_unavailable");
+    expect(result.severity).toBe("unexpected");
   });
 });

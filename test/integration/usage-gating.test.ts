@@ -89,6 +89,19 @@ async function resetJobSearchGlobalWindows() {
   );
 }
 
+/** Today's UTC calendar date, matching `check_usage_gate`'s own day window. */
+function utcDayStart(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** The first of the current UTC month, matching the month window. */
+function utcMonthStart(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
 /** The account week window's current counters for one user and call type. */
 async function accountWeekCounters(callType: string, profileId: string) {
   const rows = await queryAsSuperuser<{
@@ -285,6 +298,185 @@ describe("the refusal reason follows precedence: the caller's own window first (
       await queryAsSuperuser(
         `delete from public.usage_cap where call_type = $1`,
         [TEST_CALL_TYPE],
+      );
+    }
+  });
+});
+
+describe("a global window is checked in isolation, and reported even though the account window is healthy (AC-3, AC-6)", () => {
+  const GLOBAL_DAY_CAP = 66;
+  const GLOBAL_MONTH_CAP = 2000;
+
+  /**
+   * The same dedicated call type and cleanup pattern as the precedence test
+   * above, with `job_search`'s own real cap values so the seeded numbers mean
+   * something, without ever touching `job_search`'s real, shared counters.
+   */
+  async function withDedicatedCaps<T>(run: () => Promise<T>): Promise<T> {
+    await queryAsSuperuser(
+      `insert into public.usage_cap (call_type, scope, period, cap_value) values
+         ($1, 'account', 'week', 25),
+         ($1, 'global', 'day', $2),
+         ($1, 'global', 'month', $3)
+       on conflict (call_type, scope, period) do update set cap_value = excluded.cap_value`,
+      [TEST_CALL_TYPE, GLOBAL_DAY_CAP, GLOBAL_MONTH_CAP],
+    );
+
+    try {
+      return await run();
+    } finally {
+      await queryAsSuperuser(
+        `delete from public.usage_gate_counter where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+      await queryAsSuperuser(
+        `delete from public.usage_cap where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+    }
+  }
+
+  it("reports global_day_cap_reached when only the global day window is already full", () =>
+    withDedicatedCaps(async () => {
+      const session = await freshSession("gate-global-day");
+
+      /**
+       * Seeded AT the cap, not one below it. `check_usage_gate` refuses once
+       * `consumed_count >= cap_value`: at 65 (one below 66) the next call
+       * would be the cap's own 66th, still allowed, and would not prove
+       * anything was refused. At 66 the window has already handed out every
+       * call the cap permits, so the next one is the first to be refused.
+       */
+      await queryAsSuperuser(
+        `insert into public.usage_gate_counter
+           (call_type, scope, profile_id, period, period_start, attempt_count, consumed_count)
+         values ($1, 'global', null, 'day', $2, $3, $3)
+         on conflict (call_type, period, period_start) where scope = 'global'
+         do update set attempt_count = excluded.attempt_count,
+                        consumed_count = excluded.consumed_count`,
+        [TEST_CALL_TYPE, utcDayStart(), GLOBAL_DAY_CAP],
+      );
+
+      const result = await checkUsageGate(TEST_CALL_TYPE, session.jar);
+
+      if (isFailure(result)) {
+        throw new Error(`Expected a decision, got a failure: ${result.kind}.`);
+      }
+
+      expect(result.value).toEqual({
+        allowed: false,
+        reason: "global_day_cap_reached",
+      });
+
+      /**
+       * AC-3's inverse of the precedence test above: this is the account
+       * window's first ever call (healthy, nowhere near its cap of 25), yet
+       * the reported reason is still the global one, because that is the
+       * window actually at fault. Also incidentally reconfirms AC-2: the
+       * attempt is counted, but nothing is consumed, on a refusal.
+       */
+      const counters = await accountWeekCounters(
+        TEST_CALL_TYPE,
+        session.userId,
+      );
+      expect(counters).toEqual({ attempt_count: 1, consumed_count: 0 });
+    }));
+
+  it("reports global_month_cap_reached when only the global month window is already full", () =>
+    withDedicatedCaps(async () => {
+      const session = await freshSession("gate-global-month");
+
+      await queryAsSuperuser(
+        `insert into public.usage_gate_counter
+           (call_type, scope, profile_id, period, period_start, attempt_count, consumed_count)
+         values ($1, 'global', null, 'month', $2, $3, $3)
+         on conflict (call_type, period, period_start) where scope = 'global'
+         do update set attempt_count = excluded.attempt_count,
+                        consumed_count = excluded.consumed_count`,
+        [TEST_CALL_TYPE, utcMonthStart(), GLOBAL_MONTH_CAP],
+      );
+
+      const result = await checkUsageGate(TEST_CALL_TYPE, session.jar);
+
+      if (isFailure(result)) {
+        throw new Error(`Expected a decision, got a failure: ${result.kind}.`);
+      }
+
+      expect(result.value).toEqual({
+        allowed: false,
+        reason: "global_month_cap_reached",
+      });
+
+      const counters = await accountWeekCounters(
+        TEST_CALL_TYPE,
+        session.userId,
+      );
+      expect(counters).toEqual({ attempt_count: 1, consumed_count: 0 });
+    }));
+});
+
+/**
+ * AC-14's `{ data: null, error: null }` case is deliberately NOT here: it
+ * cannot be produced by the real stack. `.single()` either returns the one
+ * row `check_usage_gate` always emits via `return query select ...`, or
+ * PostgREST turns zero or multiple rows into an `error` (`PGRST116`), so there
+ * is no real request that lands on that exact shape to drive against. It is a
+ * unit test instead, in `src/features/usage-gating/gate.test.ts`, extending
+ * the same mocked client already used there for the kill switch outcomes:
+ * that test is proving `checkUsageGate()`'s own defensive read of the
+ * response, not anything the database itself does.
+ */
+describe("a database fault while writing the counters fails closed (AC-14)", () => {
+  /**
+   * `job_search` is safe to use here even though the call is expected to
+   * fail: the revoke breaks the very first statement inside
+   * `check_usage_gate`, so the whole transaction rolls back and nothing is
+   * ever written, real budget included.
+   */
+  it("returns database_unavailable when the function's own table access is revoked mid test", async () => {
+    const session = await freshSession("gate-db-fault-revoked");
+
+    /**
+     * `check_usage_gate` is `SECURITY DEFINER`, owned by `postgres`, which is
+     * BYPASSRLS but confirmed NOT a superuser on this stack (`select rolsuper,
+     * rolbypassrls from pg_roles where rolname = 'postgres'` → f, t) — the same
+     * split spec 0002's own verify.md documents for the hosted project.
+     * BYPASSRLS bypasses row level security only, never table privileges, so
+     * revoking the owner's own INSERT and UPDATE genuinely breaks the
+     * function's very first statement (the unconditional attempt bump),
+     * confirmed by hand before writing this test: the same revoke against a
+     * probe row raised a real `permission denied for table
+     * usage_gate_counter`, not a silent no-op.
+     */
+    await queryAsSuperuser(
+      `revoke insert, update on public.usage_gate_counter from postgres`,
+    );
+
+    try {
+      const result = await checkUsageGate(JOB_SEARCH, session.jar);
+
+      if (!isFailure(result)) {
+        throw new Error(
+          "Expected database_unavailable once the function's own table access was revoked, got a decision.",
+        );
+      }
+
+      expect(result.kind).toBe("database_unavailable");
+      expect(result.severity).toBe("unexpected");
+
+      /**
+       * `42501` is Postgres's `insufficient_privilege`, and it only ever
+       * lands in `context.code` on the branch that reads the `.rpc()`
+       * response's own `error` field (AC-14), which returns before
+       * `configured`, `allowed` or `reason` is read at all. The
+       * `usage_gate_misconfigured` branch's context carries no `code`, so
+       * this also proves which branch was actually taken, not merely that
+       * some failure occurred.
+       */
+      expect(result.context?.["code"]).toBe("42501");
+    } finally {
+      await queryAsSuperuser(
+        `grant insert, update on public.usage_gate_counter to postgres`,
       );
     }
   });

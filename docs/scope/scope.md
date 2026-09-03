@@ -211,7 +211,7 @@ _spec [0011](../specs/0011-usage-gating-and-kill-switch/index.md) · code in `sr
 - [ ] Build it: `/develop usage gating & kill switch`
   - [x] Schema and the atomic gate function: `usage_cap` and `usage_gate_counter` with their checks, partial unique indexes, row level security enabled and forced, the fixed lock order, UTC computed windows, and the `configured` output column, satisfies AC-1, AC-2, AC-6, AC-9, AC-12, AC-14, AC-15
   - [x] The TypeScript gate module: `src/features/usage-gating/` (`checkUsageGate()`, the five member `UsageGateReason` union, the `readKillSwitch()` pre-check, `copy.ts`), plus the new `usage_gate_misconfigured` `FailureKind` member, satisfies AC-3, AC-4, AC-5, AC-6, AC-13
-  - [ ] The thin end to end proof: the `usage_gate.check` span registered and opened first, and the integration test suite proving atomicity, every refusal reason, and the fail closed database error path, satisfies AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-13, AC-14
+  - [x] The thin end to end proof: the `usage_gate.check` span registered and opened first, and the integration test suite proving atomicity, every refusal reason, and the fail closed database error path, satisfies AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-13, AC-14
   - [ ] The alert rules, defined and proven: both `usage_gate.check`'s and `kill_switch.read`'s failure rate rules in `docs/observability/`, configured in Sentry for development and production, and the forced failure smoke test run in development only, satisfies AC-10, AC-11
 - [ ] Verify it: `/check verify usage gating & kill switch`
 - [ ] Test it: `/test usage gating & kill switch`
