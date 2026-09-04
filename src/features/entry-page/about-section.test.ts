@@ -134,13 +134,19 @@ describe("moving a claim across is a move, not a copy (AC-16)", () => {
     expect(planned()).not.toContain("profile");
   });
 
-  it("still lists the four claims whose features have not shipped", () => {
+  it("has moved the filtered search claim to working, now that search exists", () => {
+    // covers: AC-16, and spec 0013's own AC-12
+    expect(working()).toContain("filtered search");
+    expect(planned()).not.toContain("filtered search");
+  });
+
+  it("still lists the three claims whose features have not shipped", () => {
     /**
      * Named individually so the next feature to ship has to come here and remove
-     * its own, rather than the row quietly emptying or growing.
+     * its own, rather than the row quietly emptying or growing. Feature 11 did
+     * exactly that on 2026-09-04, taking `filtered search` out of this list.
      */
     expect(planned()).toEqual([
-      "filtered search",
       "ranked results with reasoning",
       "application tracking",
       "a no sign in demo account",
