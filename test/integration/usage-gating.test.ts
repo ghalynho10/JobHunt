@@ -555,6 +555,66 @@ describe("the refusal reason follows precedence: the caller's own window first (
   });
 });
 
+describe("a cap_value of 0 is the documented per call_type kill switch, not a misconfiguration (spec 0011, Feature design)", () => {
+  it("refuses every call outright, bumps attempt_count, and consumes nothing on any window", async () => {
+    const session = await freshSession("gate-zero-cap");
+
+    await queryAsSuperuser(
+      `insert into public.usage_cap (call_type, scope, period, cap_value) values
+         ($1, 'account', 'week', 0),
+         ($1, 'global', 'day', 0),
+         ($1, 'global', 'month', 0)
+       on conflict (call_type, scope, period) do update set cap_value = excluded.cap_value`,
+      [TEST_CALL_TYPE],
+    );
+
+    try {
+      const result = await checkUsageGate(TEST_CALL_TYPE, session.jar);
+
+      if (isFailure(result)) {
+        throw new Error(
+          `Expected a decision, not a failure, for a configured zero cap: ${result.kind}.`,
+        );
+      }
+
+      // A stored cap_value of 0 is real configuration (AC-6): it must refuse
+      // by the ordinary precedence rule, the same as any other exhausted
+      // cap, never as usage_gate_misconfigured. The collapsed lookup
+      // (2026-09-04) tells these two cases apart by `max()` returning 0
+      // versus NULL, so this is also the regression guard for that.
+      expect(result.value).toEqual({
+        allowed: false,
+        reason: "account_week_cap_reached",
+      });
+
+      const rows = await queryAsSuperuser<{
+        scope: string;
+        attempt_count: number;
+        consumed_count: number;
+      }>(
+        `select scope, attempt_count, consumed_count
+           from public.usage_gate_counter
+          where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+      expect(rows).toHaveLength(3);
+      for (const row of rows) {
+        expect(row.attempt_count).toBe(1);
+        expect(row.consumed_count).toBe(0);
+      }
+    } finally {
+      await queryAsSuperuser(
+        `delete from public.usage_gate_counter where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+      await queryAsSuperuser(
+        `delete from public.usage_cap where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+    }
+  });
+});
+
 describe("a global window is checked in isolation, and reported even though the account window is healthy (AC-3, AC-6)", () => {
   const GLOBAL_DAY_CAP = 66;
   const GLOBAL_MONTH_CAP = 2000;
