@@ -55,18 +55,35 @@ create table public.usage_gate_counter (
   id uuid primary key default gen_random_uuid(),
   call_type text not null,
   scope text not null check (scope in ('account', 'global')),
-  -- An account row always names its owner and a global row never does. `on
-  -- delete cascade`: deleting an account (feature 31, not yet built) resets
-  -- that person's own weekly cap early, an accepted, bounded edge case (spec
-  -- 0011, Consequences).
-  profile_id uuid references public.profile (id) on delete cascade,
+  -- An account row always names its owner and a global row never does.
+  -- REFERENCES `auth.users (id)`, NOT `public.profile (id)`, even though every
+  -- value here is written as `auth.uid()` and reads identically either way.
+  -- The gate's account scope is an identity (spec 0011, AC-13: keyed on a
+  -- verified session), not a data completeness concern, and a signed in
+  -- caller is not guaranteed to have a `profile` row: spec 0007's signup hook
+  -- deliberately creates none (`supabase/migrations/20260830230000_before_user_created_hook.sql`,
+  -- "DELIBERATELY NOT ADDED"). Referencing `profile (id)` made an ordinary new
+  -- user state, no profile row yet, an unhandled foreign key violation on the
+  -- caller's very first gated call, surfacing as `database_unavailable` and
+  -- landing in AC-10's alert numerator for correct behaviour. `on delete
+  -- cascade`: deleting the auth user (feature 31, not yet built) resets that
+  -- person's own weekly cap early, an accepted, bounded edge case (spec 0011,
+  -- Consequences). Pointing at `auth.users` rather than `profile` also means a
+  -- profile row disappearing on its own, if a future feature ever allows
+  -- that without deleting the account, no longer resets these counters; only
+  -- full account deletion does.
+  profile_id uuid references auth.users (id) on delete cascade,
   period text not null check (period in ('day', 'week', 'month')),
   -- The window's start, computed in UTC inside `check_usage_gate`, never left
   -- to the session's own time zone setting. A new window is a new row, never
   -- a mutation of the old one, so the counters reset by construction.
   period_start date not null,
-  -- Incremented unconditionally by the gate function, on every call that
-  -- reaches it, whether allowed or refused (AC-9).
+  -- Incremented unconditionally by the gate function, on every call for a
+  -- CONFIGURED call_type that reaches it, whether allowed or refused (AC-9).
+  -- An unconfigured call_type touches no row here at all (AC-6): visibility
+  -- into a misconfiguration comes from `usage_gate_misconfigured` reaching
+  -- Sentry as an unexpected failure, not from a counter row, so nothing is
+  -- lost by refusing before any row is created.
   attempt_count integer not null default 0 check (attempt_count >= 0),
   -- Incremented only when the call is allowed; compared against
   -- `usage_cap.cap_value`.
@@ -138,35 +155,22 @@ declare
   v_allowed boolean;
   v_reason text;
 begin
-  -- UNCONDITIONAL ATTEMPT BUMP, BEFORE THE CONFIGURATION IS EVEN CHECKED
-  -- (AC-9, AC-6). This is also what takes the row locks. The upsert on a
-  -- fresh window inserts the row into existence rather than requiring it to
-  -- pre-exist.
-  insert into public.usage_gate_counter
-    (call_type, scope, profile_id, period, period_start, attempt_count)
-  values (p_call_type, 'global', null, 'day', v_day_start, 1)
-  on conflict (call_type, period, period_start) where scope = 'global'
-  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
-  returning consumed_count into v_global_day_consumed;
-
-  insert into public.usage_gate_counter
-    (call_type, scope, profile_id, period, period_start, attempt_count)
-  values (p_call_type, 'global', null, 'month', v_month_start, 1)
-  on conflict (call_type, period, period_start) where scope = 'global'
-  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
-  returning consumed_count into v_global_month_consumed;
-
-  insert into public.usage_gate_counter
-    (call_type, scope, profile_id, period, period_start, attempt_count)
-  values (p_call_type, 'account', v_account_id, 'week', v_week_start, 1)
-  on conflict (call_type, profile_id, period, period_start)
-    where scope = 'account'
-  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
-  returning consumed_count into v_account_week_consumed;
-
-  -- CONFIGURATION CHECK. A `call_type` missing any one of its three required
-  -- rows is treated the same as one with none at all (AC-6). The attempt
-  -- above already counted; `allowed`/`reason` carry no meaning below.
+  -- CONFIGURATION CHECK, FIRST, BEFORE ANY `usage_gate_counter` ROW IS
+  -- TOUCHED (AC-6). Corrected 2026-09-03: an earlier version of this function
+  -- bumped `attempt_count` on all three windows before checking `usage_cap`,
+  -- reasoned as "an attempt nobody could serve is still worth seeing." That
+  -- reasoning was wrong: `execute` on this function is granted to
+  -- `authenticated`, so any signed in caller could create and grow
+  -- `usage_gate_counter` rows without bound simply by calling with a
+  -- different `p_call_type` string each time, since the row is written before
+  -- the function ever decides the call type is unconfigured. Visibility does
+  -- not depend on the write: `usage_gate_misconfigured` reaches Sentry as an
+  -- unexpected severity failure regardless of whether a counter row exists
+  -- (`src/lib/usage-gating/gate.ts`), so refusing here first loses nothing a
+  -- reader of the alert needs and closes the unbounded write.
+  --
+  -- A `call_type` missing any one of its three required rows is treated the
+  -- same as one with none at all (AC-6).
   select cap.cap_value into v_global_day_cap
     from public.usage_cap as cap
    where cap.call_type = p_call_type and cap.scope = 'global'
@@ -188,6 +192,32 @@ begin
     return query select false, null::boolean, null::text;
     return;
   end if;
+
+  -- UNCONDITIONAL ATTEMPT BUMP, now that the call_type is known configured
+  -- (AC-9). This is also what takes the row locks, in the fixed order the
+  -- comment above the function names. The upsert on a fresh window inserts
+  -- the row into existence rather than requiring it to pre-exist.
+  insert into public.usage_gate_counter
+    (call_type, scope, profile_id, period, period_start, attempt_count)
+  values (p_call_type, 'global', null, 'day', v_day_start, 1)
+  on conflict (call_type, period, period_start) where scope = 'global'
+  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
+  returning consumed_count into v_global_day_consumed;
+
+  insert into public.usage_gate_counter
+    (call_type, scope, profile_id, period, period_start, attempt_count)
+  values (p_call_type, 'global', null, 'month', v_month_start, 1)
+  on conflict (call_type, period, period_start) where scope = 'global'
+  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
+  returning consumed_count into v_global_month_consumed;
+
+  insert into public.usage_gate_counter
+    (call_type, scope, profile_id, period, period_start, attempt_count)
+  values (p_call_type, 'account', v_account_id, 'week', v_week_start, 1)
+  on conflict (call_type, profile_id, period, period_start)
+    where scope = 'account'
+  do update set attempt_count = public.usage_gate_counter.attempt_count + 1
+  returning consumed_count into v_account_week_consumed;
 
   -- PRECEDENCE: the caller's own window before either app wide window
   -- (AC-3), because that is the one the person can act on themselves. Ties
