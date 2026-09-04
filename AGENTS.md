@@ -83,11 +83,11 @@ Messages are conventional (`feat:`, `fix:`, `docs:`, `chore:`). Push and pull re
 - [sentry-sdk-setup](.agents/skills/sentry-sdk-setup/): `getsentry/sentry-for-ai`, Sentry setup routing and alert configuration.
 - [vercel-react-best-practices](.agents/skills/vercel-react-best-practices/): `vercel-labs/agent-skills`, React 19 and Next.js App Router performance and rendering patterns.
 - [vitest](.agents/skills/vitest/): `antfu/skills`, Vitest config, mocking, fixtures, filtering and multi project workspaces, which is the shape `vitest.config.mts` uses. CAVEAT: it is generated from Vitest 5.x beta and this project pins 4.1.11, so check any call shape against the installed version before trusting it.
+- ai-sdk (invoke via `Skill(vercel:ai-sdk)`, no `.agents/skills/` clone): the official Vercel plugin's AI SDK skill, covering `generateText`/`streamText`, tool calling, structured output, and embeddings on AI SDK 7. Accepted at slice 2 for feature 13, the model client router, its first caller. CAVEAT: it defaults every model call to the Vercel AI Gateway and flags direct provider imports (`@ai-sdk/openai`, `@ai-sdk/anthropic`) as outdated — the opposite of spec 0001's binding pick of direct provider packages, one key per vendor, made to keep personal data flowing only to the vendors the privacy notice names. Override the gateway default on this project. It also still carries a few AI SDK v6-era messages internally despite the installed and current major being 7 (verified against the published `ai` package), so check a call shape against `node_modules/ai` and `node_modules/@ai-sdk/*/docs/` before trusting one verbatim.
 
 Declined: `vercel-labs@web-design-guidelines`, `vercel-labs@vercel-composition-patterns`, `addyosmani@accessibility`.
 Declined: `dobroslavradosavljevic@tailwind-variants`, offered when feature 5 added the library. It covers `twMergeConfig` and Tailwind v4 pairing, which is exactly the trap this project hit, but it comes from an individual's 84 skill collection rather than a vendor, and the one non-obvious behaviour is already documented in `src/components/ui/tv.ts` and locked by its test.
 Declined, no search run: ESLint, Prettier, husky and lint-staged. Their config files plus the `## Tooling` section above are the conventions.
-Reconsider at slice 2: `vercel/ai@ai-sdk`, since spec 0001 picks AI SDK 7 and nothing uses it yet.
 MCP servers: none connected. The Supabase MCP is permitted only under all five conditions of spec 0001 binding rule 7; feature 3 owns the environment half of that decision.
 
 ## Circuit breaker
