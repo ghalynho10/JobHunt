@@ -106,26 +106,46 @@ check calls `getClaims()` (`src/proxy.ts`, `src/app/(app)/layout.tsx`,
 
 ## Feature 10 — Usage gating & kill switch
 
-_Written 2026-08-19 · corrected 2026-09-02 · source: Adzuna developer
-docs, heading "Default API access limits" · numbers verified, two claims
-below marked inferred._
+_Written 2026-08-19 · corrected 2026-09-02 · re-corrected 2026-09-04 · source:
+Adzuna terms of service at https://developer.adzuna.com/docs/terms_of_service,
+heading "Default API access limits" (checked 2026-09-04) · numbers and claims
+below verified 2026-09-04._
 
-**Confirmed rate limits, from Adzuna's own docs:**
+**Confirmed rate limits, from Adzuna's terms of service:**
 25 hits/minute, 250/day, 1,000/week, 2,500/month.
-(An earlier third-party figure of ~1,000/month was wrong.)
+(An earlier third-party figure of ~1,000/month was wrong; verified 2026-09-04 at
+https://developer.adzuna.com/docs/terms_of_service under heading "Default API access limits".)
 
-**Look in the docs, not the terms.** An earlier version of this entry
-attributed these to Adzuna's terms of service. They are not there. Three
-public pages — `developer.adzuna.com/docs/search`, `/overview` and
-`/terms` — state no limits at all, so a wrong pointer costs real time on
-re-verification. The heading to look for is **"Default API access
-limits"**.
+**Look in the docs, not the terms — corrected 2026-09-04: this 2026-09-02 correction was itself wrong.**
+The 2026-09-02 pass recorded:
+> An earlier version of this entry attributed these to Adzuna's terms of
+> service. They are not there. Three public pages — `developer.adzuna.com/docs/search`,
+> `/overview` and `/terms` — state no limits at all, so a wrong pointer costs
+> real time on re-verification. The heading to look for is **"Default API access
+> limits"**.
+
+That negative result was false, and the original 2026-08-19 attribution to Adzuna's
+terms of service was correct all along. The 2026-09-02 pass checked
+`developer.adzuna.com/terms` (which states no limits), `/docs/search`, and `/overview`,
+and concluded the terms attribution was false — but it never checked
+`https://developer.adzuna.com/docs/terms_of_service`. The "Default API access limits"
+heading was read as evidence the source was the docs rather than the terms, but the
+page is both, which the URL path makes plain.
+Verified 2026-09-04 directly at `https://developer.adzuna.com/docs/terms_of_service`:
+the page title is "Terms of Service" and the heading "Default API access limits"
+sits directly on that page. The 2026-09-02 error is preserved here because a
+confidently recorded negative result based on checking the wrong URLs is exactly
+the failure shape that wastes hours on re-verification.
 
 **"Default" is load bearing.** These are per-key defaults, not a hard
 platform ceiling. That makes raising them a lever that exists *before*
 2,500 is treated as immovable — an option no decision so far has weighed.
-Whether Adzuna grants increases, and on what terms, is unverified and
-worth asking before the cap numbers are treated as fixed.
+**Terms verified 2026-09-04** at `https://developer.adzuna.com/docs/terms_of_service`:
+higher limits are offered "upon request for commercial applications with mutual benefit"
+("We are very happy to increase limits for applications where we see mutual commercial
+benefit - our biggest API users do millions of hits per day!"). A non-commercial project
+may not qualify for an increase, so the default 2,500/month should be treated as binding
+unless commercial terms apply.
 
 **The monthly window is the binding constraint.** Working down from
 2,500/month: that is roughly 577/week or 82/day — well under both the
@@ -162,43 +182,57 @@ derived from the monthly cap), ten users at 25/week is 250 — comfortable,
 but half the headroom a weekly-cap reading would suggest. Recheck once
 the calls-per-search question above is answered.
 
-**A permanent constraint, not a v1 limitation — INFERRED, not verified.**
-Creating multiple accounts for a single entity or individual is understood
-to be treated as misuse, which would mean provisioning per-user API keys to
-expand the budget is not available. Plausible and consistent with how such
-terms usually read, but **not checked against Adzuna's current text**. Verify
-before relying on it, particularly now that the ceiling above is known to be
-a raisable default rather than a hard limit — the two interact.
+**A permanent constraint, not a v1 limitation — VERIFIED 2026-09-04 (previously INFERRED).**
+Creating multiple accounts for a single entity or individual is explicitly prohibited.
+Adzuna's terms of service (`https://developer.adzuna.com/docs/terms_of_service`, section
+"Confidentiality", checked 2026-09-04) state: "Creation of multiple accounts for a single
+entity or individual will immediately be considered misuse and a breach of these terms
+and conditions." Provisioning per-user API keys or rotating accounts to expand the effective
+budget is not an available option under the terms.
 
 ---
 
 ## Features 5 and 11 — Design system, and job search results
 
 _Written: 2026-08-19 · source: Adzuna terms · audited
-2026-09-02 · verified._
+2026-09-02 · verified 2026-09-04 directly against
+https://developer.adzuna.com/docs/terms_of_service._
 
-**Audited 2026-09-02: LANDED, and correctly stays.** The 116×23 rule with
+**Audited 2026-09-02, updated 2026-09-04: LANDED.** The 116×23 rule with
 both word and logo linked is in feature 11's Done when at `scope.md:213`.
 The per-advert wording and the logo source both sit at
 `brand-tokens.md:219–227`. The design-input half is in spec 0005 (AC-10
 line 27, `Card.Footer` row line 86, rationale line 66, `verify.md` line
-47). What remains genuinely owed to feature 11 is the image asset itself
-and its link targets, parked as a follow-up at spec 0005 index line 180 —
-and feature 11 has no spec yet, so this entry has a future reader.
+47). Feature 11 is now specified in spec 0013 (merged 2026-09-04), where
+AC-6 and AC-7 implement both attribution requirements.
 
-**Adzuna attribution is per displayed advert, not per screen.**
+**Adzuna attribution is per displayed advert, not per screen (verified 2026-09-04).**
 
-The terms state: an API user shall label *each displayed advert* with the
-phrase "Jobs by Adzuna" at least 116 × 23 pixels, with the word "Jobs"
-hyperlinked to adzuna.co.uk (or relevant local domain) and the word
-"Adzuna" being the Adzuna logo image, also hyperlinked.
+The terms state (`https://developer.adzuna.com/docs/terms_of_service`,
+section "API user Obligations", clause 1, checked 2026-09-04): an API user shall
+label *each displayed advert* with the phrase "Jobs by Adzuna" at least
+116 × 23 pixels, with the word "Jobs" hyperlinked to http://www.adzuna.co.uk
+(or relevant local domain) and the word "Adzuna" being the Adzuna logo image
+(sourced from http://www.adzuna.co.uk/press.html), also hyperlinked.
 
 This is a per-result-card requirement, and 116 × 23 px is not small at
 card scale — it affects card layout, so it is a design-system input, not
 a footer to add later. `brand-tokens.md` carries the corrected per-advert
 wording under its results-page requirements.
 
-Logo images: adzuna.co.uk/press.html
+**Salary-data requirement from the same section (verified 2026-09-04):**
+
+The same terms section (clause 2, "Publishing Jobsworth salary estimates",
+checked 2026-09-04 at `https://developer.adzuna.com/docs/terms_of_service`)
+adds a separate requirement for salary estimates that this entry did not
+originally record: an API user shall label every Jobsworth salary estimate
+published with an icon at least 20 × 20 pixels in size and the words
+"Adzuna Jobsworth", both linking to `http://www.adzuna.co.uk/jobs/salary-predictor.html`,
+with mouseover text "Salary estimate powered by Adzuna Jobsworth".
+Spec 0013 (feature 11) records this requirement in AC-7 and incorporates it
+into the search results card design whenever `salary_is_predicted` is true.
+
+Logo images: http://www.adzuna.co.uk/press.html
 
 ---
 
@@ -325,8 +359,8 @@ behaves; checking the output proves it.
 ## Feature 19 — Listing data quality
 
 _Written: 2026-08-19 · source: Adzuna terms and docs ·
-**TRUTH RE-AUDIT PENDING**, though this entry makes no claims about other
-features' state, so it is lower risk than feature 10's or 14's were._
+Jobsworth attribution requirement verified 2026-09-04 against
+https://developer.adzuna.com/docs/terms_of_service._
 
 **Adzuna salaries are often model-predicted, not stated by the employer.**
 
@@ -337,9 +371,12 @@ organized against. A predicted salary needs to read as predicted.
 
 Note also: publishing Jobsworth salary estimates carries its own
 attribution requirement (a 20 × 20 px icon plus the words "Adzuna
-Jobsworth", both linked, with mouseover text "Salary estimate powered by
-Adzuna Jobsworth"). Check whether the salary figures in search results
-count as Jobsworth estimates before displaying them.
+Jobsworth", both linked to `http://www.adzuna.co.uk/jobs/salary-predictor.html`,
+with mouseover text "Salary estimate powered by Adzuna Jobsworth").
+**Verified 2026-09-04** at `https://developer.adzuna.com/docs/terms_of_service`
+(section "API user Obligations", clause 2). Spec 0013 (feature 11) resolves
+this: listings with `salary_is_predicted: true` display "(estimated)" and
+render the required Jobsworth icon, link, and mouseover attribution (AC-7).
 
 ---
 
