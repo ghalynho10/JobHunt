@@ -108,6 +108,13 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
     why: "The same job as Google, for people who would rather use their GitHub account.",
     envKeys: [],
   },
+  {
+    id: "adzuna",
+    name: "Adzuna",
+    receives: "the search terms a user types (a title and or a location)",
+    why: "It is the job board this app searches against, so a search has to reach it to answer anything.",
+    envKeys: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"],
+  },
 ];
 
 /**

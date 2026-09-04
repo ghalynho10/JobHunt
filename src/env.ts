@@ -61,6 +61,15 @@ export const env = createEnv({
      * above.
      */
     UI_PREVIEW_ENABLED: z.stringbool().default(false),
+
+    /**
+     * Feature 11, spec 0013. Adzuna's application id credential, shared across
+     * every caller rather than per user, since search spends the app's own
+     * budget (spec 0011), not a credential the caller supplies.
+     */
+    ADZUNA_APP_ID: z.string().min(1),
+    /** Feature 11, spec 0013. Adzuna's application key credential. */
+    ADZUNA_APP_KEY: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -113,6 +122,8 @@ export const env = createEnv({
     SENTRY_DSN: process.env.SENTRY_DSN,
     DEV_SESSION_ENABLED: process.env.DEV_SESSION_ENABLED,
     UI_PREVIEW_ENABLED: process.env.UI_PREVIEW_ENABLED,
+    ADZUNA_APP_ID: process.env.ADZUNA_APP_ID,
+    ADZUNA_APP_KEY: process.env.ADZUNA_APP_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
