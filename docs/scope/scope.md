@@ -25,7 +25,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 10 | Usage gating & kill switch | Slice 1 | done |
 | 11 | Job search & results list | Slice 1 | planned |
 | 12 | Apply redirect & application record | Slice 1 | planned |
-| 13 | Model client router | Slice 2 | planned |
+| 13 | Model client router | Slice 2 | in-progress |
 | 14 | Fit scoring with shown reasoning | Slice 2 | planned |
 | 15 | Eval ground truth set | Slice 2 | planned |
 | 16 | Eval harness runner | Slice 2 | planned |
@@ -235,12 +235,21 @@ Click a result through to the real posting on the source site, and record that y
 
 The differentiator and the answer to the sharpest finding in the reference audits: a scoring feature that shipped, passed every test, and returned a nearly constant meaningless number. Most of the build time belongs here.
 
-### 13. Model client router · needs a decision
+### 13. Model client router
 One thin client every AI call routes through: tier in, response out, with model and provider read from configuration and never written into a feature. This is what makes the deliberately cross vendor design swappable later. Built here with its first real caller in hand rather than as an empty foundation, because that is what keeps it a router. Watch this one: it is a named place where scope quietly expands into a framework.
 **Done when:** two tiers resolve from configuration to two different vendors, a feature calling it names a tier and never a model, swapping a model is a configuration change with no feature code touched, and a provider failure surfaces as a visible error rather than a default that reads as success.
 _Owes the privacy notice a recipient entry, recorded from spec [0009](../specs/0009-terms-and-privacy-notices/index.md) on 2026-09-01. The router is where a model provider's credential lands, so each vendor it routes to is a company data reaches and belongs in `DATA_RECIPIENTS`. The AC-5 guard fails the unit suite as soon as the key is declared in `src/env.ts`, so this cannot ship silently. Because the design is deliberately cross vendor, the entry is per vendor rather than one line saying "a model provider"._
+_Was blocked on feature 10 merging to `main`, recorded from spec [0012](../specs/0012-model-client-router/index.md) on 2026-09-03. **Resolved 2026-09-04**: feature 10 merged to `main` at `5b01b4c` (pull request 86) and spec 0011 is Accepted, so `checkUsageGate()` and the `usage_cap` table both exist on `main` today, at `src/lib/usage-gating/`, the path commit `d309e65` relocated it to before the merge. This feature's build, the migration included, is unblocked._
 
-- [ ] Design it (spec): `/architect model client router`
+- [x] Design it (spec): [0012](../specs/0012-model-client-router/index.md)
+- [ ] Build it: `/develop model client router`
+  - [ ] Configuration: `@ai-sdk/anthropic`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
+  - [ ] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `checkUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
+  - [ ] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
+  - [ ] Privacy registry: `anthropic` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
+  - [ ] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
+- [ ] Verify it: `/check verify model client router`
+- [ ] Test it: `/test model client router`
 
 ### 14. Fit scoring with shown reasoning · needs a decision · GA
 Score a listing against the profile and stated preferences, and show the work: the skills that matched and the skills that are missing, not just a number. The shown reasoning is both the usability point and a built in sanity check against the constant score failure mode. The spec defines the scoring bands, which is what makes the eval ranges in feature 15 meaningful.
