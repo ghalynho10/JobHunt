@@ -36,7 +36,7 @@ This spec builds the one door every AI model call walks through. A feature names
 ## Feature design
 
 **Data model sketch**:
-No new table. This feature adds six rows to `usage_cap` (feature 10, not yet merged to `main`), one triple of account/week, global/day, global/month for each of `ai_scoring` and `ai_check`, using that table's existing shape. See `rationale.md` for the derivation behind the six values.
+No new table. This feature adds six rows to `usage_cap` (feature 10, merged to `main` at `5b01b4c`, spec 0011 Accepted), one triple of account/week, global/day, global/month for each of `ai_scoring` and `ai_check`, using that table's existing shape. See `rationale.md` for the derivation behind the six values.
 
 **State transitions**: none. The router is stateless; each call is independent.
 
@@ -95,7 +95,7 @@ No new table. This feature adds six rows to `usage_cap` (feature 10, not yet mer
 - Reusing `checkUsageGate()` unchanged means this feature adds no new database function and no new `plpgsql` to review; it is entirely new rows in an existing table plus application code.
 
 **Negative / tradeoffs**:
-- This feature's migration and its integration tests cannot run until feature 10 (`usage_cap`, `checkUsageGate`) merges into `main`; it currently exists only on `feat/usage-gating-kill-switch`.
+- ~~This feature's migration and its integration tests cannot run until feature 10 (`usage_cap`, `checkUsageGate`) merges into `main`; it currently exists only on `feat/usage-gating-kill-switch`.~~ **Resolved 2026-09-04**: feature 10 merged to `main` at `5b01b4c` (pull request 86), spec 0011 is Accepted, and `usage_cap`, `check_usage_gate`, and `src/lib/usage-gating/` all exist on `main`. This feature's build, migration included, is unblocked.
 - `src/lib/ai/client.ts` imports `checkUsageGate` and `UsageGateReason` from `src/lib/usage-gating/`, not a feature folder: feature 10's pull request 86 (commit `d309e65`) already moved the module there, on the same reasoning this spec would otherwise have had to raise, that code shared by more than one feature belongs in `src/lib` (`kill-switch.ts` already set that precedent, and `checkUsageGate()` is now shared by features 11, 13, and 14). No open layering question remains for this feature to inherit.
 - The global day and month caps (66, 2000) are borrowed from `job_search`'s own shape for consistency across `usage_cap`, not derived from any external vendor ceiling the way `job_search`'s were derived from Adzuna's terms. A reader must not assume 66 or 2000 reflects a vendor limit; the number that actually bears on the named risk is the dollar ceiling in `rationale.md`.
 - `checkUsageGate()` marks budget consumed as soon as it decides `allowed: true`, before the vendor is ever called, the same shape `job_search` already accepts. A vendor outage during a busy week can burn an account's entire weekly `ai_scoring` budget on calls that returned nothing, exactly as an Adzuna outage could already burn `job_search`'s.
@@ -109,7 +109,7 @@ No new table. This feature adds six rows to `usage_cap` (feature 10, not yet mer
 
 ## Follow-up
 
-- [ ] This spec is numbered 0012 rather than 0011 because feature 10's own spec already claims 0011 on the still unmerged `feat/usage-gating-kill-switch` branch. Renumber if the two branches land in a different order than expected.
+- [x] This spec is numbered 0012 rather than 0011 because feature 10's own spec already claimed 0011 on the then unmerged `feat/usage-gating-kill-switch` branch. Resolved 2026-09-04: the two branches landed in the expected order (spec 0011 merged and Accepted before this spec merged), so no renumbering is needed.
 - [ ] Feature 14 confirms or corrects the "one scoring call per search" assumption behind `ai_scoring`'s account per week cap of 25; if scoring is per listing rather than per search, the multiplier belongs in a `usage_cap` update, not a migration.
 - [ ] Feature 17 decides its real sample rate for the check tier. If it drops below 1.0, `ai_check`'s three `usage_cap` rows must be lowered in the same change; a cap left at the scoring tier's level while only a fraction of calls are actually sampled no longer bounds real spend.
 - [ ] Feature 16's eval harness should rank the candidate set recorded in `rationale.md` (GLM 5.3 Flash, Gemini 3.8 Flash, Claude Haiku 4.5, Claude Sonnet 5) on accuracy against the ground truth set from feature 15. The vendors this spec ships with are the provisional default, not a settled choice; price is a tiebreak only, since the whole candidate set's spread is roughly $26 a month at this app's ceiling.
