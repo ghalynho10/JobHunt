@@ -11,11 +11,15 @@ See index.md's `## Context` for the build facing summary. The fuller picture:
 This design conversation ran unusually deep because the starting numbers offered turned out to be
 wrong by roughly an order of magnitude. An earlier version of `docs/jobhunt-carry-forward.md`
 attributed Adzuna's rate limits to their terms of service; on 2026-09-02 that attribution was
-checked against the terms directly and found nothing there, while Adzuna's own developer docs, under
-a heading reading "Default API access limits," name 25 hits a minute, 250 a day, 1,000 a week, and
-2,500 a month. The engineer supplied the corrected numbers and the full reasoning chain, including
-which of the four limits actually binds (the month, once the day and week are worked forward), and
-that reasoning is carried into this spec rather than re-derived.
+checked against `developer.adzuna.com/terms`, `/docs/search`, and `/overview`, found nothing there,
+and concluded the limits were in the developer docs under "Default API access limits" (25 hits a
+minute, 250 a day, 1,000 a week, and 2,500 a month) rather than the terms. That negative conclusion
+was itself corrected on 2026-09-04: the page hosting the "Default API access limits" heading is
+`https://developer.adzuna.com/docs/terms_of_service` (checked 2026-09-04), which is Adzuna's terms
+of service, so the original attribution was correct all along. The engineer supplied the corrected
+numbers and the full reasoning chain, including which of the four limits actually binds (the month,
+once the day and week are worked forward), and that reasoning is carried into this spec rather than
+re-derived.
 
 Three design tensions shaped the final shape, each worth recording since none is obvious from the
 schema alone:
@@ -100,12 +104,24 @@ hit during the exact minute they are already intervening by hand.
 - Partial unique indexes for a table whose rows fall into mutually exclusive shapes (here, `account` scoped rows that always name an owner and `global` rows that never do), rather than a single constraint worked around with a sentinel value.
 - A ratio alert with an absolute attempt floor, rather than a bare threshold, so a low traffic total failure is still caught (the reasoning already recorded in `docs/observability/README.md`, not new to this spec).
 
-**Verified 2026-09-02, and recorded as a negative result on purpose**: Adzuna's limits are published in
-their developer docs under "Default API access limits," not in their terms of service. Three public
-pages, `developer.adzuna.com/docs/search`, `/overview`, and `/terms`, were checked the same day and
-carry no limit figures at all. This is recorded explicitly because the reverse mistake (attributing the
-numbers to the terms) is what cost this feature several hours of this conversation: the correct numbers,
-misattributed, looked unverifiable until the actual source was found.
+**Verified 2026-09-02, and recorded as a negative result on purpose (corrected 2026-09-04: this negative result was itself wrong)**:
+The 2026-09-02 investigation recorded:
+> Adzuna's limits are published in their developer docs under "Default API access limits,"
+> not in their terms of service. Three public pages, `developer.adzuna.com/docs/search`,
+> `/overview`, and `/terms`, were checked the same day and carry no limit figures at all.
+> This is recorded explicitly because the reverse mistake (attributing the numbers to the terms)
+> is what cost this feature several hours of this conversation: the correct numbers,
+> misattributed, looked unverifiable until the actual source was found.
+
+**Correction (2026-09-04)**: The negative result above was itself mistaken. The 2026-09-02 pass checked
+`developer.adzuna.com/terms`, `/docs/search`, and `/overview`, but never checked
+`https://developer.adzuna.com/docs/terms_of_service`. On 2026-09-04, `https://developer.adzuna.com/docs/terms_of_service`
+was verified directly: the page is titled "Terms of Service" and contains the heading "Default API access
+limits" verbatim with the four figures (25/min, 250/day, 1000/week, 2500/month). The heading was previously
+misread as evidence the page was docs rather than terms; the URL path demonstrates it is both, and the
+original attribution to Adzuna's terms of service was correct. The false negative from 2026-09-02 is preserved
+above because confidently stating a negative result after checking the wrong URLs is a failure mode that
+costs hours on re-verification.
 
 **Inferred, not verified in the current terms text**: that provisioning more than one account or API
 key to expand the effective budget counts as misuse. `docs/jobhunt-carry-forward.md` records this as a

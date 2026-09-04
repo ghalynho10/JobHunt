@@ -106,20 +106,36 @@ check calls `getClaims()` (`src/proxy.ts`, `src/app/(app)/layout.tsx`,
 
 ## Feature 10 — Usage gating & kill switch
 
-_Written 2026-08-19 · corrected 2026-09-02 · source: Adzuna developer
-docs, heading "Default API access limits" · numbers verified, two claims
-below marked inferred._
+_Written 2026-08-19 · corrected 2026-09-02 · re-corrected 2026-09-04 · source:
+Adzuna terms of service at https://developer.adzuna.com/docs/terms_of_service,
+heading "Default API access limits" (checked 2026-09-04) · numbers verified, two
+claims below marked inferred._
 
-**Confirmed rate limits, from Adzuna's own docs:**
+**Confirmed rate limits, from Adzuna's terms of service:**
 25 hits/minute, 250/day, 1,000/week, 2,500/month.
-(An earlier third-party figure of ~1,000/month was wrong.)
+(An earlier third-party figure of ~1,000/month was wrong; verified 2026-09-04 at
+https://developer.adzuna.com/docs/terms_of_service under heading "Default API access limits".)
 
-**Look in the docs, not the terms.** An earlier version of this entry
-attributed these to Adzuna's terms of service. They are not there. Three
-public pages — `developer.adzuna.com/docs/search`, `/overview` and
-`/terms` — state no limits at all, so a wrong pointer costs real time on
-re-verification. The heading to look for is **"Default API access
-limits"**.
+**Look in the docs, not the terms — corrected 2026-09-04: this 2026-09-02 correction was itself wrong.**
+The 2026-09-02 pass recorded:
+> An earlier version of this entry attributed these to Adzuna's terms of
+> service. They are not there. Three public pages — `developer.adzuna.com/docs/search`,
+> `/overview` and `/terms` — state no limits at all, so a wrong pointer costs
+> real time on re-verification. The heading to look for is **"Default API access
+> limits"**.
+
+That negative result was false, and the original 2026-08-19 attribution to Adzuna's
+terms of service was correct all along. The 2026-09-02 pass checked
+`developer.adzuna.com/terms` (which states no limits), `/docs/search`, and `/overview`,
+and concluded the terms attribution was false — but it never checked
+`https://developer.adzuna.com/docs/terms_of_service`. The "Default API access limits"
+heading was read as evidence the source was the docs rather than the terms, but the
+page is both, which the URL path makes plain.
+Verified 2026-09-04 directly at `https://developer.adzuna.com/docs/terms_of_service`:
+the page title is "Terms of Service" and the heading "Default API access limits"
+sits directly on that page. The 2026-09-02 error is preserved here because a
+confidently recorded negative result based on checking the wrong URLs is exactly
+the failure shape that wastes hours on re-verification.
 
 **"Default" is load bearing.** These are per-key defaults, not a hard
 platform ceiling. That makes raising them a lever that exists *before*
