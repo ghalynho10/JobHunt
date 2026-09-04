@@ -13,8 +13,14 @@ import * as Sentry from "@sentry/nextjs";
  *
  * - `unexpected`: something broke (a timeout, a malformed response, a database
  *   error). Reported to Sentry as an error.
- * - `expected`: the system worked and the answer was no (a validation error, a
- *   usage cap reached, an empty search). Reported at info level.
+ * - `expected`: the system worked and the answer was no (a validation error,
+ *   an empty search, `session_missing`). Reported at info level. NOT a usage
+ *   cap reached, or any other gate refusal (spec 0011, AC-5): `failure()`
+ *   marks the active span failed regardless of severity, and a refusal is the
+ *   system working exactly as designed, so it is never a `Failure` at all,
+ *   `success({ allowed: false, reason })` instead. Reporting it through here,
+ *   at any severity, would put a correct refusal into the numerator of the
+ *   failure rate alert built on `usage_gate.check` (binding rule 4).
  *
  * `expected` never means "ignorable". Binding rule 4 alerts on the *share* of
  * attempts that fail, because the reference project's outage was made entirely

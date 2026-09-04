@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { KillSwitch } from "@/lib/kill-switch";
 import { failure, success } from "@/lib/result";
@@ -37,7 +37,18 @@ vi.mock("@/lib/supabase/server", () => ({
 const { readKillSwitch } = await import("@/lib/kill-switch");
 const { checkUsageGate } = await import("./gate");
 
-const A_KILL_SWITCH_STATE: KillSwitch = {
+/**
+ * Call HISTORY, not just implementation, has to reset between tests: several
+ * tests below assert `rpc` (or `readKillSwitch`) was never called, and
+ * `vi.fn()`'s call log otherwise accumulates across every test in this file,
+ * which is what let an earlier version of the `getClaims()` throw test below
+ * fail against calls two OTHER tests made, not against anything of its own.
+ */
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+const KILL_SWITCH_ON: KillSwitch = {
   enabled: true,
   updatedAt: "2026-09-02T00:00:00+00:00",
 };
@@ -57,7 +68,7 @@ function signedInAs(userId: string): void {
 describe("checkUsageGate: the kill switch pre-check (AC-4, AC-5)", () => {
   it("refuses with kill_switch_engaged when the read succeeded and the switch is on", async () => {
     signedInAs("user-1");
-    vi.mocked(readKillSwitch).mockResolvedValue(success(A_KILL_SWITCH_STATE));
+    vi.mocked(readKillSwitch).mockResolvedValue(success(KILL_SWITCH_ON));
 
     const result = await checkUsageGate("job_search");
 
@@ -108,12 +119,19 @@ describe("checkUsageGate: a response with neither data nor an error (AC-14)", ()
    * only runs when `isMaybeSingle` is set, which is `.maybeSingle()`'s own
    * flag; `.single()` never sets it.
    *
-   * What DOES produce this exact shape, in that same `processResponse`, is a
-   * 2xx response with an EMPTY body: `data` and `error` both stay at their
-   * initial `null`, no JSON parse and no error ever runs. That is a real,
-   * verified transport behaviour, just not one `checkUsageGate()`'s own call
-   * (which sets no `Prefer: return=minimal` and no such header) would trigger
-   * through ordinary use. Proved here instead, mocking the RPC response
+   * What DOES produce this exact shape, in that same `processResponse`, is
+   * more reachable than this comment first said, corrected again the same
+   * day on a fresh model review (`docs/reviews/2026-09-03-feat-usage-gating-kill-switch.md`):
+   * a 2xx response with an EMPTY body leaves `data` and `error` both at their
+   * initial `null`, no JSON parse and no error ever runs; separately, a 404
+   * with an empty body hits the same outcome from the non 2xx branch, since
+   * `JSON.parse("")` throws, the catch sets `status = 204` for that specific
+   * case, and neither `data` nor `error` is ever assigned. Both are real,
+   * verified transport behaviours (an unreachable project URL, an edge proxy
+   * 404, or an empty successful body however it arose), just not ones
+   * `checkUsageGate()`'s own call (which sets no `Prefer: return=minimal` and
+   * targets a real, configured project) would trigger through ordinary use.
+   * Proved here instead, mocking the RPC response
    * directly at the client boundary, because it is `checkUsageGate()`'s own
    * defensive read under test: `attempt()` only converts a thrown exception,
    * and this shape is neither a thrown exception nor a populated `error`, so
@@ -135,5 +153,61 @@ describe("checkUsageGate: a response with neither data nor an error (AC-14)", ()
 
     expect(result.kind).toBe("database_unavailable");
     expect(result.severity).toBe("unexpected");
+  });
+
+  /**
+   * A shape `check_usage_gate` cannot actually produce: `configured` true and
+   * a `reason` outside the closed `UsageGateReason` set. Since the Zod
+   * refactor above, this fails the schema parse rather than a separate
+   * `isUsageGateReason` runtime check, the same fail closed treatment as any
+   * other malformed row. Uncovered before this test (fresh model review,
+   * 2026-09-03): the branch that catches the database and the TypeScript
+   * union drifting apart, e.g. a sixth reason shipped in the SQL without a
+   * matching `UsageGateReason` member, had never run.
+   */
+  it("returns database_unavailable when the row's own reason is outside the closed set", async () => {
+    signedInAs("user-1");
+    vi.mocked(readKillSwitch).mockResolvedValue(success(KILL_SWITCH_OFF));
+    rpc.mockReturnValue({
+      single: () =>
+        Promise.resolve({
+          data: { configured: true, allowed: false, reason: "something_else" },
+          error: null,
+        }),
+    });
+
+    const result = await checkUsageGate("job_search");
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.kind).toBe("database_unavailable");
+    expect(result.severity).toBe("unexpected");
+  });
+});
+
+describe("checkUsageGate: getClaims() itself throws (AC-13)", () => {
+  /**
+   * Binding rule 5: `getClaims()` reaches Supabase's JWKS endpoint and can
+   * throw, which `attempt()` converts to `external_service_failed`, distinct
+   * from the returned `error` that means an invalid or absent session. A JWKS
+   * outage is a total denial of the gate, not the caller's own usage, which
+   * is why `external_service_failed` belongs in AC-10's alert numerator
+   * alongside `database_unavailable` and `usage_gate_misconfigured` (fresh
+   * model review, 2026-09-03; this branch had never run before this test).
+   */
+  it("returns external_service_failed rather than an unhandled rejection", async () => {
+    getClaims.mockRejectedValue(new Error("JWKS endpoint unreachable"));
+
+    const result = await checkUsageGate("job_search");
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.kind).toBe("external_service_failed");
+
+    // The throw happens before the kill switch pre-check, so it is never
+    // reached either.
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

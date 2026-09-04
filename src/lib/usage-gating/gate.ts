@@ -2,6 +2,7 @@ import "server-only";
 
 import * as Sentry from "@sentry/nextjs";
 import type { CookieMethodsServer } from "@supabase/ssr";
+import { z } from "zod";
 
 import {
   attempt,
@@ -36,11 +37,25 @@ export const USAGE_GATE_REASONS: readonly UsageGateReason[] = [
   "kill_switch_unavailable",
 ];
 
-const USAGE_GATE_REASON_SET: ReadonlySet<string> = new Set(USAGE_GATE_REASONS);
-
-function isUsageGateReason(value: string): value is UsageGateReason {
-  return USAGE_GATE_REASON_SET.has(value);
-}
+/**
+ * `check_usage_gate`'s own return row, parsed rather than trusted (fresh
+ * model review, 2026-09-03; `AGENTS.md` binding rule 7). The generated
+ * `database.types.ts` types this row as `{ configured: boolean; allowed:
+ * boolean; reason: string }[]`, which actively lies: the function returns
+ * `null::boolean` for `allowed` and `null::text` for `reason` on the
+ * unconfigured and allowed paths, matching `readKillSwitch()`'s own reasoning
+ * ("the generated types say what the schema claims; this says what actually
+ * arrived"). `reason` is the closed `UsageGateReason` enum here too, so a
+ * `reason` the SQL cannot actually produce fails the parse rather than
+ * reaching `isUsageGateReason`'s own runtime check as a separate step.
+ */
+const checkUsageGateRowSchema = z.object({
+  configured: z.boolean(),
+  allowed: z.boolean().nullable(),
+  reason: z
+    .enum(USAGE_GATE_REASONS as [UsageGateReason, ...UsageGateReason[]])
+    .nullable(),
+});
 
 /**
  * A decided call. AC-5: a refusal is always this shape, never a `Failure` —
@@ -159,12 +174,31 @@ export async function checkUsageGate(
       }
 
       /**
+       * Parsed rather than trusted (`AGENTS.md` binding rule 7). A row that
+       * fails this, including a `reason` outside the closed `UsageGateReason`
+       * set, means something between the function and this parse is broken,
+       * the same fail closed treatment as any other database fault rather
+       * than crashing or inventing a sixth reason.
+       */
+      const parsed = checkUsageGateRowSchema.safeParse(row);
+
+      if (!parsed.success) {
+        return failure({
+          kind: USAGE_GATE_FAILURES.database_unavailable.kind,
+          severity: USAGE_GATE_FAILURES.database_unavailable.severity,
+          message: USAGE_GATE_FAILURES.database_unavailable.message,
+          context: { callType, issues: z.treeifyError(parsed.error) },
+          cause: parsed.error,
+        });
+      }
+
+      /**
        * AC-6: the atomic function never raises to signal this, it returns
        * `configured: false` as an ordinary output column. `allowed` and
        * `reason` carry no meaning when `configured` is false, so neither is
        * read below this point.
        */
-      if (!row.configured) {
+      if (!parsed.data.configured) {
         return failure({
           kind: USAGE_GATE_FAILURES.usage_gate_misconfigured.kind,
           severity: USAGE_GATE_FAILURES.usage_gate_misconfigured.severity,
@@ -173,25 +207,18 @@ export async function checkUsageGate(
         });
       }
 
-      if (row.allowed) return success({ allowed: true });
+      if (parsed.data.allowed) return success({ allowed: true });
 
-      /**
-       * A shape `check_usage_gate` cannot actually produce: `configured` true,
-       * `allowed` false, and a `reason` outside the closed set above. Treated
-       * the same as a database fault rather than crashing or inventing a
-       * sixth reason, since something between the function and this parse is
-       * broken either way.
-       */
-      if (!row.reason || !isUsageGateReason(row.reason)) {
+      if (!parsed.data.reason) {
         return failure({
           kind: USAGE_GATE_FAILURES.database_unavailable.kind,
           severity: USAGE_GATE_FAILURES.database_unavailable.severity,
           message: USAGE_GATE_FAILURES.database_unavailable.message,
-          context: { callType, reason: row.reason },
+          context: { callType },
         });
       }
 
-      return success({ allowed: false, reason: row.reason });
+      return success({ allowed: false, reason: parsed.data.reason });
     },
   );
 }

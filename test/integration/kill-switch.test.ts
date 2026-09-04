@@ -28,19 +28,23 @@ import { mintSession } from "../helpers/session";
  * a non concurrent suite runs its tasks through a plain `for` loop). That
  * fixes a flip racing THIS file's own read below, but not the wider problem:
  * `app_settings` is read by every `checkUsageGate()` call across every
- * integration file, and Vitest schedules different FILES to run in parallel
- * by default. Tried once (2026-09-03) as a same file placement and reverted
- * after it broke `test/integration/usage-gating.test.ts`'s own, unrelated
- * account week burst test twice in three extra runs: that test's calls landed
- * mid flight while this file's engaged the switch, and every one of them came
- * back refused for the wrong reason. Fixing this for real needs either
- * `fileParallelism: false` in `vitest.config.mts` (serialises the whole
- * integration project, a real cost, and an existing config this test suite
- * should not edit on its own) or a lock every caller of `checkUsageGate()`
- * would have to participate in, not just this file. Until one of those
- * exists, the real engaged switch stays a `/check verify` observation
- * (`docs/specs/0011-usage-gating-and-kill-switch/verify.md`), not a
- * committed assertion.
+ * integration file, and Vitest schedules different FILES in `test/integration/`
+ * to run in parallel by default. Tried once (2026-09-03) as a same file
+ * placement and reverted after it broke `test/integration/usage-gating.test.ts`'s
+ * own, unrelated account week burst test twice in three extra runs: that
+ * test's calls landed mid flight while this file's engaged the switch, and
+ * every one of them came back refused for the wrong reason.
+ *
+ * THE REAL ENGAGED SWITCH IS NOW A COMMITTED TEST, just not in this file:
+ * `test/integration-serial/shared-global-state.test.ts`, which
+ * `vitest.config.mts`'s `integration-serial` project runs after every
+ * `test/integration/` file has finished, via `sequence.groupOrder: 1`. It
+ * shares that one file with AC-14's database fault test rather than getting
+ * one of its own, because `groupOrder` isolates that whole PROJECT from this
+ * one but not its files from each other, and two files there raced on the
+ * first attempt; only tests within one file are guaranteed sequential. That
+ * still isolates only what needs it, unlike `fileParallelism: false`,
+ * which would have serialised this whole project for every file's sake.
  */
 
 const mintedUserIds: string[] = [];

@@ -409,7 +409,7 @@ describe("a concurrent burst never lets more than the cap through (AC-1, AC-2)",
 });
 
 describe("an unrecognised or partially configured call_type is refused as misconfigured (AC-6)", () => {
-  it("reports usage_gate_misconfigured for a call_type with no usage_cap rows at all", async () => {
+  it("reports usage_gate_misconfigured for a call_type with no usage_cap rows at all, and creates no counter row", async () => {
     const session = await freshSession("gate-unconfigured");
 
     const result = await checkUsageGate(
@@ -425,6 +425,22 @@ describe("an unrecognised or partially configured call_type is refused as miscon
 
     expect(result.kind).toBe("usage_gate_misconfigured");
     expect(result.severity).toBe("unexpected");
+
+    /**
+     * AC-9's corrected ordering (2026-09-03, fresh model review): the
+     * function checks configuration before writing anything, so an
+     * unrecognised `call_type` must leave zero rows here, on either scope.
+     * This is a real regression guard, not incidental: an earlier version of
+     * the function bumped `attempt_count` before this check, which let any
+     * authenticated caller create unbounded rows here just by varying
+     * `call_type`. This test used to leave exactly this junk behind on every
+     * run, because nothing here asserted it shouldn't.
+     */
+    const rows = await queryAsSuperuser(
+      `select id from public.usage_gate_counter where call_type = $1`,
+      ["no_such_call_type_at_all"],
+    );
+    expect(rows).toHaveLength(0);
   });
 
   it("reports the same failure when only some of the three required rows exist", async () => {
@@ -618,89 +634,49 @@ describe("a global window is checked in isolation, and reported even though the 
 });
 
 /**
- * AC-14's `{ data: null, error: null }` case is deliberately NOT here: it
- * cannot be produced by the real stack. `.single()` either returns the one
- * row `check_usage_gate` always emits via `return query select ...`, or
- * PostgREST turns zero or multiple rows into an `error` (`PGRST116`), so there
- * is no real request that lands on that exact shape to drive against. It is a
- * unit test instead, in `src/lib/usage-gating/gate.test.ts`, extending
+ * AC-14's `{ data: null, error: null }` case is deliberately NOT here: it is
+ * not producible by driving `check_usage_gate` through its own ordinary call.
+ * The function always emits exactly one row via `return query select ...`,
+ * and a real cardinality violation is enforced server side, by PostgREST's
+ * own handling of the `Accept: application/vnd.pgrst.object+json` header
+ * `.single()` sets, not by anything this client library does on its own (see
+ * `gate.test.ts`'s own comment, corrected 2026-09-03, for the client side
+ * mechanism that DOES produce this shape, which is unrelated to row count).
+ * It is a unit test instead, in `src/lib/usage-gating/gate.test.ts`, extending
  * the same mocked client already used there for the kill switch outcomes:
  * that test is proving `checkUsageGate()`'s own defensive read of the
  * response, not anything the database itself does.
  */
-describe("a database fault while writing the counters fails closed (AC-14)", () => {
-  /**
-   * `job_search` is safe to use here even though the call is expected to
-   * fail: the revoke breaks the very first statement inside
-   * `check_usage_gate`, so the whole transaction rolls back and nothing is
-   * ever written, real budget included.
-   */
-  it("returns database_unavailable when the function's own table access is revoked mid test", async () => {
-    const session = await freshSession("gate-db-fault-revoked");
-
-    /**
-     * `check_usage_gate` is `SECURITY DEFINER`, owned by `postgres`, which is
-     * BYPASSRLS but confirmed NOT a superuser on this stack (`select rolsuper,
-     * rolbypassrls from pg_roles where rolname = 'postgres'` → f, t) — the same
-     * split spec 0002's own verify.md documents for the hosted project.
-     * BYPASSRLS bypasses row level security only, never table privileges, so
-     * revoking the owner's own INSERT and UPDATE genuinely breaks the
-     * function's very first statement (the unconditional attempt bump),
-     * confirmed by hand before writing this test: the same revoke against a
-     * probe row raised a real `permission denied for table
-     * usage_gate_counter`, not a silent no-op.
-     */
-    await queryAsSuperuser(
-      `revoke insert, update on public.usage_gate_counter from postgres`,
-    );
-
-    try {
-      const result = await checkUsageGate(JOB_SEARCH, session.jar);
-
-      if (!isFailure(result)) {
-        throw new Error(
-          "Expected database_unavailable once the function's own table access was revoked, got a decision.",
-        );
-      }
-
-      expect(result.kind).toBe("database_unavailable");
-      expect(result.severity).toBe("unexpected");
-
-      /**
-       * `42501` is Postgres's `insufficient_privilege`, and it only ever
-       * lands in `context.code` on the branch that reads the `.rpc()`
-       * response's own `error` field (AC-14), which returns before
-       * `configured`, `allowed` or `reason` is read at all. The
-       * `usage_gate_misconfigured` branch's context carries no `code`, so
-       * this also proves which branch was actually taken, not merely that
-       * some failure occurred.
-       */
-      expect(result.context?.["code"]).toBe("42501");
-    } finally {
-      await queryAsSuperuser(
-        `grant insert, update on public.usage_gate_counter to postgres`,
-      );
-    }
-  });
-});
-
 /**
- * AC-4 and AC-5's two kill switch outcomes (the mocked branching) are proved
- * in `src/lib/usage-gating/gate.test.ts` instead, as a unit test mocking
- * `readKillSwitch()`, NOT here. `readKillSwitch()`'s own correctness against
- * the real row is proved in `test/integration/kill-switch.test.ts`.
+ * TWO SCENARIOS ARE NOT HERE, DELIBERATELY, both moved to
+ * `test/integration-serial/shared-global-state.test.ts` on 2026-09-03, a
+ * fresh model review:
  *
- * A REAL ENGAGED SWITCH REACHING `checkUsageGate()` end to end is deliberately
- * NOT a committed test anywhere in this suite, not just not here. Moving the
- * flip into `kill-switch.test.ts` (same file as its own
- * `expect(result.value.enabled).toBe(false)` read, so no race with THAT
- * assertion, since tests within one file run sequentially) was tried
- * 2026-09-03 and reverted: it broke THIS file's own account week burst test
- * below twice in three extra runs, because `app_settings` is read by every
- * `checkUsageGate()` call across every integration file, and Vitest still
- * schedules different files in parallel. See `kill-switch.test.ts`'s own
- * comment for the full account. The real switch reaching the gate is proved
- * once, by hand, in `docs/specs/0011-usage-gating-and-kill-switch/verify.md`.
+ * AC-14's forced database fault (revoking the gate function's own table
+ * access mid test). The revoke is process wide, cross file state, and it was
+ * safe in this file only because no other file in THIS project called
+ * `checkUsageGate()`, a fact nothing here recorded.
+ *
+ * A real engaged kill switch reaching `checkUsageGate()` end to end (AC-4,
+ * AC-5's mocked branching is still proved in `src/lib/usage-gating/gate.test.ts`;
+ * `readKillSwitch()`'s own correctness against the real row is proved in
+ * `test/integration/kill-switch.test.ts`). Placing the flip in THIS project
+ * was tried twice on 2026-09-03 and reverted both times, because
+ * `app_settings` is read by every `checkUsageGate()` call across every
+ * `test/integration/` file, and Vitest schedules those files to run in
+ * parallel, so a flip anywhere in this project races every other file's
+ * concurrent gate calls (proved by breaking THIS file's own account week
+ * burst test below, twice in three extra runs).
+ *
+ * BOTH LIVE IN THE SAME FILE, not one file each, and that also cost a real
+ * failure before it was corrected: `vitest.config.mts`'s `integration-serial`
+ * project (`sequence.groupOrder: 1`) isolates that whole project from this
+ * one, but does not isolate the FILES within it from each other, the same
+ * default parallelism this project already has. Two separate files there
+ * raced each other on the first attempt (the kill switch flip made the
+ * database fault test observe `kill_switch_engaged` instead of the
+ * `database_unavailable` it was testing for). See that merged file's own
+ * comment for the fuller account.
  */
 
 describe("identity: no session, no decision (AC-13)", () => {

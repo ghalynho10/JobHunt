@@ -165,12 +165,16 @@ Both rules filter by **failure kind** (the `failure.kind` span attribute
 
 - **`usage_gate.check`**: filters `span.description:usage_gate.check` and
   `failure.kind is not session_missing`. That keeps the intended numerator —
-  `usage_gate_misconfigured` and `database_unavailable`, the unexpected kinds
-  this span can carry — because AC-3/AC-4's five refusal reasons are successes
-  that never mark the span failed in the first place (`success({ allowed:
-  false, reason })`, per `checkUsageGate()`'s own AC-5), and `session_missing`
-  is the one expected failure excluded by name (a caller with an expired token
-  is not evidence the gate is broken).
+  `usage_gate_misconfigured`, `database_unavailable`, and
+  `external_service_failed` (the `getClaims()` call can throw, e.g. a JWKS
+  outage; corrected 2026-09-03, a fresh model review found this third kind
+  unnamed here), the unexpected kinds this span can carry — because AC-3/AC-4's
+  five refusal reasons are successes that never mark the span failed in the
+  first place (`success({ allowed: false, reason })`, per `checkUsageGate()`'s
+  own AC-5), and `session_missing` is the one expected failure excluded by
+  name (a caller with an expired token is not evidence the gate is broken).
+  All three unexpected kinds belong in the numerator deliberately: each is a
+  total denial of the gate, not the caller's own usage.
 - **`kill_switch.read`**: filters `span.description:kill_switch.read` only;
   the numerator is its own existing failure kinds (`database_unavailable`,
   `record_not_found`, `response_malformed`), unchanged.
