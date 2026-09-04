@@ -171,13 +171,13 @@ begin
   -- all three see the same snapshot. A `call_type` missing any one of its
   -- three required rows is treated the same as one with none at all (AC-6).
   select
-    max(cap.cap_value) filter (
+    pg_catalog.max(cap.cap_value) filter (
       where cap.scope = 'global' and cap.period = 'day'
     ),
-    max(cap.cap_value) filter (
+    pg_catalog.max(cap.cap_value) filter (
       where cap.scope = 'global' and cap.period = 'month'
     ),
-    max(cap.cap_value) filter (
+    pg_catalog.max(cap.cap_value) filter (
       where cap.scope = 'account' and cap.period = 'week'
     )
     into v_global_day_cap, v_global_month_cap, v_account_week_cap
