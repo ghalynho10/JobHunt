@@ -1,7 +1,7 @@
 # 0013. Job search and results list
 
 **Date**: 2026-09-04
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -167,6 +167,8 @@ Country, currency, and the attribution domain are plain code constants, not envi
 
 Ordered for Tracer Bullet: a thin thread through every layer proven on one real query before the full attribution and edge case surface is built out.
 
+_Progress, 2026-09-04: steps 1 to 7 are built and landed on `feat/job-search-and-results-list`. Step 8 is **not** done: the whole thread was proved end to end by hand against the real local stack and the real Adzuna API (a real minted session, 20 real listings, and each of the five visible states driven in a browser), but no recorded Adzuna fixture and no committed test of the Critical test scenarios exists yet. That is `/test`'s milestone on this feature's scope row._
+
 1. Configuration: add `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` (both required) to `src/env.ts`'s server block and to `.env.example`/`.env.test.example`, and add the `adzuna` entry to `DATA_RECIPIENTS` in `src/features/legal/recipients.ts` naming both keys. Satisfies **AC-11**.
 2. Build `src/lib/usage-gating/with-usage-gate.ts`: the `withUsageGate<T>(callType, fn, cookieAdapter?)` inversion of control helper spec 0011's own Consequences flagged as owed to this feature, returning `Result<{ allowed: true, value: T } or { allowed: false, reason: UsageGateReason }>` (see Decision), so a caller cannot reach its outbound call without the gate's `allowed: true` branch running it. Threads the same optional `cookieAdapter` seam `checkUsageGate()` already exposes, so the real minted session tests in step 8 have something to pass. Lives in `src/lib/` alongside the rest of usage gating, not under this feature, since it is generic across call types. Satisfies **AC-3**, **AC-10**.
 3. Build `src/features/search/adzuna.ts`: the Zod schemas (the envelope, the per item listing shape parsed individually per the Data model sketch's drop and count rule, and the `SearchQuery` input requiring at least one of title or location), the `source` constant, the `Listing` type, and `searchListings()` (accepting the same optional `cookieAdapter`), opening the `search.run` span as its first statement, building the request from the named endpoint/`results_per_page`/timeout constants, checking `res.ok` explicitly before parsing (a non success status is `external_service_failed`, never handed to the parser), wrapping the `fetch` in `attempt()` for a thrown network error, and calling `withUsageGate("job_search", ...)` around it. Register `search.run` in `docs/observability/spans.md`. Satisfies **AC-1**, **AC-2**, **AC-5**, **AC-10**.
@@ -198,7 +200,7 @@ Ordered for Tracer Bullet: a thin thread through every layer proven on one real 
 
 ## Follow-up
 
-- [ ] The real Adzuna logo image asset must be sourced by the engineer before step 5 of the Build plan; none was found at the pages this spec's research reached (`adzuna.co.uk/press.html` returned 403 Forbidden on 2026-09-04). Until then, AC-6 is only partially met (a working text link, no logo image).
+- [x] The real Adzuna logo image asset must be sourced by the engineer before step 5 of the Build plan; none was found at the pages this spec's research reached (`adzuna.co.uk/press.html` returned 403 Forbidden on 2026-09-04). **Done: the engineer supplied it before the build** (`src/features/search/adzuna-logo.svg`, commit `1504a0b`), so AC-6 is met in full, with the mark rendered inline from `adzuna-logo-geometry.ts` and held to the file by a drift test.
 - [ ] Spec 0005's own Follow-up (index line 180, confirm the exact attribution image asset and link targets) is answered here for the link targets (`https://www.adzuna.com` for both, for the configured United States country) but not for the image asset itself; that spec stays as written until the asset lands.
 - [ ] If this app is ever configured for a country other than the United States, review the currency constant, the attribution domain constant, and the Jobsworth link target together: the Jobsworth URL is quoted in this spec exactly as Adzuna's terms state it, with no "or relevant local domain" alternative offered the way the main attribution clause has, so treat it as fixed rather than assumed to vary per country until checked again.
 - [ ] Whether Adzuna grants a rate limit increase on request, and on what terms, is unverified (also flagged in `docs/jobhunt-carry-forward.md`'s feature 10 entry); worth asking before spec 0011's own caps are treated as permanently fixed to Adzuna's current defaults.
