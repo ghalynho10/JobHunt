@@ -28,13 +28,16 @@ import { mintSession } from "../helpers/session";
  * the database fault test's own RPC call and made it observe
  * `kill_switch_engaged` instead of the `database_unavailable` it was testing
  * for. Tests WITHIN one file are guaranteed sequential (confirmed against the
- * installed `@vitest/runner` 4.1.11's own task runner), which is the only
- * ordering guarantee actually available here, so every scenario needing the
- * real shared state belongs in this one file until Vitest offers a coarser
- * primitive than "one project" for this.
+ * installed `@vitest/runner` 4.1.11's own task runner), which was the only
+ * ordering guarantee available when this file was merged.
  *
- * See `vitest.config.mts`'s own top comment and spec 0011's Follow-up list
- * for why `fileParallelism: false` was rejected in favour of this.
+ * SINCE 2026-09-04 THAT IS NO LONGER THE ONLY GUARANTEE: `vitest.config.mts`
+ * sets `fileParallelism: false` on this project (a second fresh model
+ * review's finding), which forces its `maxWorkers` to 1, so a second file
+ * dropped in here would run after this one rather than racing it. Everything
+ * still lives in one file because that stays simpler than splitting it, not
+ * because a split would be unsafe. See `vitest.config.mts`'s own top comment
+ * for the fuller account.
  */
 
 describe("a real engaged kill switch reaches checkUsageGate() end to end (AC-4, AC-5)", () => {

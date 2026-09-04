@@ -30,11 +30,15 @@ import { defineConfig } from "vitest/config";
  * FROM EACH OTHER. It orders projects, not files, and Vitest still schedules
  * this project's own files in parallel by default, the same as `integration`
  * does internally. Two files here raced each other on the first attempt
- * (confirmed 2026-09-03): every scenario needing the real shared state has to
- * live in the SAME file as every other one, `test/integration-serial/shared-global-state.test.ts`,
- * since tests within one file are the only thing actually guaranteed
- * sequential (confirmed against the installed `@vitest/runner` 4.1.11's own
- * task runner). See that file's own comment for the fuller account.
+ * (confirmed 2026-09-03), which is why this project's own `fileParallelism:
+ * false` was added below (2026-09-04, a second fresh model review): it forces
+ * `integration-serial`'s `maxWorkers` to 1, so a second file here would run
+ * after the first rather than beside it. The scenarios below still live in
+ * one file, `test/integration-serial/shared-global-state.test.ts`, but that
+ * is the simpler default now, not the only safe option: `fileParallelism`
+ * makes a second file correct by construction, the comment does not have to
+ * be the thing keeping it safe. See that file's own comment for the fuller
+ * account.
  *
  * No end to end runner is configured here. Playwright is the recorded choice
  * (spec 0004) and is installed by the first feature that genuinely needs a

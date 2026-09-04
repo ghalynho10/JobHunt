@@ -42,9 +42,13 @@ import { mintSession } from "../helpers/session";
  * shares that one file with AC-14's database fault test rather than getting
  * one of its own, because `groupOrder` isolates that whole PROJECT from this
  * one but not its files from each other, and two files there raced on the
- * first attempt; only tests within one file are guaranteed sequential. That
- * still isolates only what needs it, unlike `fileParallelism: false`,
- * which would have serialised this whole project for every file's sake.
+ * first attempt. Since 2026-09-04 that project also sets `fileParallelism:
+ * false` on itself, scoped to `integration-serial` alone, so a second file
+ * dropped there would no longer race the first; the merged single file stays
+ * the default there because it is simpler, not because splitting it would be
+ * unsafe. Setting `fileParallelism: false` HERE, on `integration`, remains
+ * the wrong fix: it would serialise dozens of unrelated files for every
+ * file's sake, which is exactly what scoping it to the other project avoids.
  */
 
 const mintedUserIds: string[] = [];
