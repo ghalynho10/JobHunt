@@ -11,7 +11,7 @@
 -- transaction the way this function does.
 --
 -- THE KILL SWITCH ITSELF IS NOT TOUCHED HERE. `checkUsageGate()` in
--- `src/features/usage-gating/gate.ts` calls `readKillSwitch()` first, as a
+-- `src/lib/usage-gating/gate.ts` calls `readKillSwitch()` first, as a
 -- separate step, and only reaches this function once that read succeeds and
 -- reports the switch off (spec 0011, Option 1). `app_settings` keeps exactly
 -- one reader, per spec 0002 binding rule 4.

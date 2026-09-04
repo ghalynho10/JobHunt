@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 
-import { checkUsageGate } from "@/features/usage-gating/gate";
+import { checkUsageGate } from "@/lib/usage-gating/gate";
 import { isFailure } from "@/lib/result";
 import { createClient } from "@/lib/supabase/server";
 
@@ -421,7 +421,7 @@ describe("a global window is checked in isolation, and reported even though the 
  * row `check_usage_gate` always emits via `return query select ...`, or
  * PostgREST turns zero or multiple rows into an `error` (`PGRST116`), so there
  * is no real request that lands on that exact shape to drive against. It is a
- * unit test instead, in `src/features/usage-gating/gate.test.ts`, extending
+ * unit test instead, in `src/lib/usage-gating/gate.test.ts`, extending
  * the same mocked client already used there for the kill switch outcomes:
  * that test is proving `checkUsageGate()`'s own defensive read of the
  * response, not anything the database itself does.
@@ -484,7 +484,7 @@ describe("a database fault while writing the counters fails closed (AC-14)", () 
 
 /**
  * AC-4 and AC-5's two kill switch outcomes are proved in
- * `src/features/usage-gating/gate.test.ts` instead, as a unit test mocking
+ * `src/lib/usage-gating/gate.test.ts` instead, as a unit test mocking
  * `readKillSwitch()`, NOT here. `app_settings` is a single global row every
  * integration file's process shares, `kill-switch.test.ts` included, and
  * Vitest runs integration files in parallel: flipping the real switch here
