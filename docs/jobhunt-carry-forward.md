@@ -108,8 +108,8 @@ check calls `getClaims()` (`src/proxy.ts`, `src/app/(app)/layout.tsx`,
 
 _Written 2026-08-19 · corrected 2026-09-02 · re-corrected 2026-09-04 · source:
 Adzuna terms of service at https://developer.adzuna.com/docs/terms_of_service,
-heading "Default API access limits" (checked 2026-09-04) · numbers verified, two
-claims below marked inferred._
+heading "Default API access limits" (checked 2026-09-04) · numbers and claims
+below verified 2026-09-04._
 
 **Confirmed rate limits, from Adzuna's terms of service:**
 25 hits/minute, 250/day, 1,000/week, 2,500/month.
@@ -140,8 +140,12 @@ the failure shape that wastes hours on re-verification.
 **"Default" is load bearing.** These are per-key defaults, not a hard
 platform ceiling. That makes raising them a lever that exists *before*
 2,500 is treated as immovable — an option no decision so far has weighed.
-Whether Adzuna grants increases, and on what terms, is unverified and
-worth asking before the cap numbers are treated as fixed.
+**Terms verified 2026-09-04** at `https://developer.adzuna.com/docs/terms_of_service`:
+higher limits are offered "upon request for commercial applications with mutual benefit"
+("We are very happy to increase limits for applications where we see mutual commercial
+benefit - our biggest API users do millions of hits per day!"). A non-commercial project
+may not qualify for an increase, so the default 2,500/month should be treated as binding
+unless commercial terms apply.
 
 **The monthly window is the binding constraint.** Working down from
 2,500/month: that is roughly 577/week or 82/day — well under both the
@@ -178,13 +182,13 @@ derived from the monthly cap), ten users at 25/week is 250 — comfortable,
 but half the headroom a weekly-cap reading would suggest. Recheck once
 the calls-per-search question above is answered.
 
-**A permanent constraint, not a v1 limitation — INFERRED, not verified.**
-Creating multiple accounts for a single entity or individual is understood
-to be treated as misuse, which would mean provisioning per-user API keys to
-expand the budget is not available. Plausible and consistent with how such
-terms usually read, but **not checked against Adzuna's current text**. Verify
-before relying on it, particularly now that the ceiling above is known to be
-a raisable default rather than a hard limit — the two interact.
+**A permanent constraint, not a v1 limitation — VERIFIED 2026-09-04 (previously INFERRED).**
+Creating multiple accounts for a single entity or individual is explicitly prohibited.
+Adzuna's terms of service (`https://developer.adzuna.com/docs/terms_of_service`, section
+"Confidentiality", checked 2026-09-04) state: "Creation of multiple accounts for a single
+entity or individual will immediately be considered misuse and a breach of these terms
+and conditions." Provisioning per-user API keys or rotating accounts to expand the effective
+budget is not an available option under the terms.
 
 ---
 

@@ -123,8 +123,9 @@ original attribution to Adzuna's terms of service was correct. The false negativ
 above because confidently stating a negative result after checking the wrong URLs is a failure mode that
 costs hours on re-verification.
 
-**Inferred, not verified in the current terms text**: that provisioning more than one account or API
-key to expand the effective budget counts as misuse. `docs/jobhunt-carry-forward.md` records this as a
-permanent constraint from Adzuna's terms; this spec treats it as an inferred, operator facing policy
-constraint rather than a verified quote, and it is not something this gate can technically enforce
-regardless.
+**Verified 2026-09-04 in terms text (previously inferred)**: that provisioning more than one account or API
+key to expand the effective budget counts as misuse. Adzuna's terms of service at
+`https://developer.adzuna.com/docs/terms_of_service` (section "Confidentiality", checked 2026-09-04) explicitly
+state: "Creation of multiple accounts for a single entity or individual will immediately be considered
+misuse and a breach of these terms and conditions." This confirms the permanent constraint as verified terms text,
+though it remains an operator-facing policy constraint that the database gate cannot technically enforce on its own.
