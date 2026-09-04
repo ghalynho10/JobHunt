@@ -1,6 +1,7 @@
 import "server-only";
 
 import * as Sentry from "@sentry/nextjs";
+import type { CookieMethodsServer } from "@supabase/ssr";
 import { z } from "zod";
 
 import {
@@ -35,13 +36,20 @@ const prefillRowSchema = z.object({
  * either way: an unset preference is an ordinary, early state, the same
  * reasoning `readProfileSections()`'s own `preferences: Preferences |
  * undefined` already carries.
+ *
+ * @param cookieAdapter Where the session cookies are read from, matching
+ * `createClient()`'s own parameter (spec 0004) and the seam `checkUsageGate()`
+ * and `searchListings()` already expose: absent in every real caller, which
+ * reads the real request; a test drives this with an in memory jar instead.
  */
-export async function readSearchPrefill(): Promise<Result<SearchPrefill>> {
+export async function readSearchPrefill(
+  cookieAdapter?: CookieMethodsServer,
+): Promise<Result<SearchPrefill>> {
   /** BINDING RULE 4: the named span opens as the first statement. */
   return Sentry.startSpan(
     { name: "search.read_prefill", op: "db.query" },
     async (): Promise<Result<SearchPrefill>> => {
-      const supabase = await createClient();
+      const supabase = await createClient(cookieAdapter);
 
       /** BINDING RULE 5: `getClaims()` can throw, distinct from a returned error. */
       const claimsAttempt = await attempt(
