@@ -145,6 +145,208 @@ describe("under cap, a call is allowed and every window's counters move (AC-1, A
 
     expect(counters).toEqual({ attempt_count: 1, consumed_count: 1 });
   });
+
+  /**
+   * `accountWeekCounters()` above only reads the caller's own window.
+   * `check_usage_gate` bumps all three windows in the same transaction
+   * (global day, global month, account week, in that fixed lock order), so a
+   * test asserting only the account row could pass even if the two global
+   * updates were silently dropped. Read directly by window instead of adding
+   * a second helper that would just repeat `accountWeekCounters()`'s own
+   * shape for two rows instead of one.
+   */
+  it("also increments attempt and consumed on the global day and global month rows, not only the account row", async () => {
+    await resetJobSearchGlobalWindows();
+    const session = await freshSession("gate-happy-path-global");
+
+    const result = await checkUsageGate(JOB_SEARCH, session.jar);
+
+    if (isFailure(result)) {
+      throw new Error(`Expected a decision, got a failure: ${result.kind}.`);
+    }
+
+    expect(result.value).toEqual({ allowed: true });
+
+    const globalDay = await queryAsSuperuser<{
+      attempt_count: number;
+      consumed_count: number;
+    }>(
+      `select attempt_count, consumed_count from public.usage_gate_counter
+        where call_type = $1 and scope = 'global' and period = 'day'
+          and period_start = $2`,
+      [JOB_SEARCH, utcDayStart()],
+    );
+
+    const globalMonth = await queryAsSuperuser<{
+      attempt_count: number;
+      consumed_count: number;
+    }>(
+      `select attempt_count, consumed_count from public.usage_gate_counter
+        where call_type = $1 and scope = 'global' and period = 'month'
+          and period_start = $2`,
+      [JOB_SEARCH, utcMonthStart()],
+    );
+
+    expect(globalDay[0]).toEqual({ attempt_count: 1, consumed_count: 1 });
+    expect(globalMonth[0]).toEqual({ attempt_count: 1, consumed_count: 1 });
+  });
+});
+
+describe("a concurrent burst against a GLOBAL window never lets more than its cap through (AC-1, AC-2)", () => {
+  /**
+   * A DEDICATED CALL TYPE (`gate_test`, declared above), not `job_search`:
+   * bursting the real global day/month windows enough to exceed a cap would
+   * burn the real shared local budget, matching the reasoning
+   * `resetJobSearchGlobalWindows()`'s own comment gives for the account burst
+   * above staying on `job_search` while the config/precedence tests below use
+   * `gate_test`.
+   *
+   * FIFTEEN CONCURRENT CALLS FROM FIFTEEN DISTINCT ACCOUNTS, against a cap of
+   * 5, sized against the same numbers confirmed for the account burst above:
+   * `authenticated`'s `statement_timeout` is 8s and the local PostgREST
+   * instance logs a connection pool of 10 (reconfirmed 2026-09-03, same
+   * commands as the account burst's own comment). 15 requests against a pool
+   * of 10 queue in at most two waves; each `check_usage_gate` call is one
+   * short transaction, so two waves stay an order of magnitude under the 8s
+   * timeout. Distinct accounts, not one shared session repeated: the point
+   * here is the GLOBAL window, and a large per-account cap keeps the account
+   * window from ever being the one that refuses.
+   */
+  const CONCURRENT_CALLS = 15;
+  const GLOBAL_CAP = 5;
+
+  async function distinctSessions(prefix: string) {
+    return Promise.all(
+      Array.from({ length: CONCURRENT_CALLS }, (_unused, i) =>
+        freshSession(`${prefix}-${i}`),
+      ),
+    );
+  }
+
+  async function withDedicatedGlobalCap<T>(
+    period: "day" | "month",
+    run: () => Promise<T>,
+  ): Promise<T> {
+    await queryAsSuperuser(
+      `insert into public.usage_cap (call_type, scope, period, cap_value) values
+         ($1, 'account', 'week', 1000),
+         ($1, 'global', 'day', $2),
+         ($1, 'global', 'month', $3)
+       on conflict (call_type, scope, period) do update set cap_value = excluded.cap_value`,
+      [
+        TEST_CALL_TYPE,
+        period === "day" ? GLOBAL_CAP : 100_000,
+        period === "month" ? GLOBAL_CAP : 100_000,
+      ],
+    );
+
+    try {
+      return await run();
+    } finally {
+      await queryAsSuperuser(
+        `delete from public.usage_gate_counter where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+      await queryAsSuperuser(
+        `delete from public.usage_cap where call_type = $1`,
+        [TEST_CALL_TYPE],
+      );
+    }
+  }
+
+  it("allows exactly the global DAY cap's worth across distinct accounts at once", () =>
+    withDedicatedGlobalCap("day", async () => {
+      const sessions = await distinctSessions("gate-global-day-burst");
+
+      const results = await Promise.all(
+        sessions.map((session) => checkUsageGate(TEST_CALL_TYPE, session.jar)),
+      );
+
+      for (const result of results) {
+        if (isFailure(result)) {
+          throw new Error(
+            `Expected a decision, got a failure: ${result.kind}.`,
+          );
+        }
+      }
+
+      const decided = results.map((result) =>
+        isFailure(result) ? undefined : result.value,
+      );
+
+      const allowed = decided.filter((d) => d?.allowed === true);
+      const refused = decided.filter((d) => d?.allowed === false);
+
+      expect(allowed).toHaveLength(GLOBAL_CAP);
+      expect(refused).toHaveLength(CONCURRENT_CALLS - GLOBAL_CAP);
+      for (const decision of refused) {
+        expect(decision).toEqual({
+          allowed: false,
+          reason: "global_day_cap_reached",
+        });
+      }
+
+      const globalRow = await queryAsSuperuser<{
+        attempt_count: number;
+        consumed_count: number;
+      }>(
+        `select attempt_count, consumed_count from public.usage_gate_counter
+          where call_type = $1 and scope = 'global' and period = 'day'`,
+        [TEST_CALL_TYPE],
+      );
+
+      expect(globalRow[0]).toEqual({
+        attempt_count: CONCURRENT_CALLS,
+        consumed_count: GLOBAL_CAP,
+      });
+    }));
+
+  it("allows exactly the global MONTH cap's worth across distinct accounts at once", () =>
+    withDedicatedGlobalCap("month", async () => {
+      const sessions = await distinctSessions("gate-global-month-burst");
+
+      const results = await Promise.all(
+        sessions.map((session) => checkUsageGate(TEST_CALL_TYPE, session.jar)),
+      );
+
+      for (const result of results) {
+        if (isFailure(result)) {
+          throw new Error(
+            `Expected a decision, got a failure: ${result.kind}.`,
+          );
+        }
+      }
+
+      const decided = results.map((result) =>
+        isFailure(result) ? undefined : result.value,
+      );
+
+      const allowed = decided.filter((d) => d?.allowed === true);
+      const refused = decided.filter((d) => d?.allowed === false);
+
+      expect(allowed).toHaveLength(GLOBAL_CAP);
+      expect(refused).toHaveLength(CONCURRENT_CALLS - GLOBAL_CAP);
+      for (const decision of refused) {
+        expect(decision).toEqual({
+          allowed: false,
+          reason: "global_month_cap_reached",
+        });
+      }
+
+      const globalRow = await queryAsSuperuser<{
+        attempt_count: number;
+        consumed_count: number;
+      }>(
+        `select attempt_count, consumed_count from public.usage_gate_counter
+          where call_type = $1 and scope = 'global' and period = 'month'`,
+        [TEST_CALL_TYPE],
+      );
+
+      expect(globalRow[0]).toEqual({
+        attempt_count: CONCURRENT_CALLS,
+        consumed_count: GLOBAL_CAP,
+      });
+    }));
 });
 
 describe("a concurrent burst never lets more than the cap through (AC-1, AC-2)", () => {
@@ -483,15 +685,22 @@ describe("a database fault while writing the counters fails closed (AC-14)", () 
 });
 
 /**
- * AC-4 and AC-5's two kill switch outcomes are proved in
- * `src/lib/usage-gating/gate.test.ts` instead, as a unit test mocking
- * `readKillSwitch()`, NOT here. `app_settings` is a single global row every
- * integration file's process shares, `kill-switch.test.ts` included, and
- * Vitest runs integration files in parallel: flipping the real switch here
- * raced that file's own assumption that a fresh stack reads `enabled: false`.
- * `readKillSwitch()` itself is already proved against the real row in
- * `test/integration/kill-switch.test.ts`; this feature only needs to prove it
- * branches correctly on that read, which needs no database at all.
+ * AC-4 and AC-5's two kill switch outcomes (the mocked branching) are proved
+ * in `src/lib/usage-gating/gate.test.ts` instead, as a unit test mocking
+ * `readKillSwitch()`, NOT here. `readKillSwitch()`'s own correctness against
+ * the real row is proved in `test/integration/kill-switch.test.ts`.
+ *
+ * A REAL ENGAGED SWITCH REACHING `checkUsageGate()` end to end is deliberately
+ * NOT a committed test anywhere in this suite, not just not here. Moving the
+ * flip into `kill-switch.test.ts` (same file as its own
+ * `expect(result.value.enabled).toBe(false)` read, so no race with THAT
+ * assertion, since tests within one file run sequentially) was tried
+ * 2026-09-03 and reverted: it broke THIS file's own account week burst test
+ * below twice in three extra runs, because `app_settings` is read by every
+ * `checkUsageGate()` call across every integration file, and Vitest still
+ * schedules different files in parallel. See `kill-switch.test.ts`'s own
+ * comment for the full account. The real switch reaching the gate is proved
+ * once, by hand, in `docs/specs/0011-usage-gating-and-kill-switch/verify.md`.
  */
 
 describe("identity: no session, no decision (AC-13)", () => {

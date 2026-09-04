@@ -97,16 +97,29 @@ describe("checkUsageGate: the kill switch pre-check (AC-4, AC-5)", () => {
 
 describe("checkUsageGate: a response with neither data nor an error (AC-14)", () => {
   /**
-   * `{ data: null, error: null }` cannot be produced by the real stack:
-   * `.single()` either returns the one row `check_usage_gate` always emits
-   * via `return query select ...`, or PostgREST turns zero or multiple rows
-   * into an `error` (`PGRST116`). Proved here instead, mocking the RPC
-   * response directly, because it is `checkUsageGate()`'s own defensive read
-   * under test, not anything the database does: `attempt()` only converts a
-   * thrown exception, and this shape is neither a thrown exception nor a
-   * populated `error`, so a caller reading only `configured`/`allowed`/
-   * `reason` off `row` would see nothing and decide nothing at all, which is
-   * a silent open rather than a fail closed one.
+   * `{ data: null, error: null }` is not reachable through `check_usage_gate`'s
+   * OWN call: the function always emits exactly one row via
+   * `return query select ...`, and a real cardinality violation is enforced
+   * server side by PostgREST itself, not by this client. Corrected 2026-09-03:
+   * this comment previously said PostgREST's client turns zero or multiple
+   * rows into a `PGRST116` error for `.single()`, which is not what the
+   * installed `@supabase/postgrest-js` 2.112.3 does (verified in its source,
+   * `PostgrestBuilder.processResponse()`): that client side `PGRST116` check
+   * only runs when `isMaybeSingle` is set, which is `.maybeSingle()`'s own
+   * flag; `.single()` never sets it.
+   *
+   * What DOES produce this exact shape, in that same `processResponse`, is a
+   * 2xx response with an EMPTY body: `data` and `error` both stay at their
+   * initial `null`, no JSON parse and no error ever runs. That is a real,
+   * verified transport behaviour, just not one `checkUsageGate()`'s own call
+   * (which sets no `Prefer: return=minimal` and no such header) would trigger
+   * through ordinary use. Proved here instead, mocking the RPC response
+   * directly at the client boundary, because it is `checkUsageGate()`'s own
+   * defensive read under test: `attempt()` only converts a thrown exception,
+   * and this shape is neither a thrown exception nor a populated `error`, so
+   * a caller reading only `configured`/`allowed`/`reason` off `row` would see
+   * nothing and decide nothing at all, which is a silent open rather than a
+   * fail closed one.
    */
   it("returns database_unavailable rather than an absent, harmless decision", async () => {
     signedInAs("user-1");
