@@ -195,30 +195,44 @@ budget is not an available option under the terms.
 ## Features 5 and 11 — Design system, and job search results
 
 _Written: 2026-08-19 · source: Adzuna terms · audited
-2026-09-02 · verified._
+2026-09-02 · verified 2026-09-04 directly against
+https://developer.adzuna.com/docs/terms_of_service._
 
-**Audited 2026-09-02: LANDED, and correctly stays.** The 116×23 rule with
+**Audited 2026-09-02, updated 2026-09-04: LANDED.** The 116×23 rule with
 both word and logo linked is in feature 11's Done when at `scope.md:213`.
 The per-advert wording and the logo source both sit at
 `brand-tokens.md:219–227`. The design-input half is in spec 0005 (AC-10
 line 27, `Card.Footer` row line 86, rationale line 66, `verify.md` line
-47). What remains genuinely owed to feature 11 is the image asset itself
-and its link targets, parked as a follow-up at spec 0005 index line 180 —
-and feature 11 has no spec yet, so this entry has a future reader.
+47). Feature 11 is now specified in spec 0013 (merged 2026-09-04), where
+AC-6 and AC-7 implement both attribution requirements.
 
-**Adzuna attribution is per displayed advert, not per screen.**
+**Adzuna attribution is per displayed advert, not per screen (verified 2026-09-04).**
 
-The terms state: an API user shall label *each displayed advert* with the
-phrase "Jobs by Adzuna" at least 116 × 23 pixels, with the word "Jobs"
-hyperlinked to adzuna.co.uk (or relevant local domain) and the word
-"Adzuna" being the Adzuna logo image, also hyperlinked.
+The terms state (`https://developer.adzuna.com/docs/terms_of_service`,
+section "API user Obligations", clause 1, checked 2026-09-04): an API user shall
+label *each displayed advert* with the phrase "Jobs by Adzuna" at least
+116 × 23 pixels, with the word "Jobs" hyperlinked to http://www.adzuna.co.uk
+(or relevant local domain) and the word "Adzuna" being the Adzuna logo image
+(sourced from http://www.adzuna.co.uk/press.html), also hyperlinked.
 
 This is a per-result-card requirement, and 116 × 23 px is not small at
 card scale — it affects card layout, so it is a design-system input, not
 a footer to add later. `brand-tokens.md` carries the corrected per-advert
 wording under its results-page requirements.
 
-Logo images: adzuna.co.uk/press.html
+**Salary-data requirement from the same section (verified 2026-09-04):**
+
+The same terms section (clause 2, "Publishing Jobsworth salary estimates",
+checked 2026-09-04 at `https://developer.adzuna.com/docs/terms_of_service`)
+adds a separate requirement for salary estimates that this entry did not
+originally record: an API user shall label every Jobsworth salary estimate
+published with an icon at least 20 × 20 pixels in size and the words
+"Adzuna Jobsworth", both linking to `http://www.adzuna.co.uk/jobs/salary-predictor.html`,
+with mouseover text "Salary estimate powered by Adzuna Jobsworth".
+Spec 0013 (feature 11) records this requirement in AC-7 and incorporates it
+into the search results card design whenever `salary_is_predicted` is true.
+
+Logo images: http://www.adzuna.co.uk/press.html
 
 ---
 
@@ -345,8 +359,8 @@ behaves; checking the output proves it.
 ## Feature 19 — Listing data quality
 
 _Written: 2026-08-19 · source: Adzuna terms and docs ·
-**TRUTH RE-AUDIT PENDING**, though this entry makes no claims about other
-features' state, so it is lower risk than feature 10's or 14's were._
+Jobsworth attribution requirement verified 2026-09-04 against
+https://developer.adzuna.com/docs/terms_of_service._
 
 **Adzuna salaries are often model-predicted, not stated by the employer.**
 
@@ -357,9 +371,12 @@ organized against. A predicted salary needs to read as predicted.
 
 Note also: publishing Jobsworth salary estimates carries its own
 attribution requirement (a 20 × 20 px icon plus the words "Adzuna
-Jobsworth", both linked, with mouseover text "Salary estimate powered by
-Adzuna Jobsworth"). Check whether the salary figures in search results
-count as Jobsworth estimates before displaying them.
+Jobsworth", both linked to `http://www.adzuna.co.uk/jobs/salary-predictor.html`,
+with mouseover text "Salary estimate powered by Adzuna Jobsworth").
+**Verified 2026-09-04** at `https://developer.adzuna.com/docs/terms_of_service`
+(section "API user Obligations", clause 2). Spec 0013 (feature 11) resolves
+this: listings with `salary_is_predicted: true` display "(estimated)" and
+render the required Jobsworth icon, link, and mouseover attribution (AC-7).
 
 ---
 
