@@ -193,7 +193,8 @@ describe("failure() reporting contract", () => {
       failure({
         kind: "usage_gate_misconfigured",
         severity: "unexpected",
-        message: "Search isn't available right now. Try again shortly.",
+        message:
+          "This kind of search isn't switched on yet. Try again another time.",
       });
 
       expect(setAttribute).toHaveBeenCalledWith(

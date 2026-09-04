@@ -32,12 +32,17 @@ export const USAGE_GATE_FAILURES = {
     kind: "database_unavailable",
     severity: "unexpected",
     /**
-     * Corrected 2026-09-04, fresh model review: previously named the
-     * database and "the usage gate", both internal nouns, alongside
-     * `copy.ts`'s own five sentences, which are careful never to. Search
-     * isn't working, and the reader does not need to know why.
+     * Corrected twice on 2026-09-04, both times a fresh model review. The
+     * first pass stopped naming the database and "the usage gate", both
+     * internal nouns. The second pass gave this its own sentence again: it
+     * had been reworded to differ from `usage_gate_misconfigured` below by
+     * one word, and had drifted to open with `copy.ts`'s `kill_switch_unavailable`
+     * (`COPY-5`) verbatim, a distinct, deliberate refusal the gate produces
+     * on purpose, not a failure. Three different operator responses need
+     * three sentences a support conversation can actually tell apart.
      */
-    message: "Search isn't working right now. Try again shortly.",
+    message:
+      "We couldn't check your search limit just now. Try again in a few minutes.",
   },
   /**
    * AC-6: `call_type` is unrecognised, or missing one of its three required
@@ -47,7 +52,13 @@ export const USAGE_GATE_FAILURES = {
   usage_gate_misconfigured: {
     kind: "usage_gate_misconfigured",
     severity: "unexpected",
-    /** Corrected 2026-09-04: previously named "call type" and "usage cap". */
-    message: "Search isn't available right now. Try again shortly.",
+    /**
+     * Corrected twice on 2026-09-04. Previously named "call type" and
+     * "usage cap"; then, once `database_unavailable` above was given back
+     * its own sentence, reworded again so the two no longer read as the
+     * same message with one word swapped.
+     */
+    message:
+      "This kind of search isn't switched on yet. Try again another time.",
   },
 } as const satisfies Readonly<Record<string, UsageGateFailureShape>>;
