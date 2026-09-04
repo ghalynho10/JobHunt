@@ -42,12 +42,17 @@ async function freshUser(prefix: string) {
 /**
  * A minted session for a fresh user WITH a `profile` row already in place.
  *
- * `usage_gate_counter.profile_id` references `public.profile (id)` (spec
- * 0011's own data model), so an account scoped gate call for a user with no
- * profile row is refused by that foreign key, not by anything this feature
- * decides. `mintFixtureUser()` mints the auth user only; every other
- * integration test that needs a real profile inserts one itself the same way
- * (see `test/integration/profile-actions.test.ts`).
+ * THE PROFILE ROW IS NOT REQUIRED BY THE GATE, corrected 2026-09-04: this
+ * comment previously said `usage_gate_counter.profile_id` referenced
+ * `public.profile (id)`, which was true until this branch's own fix (spec
+ * 0011's data model row, corrected the same day) repointed it at
+ * `auth.users (id)` precisely because a signed in caller is not guaranteed a
+ * profile row (spec 0007's signup hook deliberately creates none). A gate
+ * call for a user with no profile row is allowed now, proved directly in "a
+ * signed in caller with no profile row" below, not here: this helper keeps
+ * inserting one anyway, for parity with every other integration file that
+ * needs a real profile (`test/integration/profile-actions.test.ts`), not
+ * because the gate requires it. `mintFixtureUser()` mints the auth user only.
  */
 async function freshSession(prefix: string) {
   const user = await freshUser(prefix);
@@ -189,6 +194,35 @@ describe("under cap, a call is allowed and every window's counters move (AC-1, A
 
     expect(globalDay[0]).toEqual({ attempt_count: 1, consumed_count: 1 });
     expect(globalMonth[0]).toEqual({ attempt_count: 1, consumed_count: 1 });
+  });
+});
+
+/**
+ * THE ONE TEST THE 2026-09-03 FIX ITSELF WAS FOR, missing until this fresh
+ * model review found it: every OTHER gate call in this file goes through
+ * `freshSession()`, which always seeds a `profile` row, so nothing here
+ * exercised the actual behaviour `usage_gate_counter.profile_id` pointing at
+ * `auth.users (id)` instead of `profile (id)` was meant to fix. Deliberately
+ * uses `freshUser()`, not `freshSession()`: no profile row, matching a real
+ * user between OAuth sign in and their first `/profile` save.
+ */
+describe("a signed in caller with no profile row is allowed, not refused (spec 0011, the auth.users FK fix)", () => {
+  it("is allowed, and writes an account scoped counter row keyed on the auth user id", async () => {
+    await resetJobSearchGlobalWindows();
+    const user = await freshUser("gate-no-profile-row");
+    const session = await mintSession(user.email);
+
+    const result = await checkUsageGate(JOB_SEARCH, session.jar);
+
+    if (isFailure(result)) {
+      throw new Error(`Expected a decision, got a failure: ${result.kind}.`);
+    }
+
+    expect(result.value).toEqual({ allowed: true });
+
+    const counters = await accountWeekCounters(JOB_SEARCH, user.id);
+
+    expect(counters).toEqual({ attempt_count: 1, consumed_count: 1 });
   });
 });
 

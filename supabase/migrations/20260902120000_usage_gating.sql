@@ -156,35 +156,33 @@ declare
   v_reason text;
 begin
   -- CONFIGURATION CHECK, FIRST, BEFORE ANY `usage_gate_counter` ROW IS
-  -- TOUCHED (AC-6). Corrected 2026-09-03: an earlier version of this function
-  -- bumped `attempt_count` on all three windows before checking `usage_cap`,
-  -- reasoned as "an attempt nobody could serve is still worth seeing." That
-  -- reasoning was wrong: `execute` on this function is granted to
-  -- `authenticated`, so any signed in caller could create and grow
-  -- `usage_gate_counter` rows without bound simply by calling with a
-  -- different `p_call_type` string each time, since the row is written before
-  -- the function ever decides the call type is unconfigured. Visibility does
-  -- not depend on the write: `usage_gate_misconfigured` reaches Sentry as an
-  -- unexpected severity failure regardless of whether a counter row exists
-  -- (`src/lib/usage-gating/gate.ts`), so refusing here first loses nothing a
-  -- reader of the alert needs and closes the unbounded write.
+  -- TOUCHED (AC-6). Corrected 2026-09-03 (spec 0011, AC-9, and the Feature
+  -- design walkthrough carry the full reasoning for why the earlier
+  -- attempt-before-config order was wrong; not repeated here).
   --
-  -- A `call_type` missing any one of its three required rows is treated the
-  -- same as one with none at all (AC-6).
-  select cap.cap_value into v_global_day_cap
+  -- ONE STATEMENT, NOT THREE, corrected again 2026-09-04 on a second fresh
+  -- model review: three separate `select`s each took their own snapshot
+  -- under `read committed`, so a concurrent admin edit to `usage_cap` (an
+  -- insert or delete of all three rows for a `call_type`, wrapped in one
+  -- transaction) could commit between them and be seen half applied, one cap
+  -- from the old state and two from the new, producing a spurious
+  -- `usage_gate_misconfigured`. `call_type` alone is filtered here, once, and
+  -- the three values are pulled out of that one scan by `scope`/`period`, so
+  -- all three see the same snapshot. A `call_type` missing any one of its
+  -- three required rows is treated the same as one with none at all (AC-6).
+  select
+    max(cap.cap_value) filter (
+      where cap.scope = 'global' and cap.period = 'day'
+    ),
+    max(cap.cap_value) filter (
+      where cap.scope = 'global' and cap.period = 'month'
+    ),
+    max(cap.cap_value) filter (
+      where cap.scope = 'account' and cap.period = 'week'
+    )
+    into v_global_day_cap, v_global_month_cap, v_account_week_cap
     from public.usage_cap as cap
-   where cap.call_type = p_call_type and cap.scope = 'global'
-     and cap.period = 'day';
-
-  select cap.cap_value into v_global_month_cap
-    from public.usage_cap as cap
-   where cap.call_type = p_call_type and cap.scope = 'global'
-     and cap.period = 'month';
-
-  select cap.cap_value into v_account_week_cap
-    from public.usage_cap as cap
-   where cap.call_type = p_call_type and cap.scope = 'account'
-     and cap.period = 'week';
+   where cap.call_type = p_call_type;
 
   if v_global_day_cap is null
      or v_global_month_cap is null

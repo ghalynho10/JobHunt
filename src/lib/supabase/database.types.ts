@@ -310,15 +310,7 @@ export type Database = {
           scope?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "usage_gate_counter_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profile"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       work_experience: {
         Row: {
