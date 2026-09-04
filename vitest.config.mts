@@ -157,6 +157,24 @@ export default defineConfig({
           sequence: {
             groupOrder: 1,
           },
+          /**
+           * THE MECHANICAL BACKSTOP `groupOrder` ABOVE DOES NOT PROVIDE.
+           * Corrected 2026-09-04, a second fresh model review, after the
+           * first review caught the missing enforcement: without this, the
+           * one-file invariant this project depends on is prose only, since
+           * `include` matches any file dropped in here, and a second one
+           * would run in parallel with the first, the exact race this
+           * project exists to prevent. `fileParallelism: false`, scoped to
+           * THIS project alone, forces its own `maxWorkers` to 1 (verified
+           * in the installed Vitest's own config resolution), which costs
+           * nothing while this project holds one file and makes a second
+           * file correct by construction rather than by a comment someone
+           * has to read first. This is deliberately NOT set on `integration`
+           * above: there it would serialise dozens of files for no benefit,
+           * which is why `groupOrder` exists as the cheaper isolation
+           * between the two projects in the first place.
+           */
+          fileParallelism: false,
         },
       },
     ],

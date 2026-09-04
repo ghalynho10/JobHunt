@@ -115,6 +115,14 @@ describe("a database fault while writing the counters fails closed (AC-14)", () 
      * function's unconditional attempt bump, confirmed by hand before writing
      * this test: the same revoke against a probe row raised a real
      * `permission denied for table usage_gate_counter`, not a silent no-op.
+     *
+     * IF THIS PROCESS DIES BETWEEN THE REVOKE AND THE `finally` BELOW
+     * (Ctrl-C, a CI timeout, an OOM), the revoke survives it: the local stack
+     * is left with every gated call returning `database_unavailable`, for a
+     * reason that looks nothing like its cause. `pnpm db:reset` recovers it
+     * (re-applies every migration, including this one's own grants), the
+     * same recovery a corrupted local stack already needs for any other
+     * reason.
      */
     await queryAsSuperuser(
       `revoke insert, update on public.usage_gate_counter from postgres`,

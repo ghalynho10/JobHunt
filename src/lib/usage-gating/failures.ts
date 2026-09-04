@@ -31,7 +31,13 @@ export const USAGE_GATE_FAILURES = {
   database_unavailable: {
     kind: "database_unavailable",
     severity: "unexpected",
-    message: "Could not reach the database to check the usage gate.",
+    /**
+     * Corrected 2026-09-04, fresh model review: previously named the
+     * database and "the usage gate", both internal nouns, alongside
+     * `copy.ts`'s own five sentences, which are careful never to. Search
+     * isn't working, and the reader does not need to know why.
+     */
+    message: "Search isn't working right now. Try again shortly.",
   },
   /**
    * AC-6: `call_type` is unrecognised, or missing one of its three required
@@ -41,6 +47,7 @@ export const USAGE_GATE_FAILURES = {
   usage_gate_misconfigured: {
     kind: "usage_gate_misconfigured",
     severity: "unexpected",
-    message: "This call type has no usage cap configured.",
+    /** Corrected 2026-09-04: previously named "call type" and "usage cap". */
+    message: "Search isn't available right now. Try again shortly.",
   },
 } as const satisfies Readonly<Record<string, UsageGateFailureShape>>;

@@ -193,7 +193,7 @@ describe("failure() reporting contract", () => {
       failure({
         kind: "usage_gate_misconfigured",
         severity: "unexpected",
-        message: "This call type has no usage cap configured.",
+        message: "Search isn't available right now. Try again shortly.",
       });
 
       expect(setAttribute).toHaveBeenCalledWith(
