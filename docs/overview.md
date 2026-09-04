@@ -22,16 +22,21 @@ The application is deployed on Vercel and split across three environments: a loc
 
 ## Main surfaces
 
-The foundation is complete and people can sign in; the search and apply loop is not built yet.
+The foundation is complete, a signed in user can fill in their own profile, and every outside job search call is gated before it can run. The search and apply loop itself, the part that actually calls the job listing source, is not built yet.
 
 - `/` — the entry page, and the product's front door. Explains what JobHunt does, shows an example of a ranked result labelled as an illustration, and says plainly which features work today and which are only planned. Public, no session, and it ships no client JavaScript at all.
 - `/opengraph-image` — a preview card generated once at build time, so a link pasted into a chat renders as a real product rather than a bare domain.
 - `/ui-preview` — every base component at every variant, for accessibility and responsive checks. Off unless explicitly enabled, so it never appears in production.
+- `/terms`, `/privacy` — public pages written against what this codebase actually stores and actually sends to which companies, not from a template. A typed registry of data recipients and a typed registry of stored fields, each guarded by a test, are what keep the two pages honest as later features add their own outside calls.
 - `/sign-in` — the real sign in page, in every environment. Two controls, Google and GitHub, each an ordinary form submit that works with JavaScript switched off. When sign in fails it renders this product's own sentence for what went wrong, above both controls, never the provider's raw error text.
 - `/auth/callback` — the return leg of the handshake, which exchanges the provider's code for a session. Every path through it ends in a redirect, so a failed sign in lands on a page that explains itself rather than on an error screen.
-- `/health` (signed in only) — where signing in currently lands, provisionally, until the app shell feature decides the real destination. It reads the signed in user's own row from Postgres under row level security, proving isolation, and displays the kill switch's live value, proving the deployed app can read a flag with no redeploy. A brand new user sees a visible "not found" here rather than an empty page, because nothing creates a profile row yet.
+- `/go` — the door: the one place that reads a signed in visitor's session on `/`'s behalf, so the entry page itself can keep reading nothing and still stop inviting an already signed in visitor to sign in.
+- `/profile` (signed in only, in the navigation) — the profile form, four independently saved sections (identity, skills, work history, preferences), each its own edit state named by a URL search parameter rather than client side toggle state. Where a signed in visitor with no profile row lands.
+- `/search` (signed in only, in the navigation) — a real route under the app shell with a placeholder body: the page, the header, and the navigation all exist; feature 11 fills in the actual search. Where a signed in visitor who already has a profile lands.
+- `/applications` (signed in only, reachable but not yet in the navigation) — the same real route, placeholder body pattern, waiting on feature 12.
+- `/health` (signed in only, deliberately not in the navigation) — no longer where signing in lands; that decision now belongs to the one shared landing rule above. Kept as a diagnostic: it reads the signed in user's own profile row under row level security, proving isolation, and displays the kill switch's live value, proving the deployed app can read a flag with no redeploy.
 
-Profile entry, job search, ranked results and application tracking are designed in `docs/scope/` and not built.
+Ranked results and application tracking are designed in `docs/scope/` and not built.
 
 ## Decisions that shaped it
 
@@ -46,18 +51,31 @@ Profile entry, job search, ranked results and application tracking are designed 
 - The sign in handshake runs entirely on the server, so the public entry page can carry real sign in controls and still ship no client JavaScript. Both controls are ordinary form submits rather than click handlers, which is what keeps that true. See [0007](specs/0007-auth-and-per-user-isolation/index.md).
 - A second account for an email that already signs in with the other provider is refused by the database, not by application code, and the refusal fails closed: if the check itself errors it still refuses rather than admitting a silent empty account. The development only password sign in was deleted outright rather than switched off, so no environment is one setting away from accepting a password. See [0007](specs/0007-auth-and-per-user-isolation/index.md).
 - The front door says only what is true. Nothing appears as working that has not shipped, and no control that cannot work is rendered as a link, so a visitor is never offered something that does nothing. The prototype it was built from failed both tests. See [0006](specs/0006-entry-page-and-link-metadata/index.md).
+- Exactly one function decides where a signed in visitor lands, imported by every caller that needs the answer (the door, the sign in bounce, the OAuth callback), so the three never quietly disagree. It reads profile row existence only, never whether that profile is good enough to score against, which is a different question with a different owner. A deep link followed while signed out survives sign in through a request header the proxy echoes, then a query parameter, then a short lived cookie, in that order. See [0008](specs/0008-app-shell-and-navigation/index.md).
+- The two legal pages are generated from the same typed facts the codebase already keeps about itself (a stored fields registry, a data recipients registry), rather than written once from a template and left to drift. A test fails the moment a new outside call is added without a matching recipient entry, which is what a later feature's own key addition already trips today. They exist to unblock Google's OAuth console as much as to be honest with a reader: an app stuck in Testing is capped at 100 users for its whole lifetime. See [0009](specs/0009-terms-and-privacy-notices/index.md).
+- The profile form is view first, not a wizard filled once: four sections, each its own Server Action, its own edit state, and its own save, so a mistake in one section never risks the other three. See [0010](specs/0010-profile-entry/index.md).
+- Every outside job search call passes through one atomic database function first, checking the caller's own weekly count and the app's daily and monthly counts together, in one statement, so a burst of concurrent calls can never slip past a limit that only checked itself once. A cap reached is reported as a successful decision whose answer is no, never as a failure, so a working refusal cannot itself corrupt the failure rate alert built alongside it, this project's first, proven to fire with a real forced test rather than only written down. See [0011](specs/0011-usage-gating-and-kill-switch/index.md).
 
 ## Where things live
 
 ```
 src/
   app/            routes only
-    (marketing)/  public routes, no session required
-    (app)/        protected routes; its layout checks the session
+    (marketing)/  public routes, no session required: /, /sign-in, /terms,
+                   /privacy, /ui-preview
+    (app)/        protected routes, shared layout checks the session:
+                   /profile, /search, /applications, /health
+    go/           the door: reads the session on the static entry page's
+                   behalf and sends a signed in visitor onward
+    auth/         the OAuth callback
   features/       each feature's own actions, queries, components and schemas
     auth/         sign in, sign out, and the one account rule (has its own
                    AGENTS.md)
     entry-page/   the public page's section modules (has its own AGENTS.md)
+    app-shell/    the shared header, the return path cookie machinery
+    profile/      the four section profile form, its queries and actions
+    legal/        the terms and privacy pages, and the two registries that
+                   keep their claims true (has its own AGENTS.md)
   components/
     ui/           the design system: the only sanctioned way to render these
                    patterns (has its own AGENTS.md)
@@ -65,16 +83,23 @@ src/
     supabase/     the server and secret key clients (secret.ts is the only
                    file allowed to build a client with the database's most
                    privileged key; there is no browser client, on purpose)
+    usage-gating/ checkUsageGate(), the kill switch pre-check, the copy for
+                   every refusal reason
     result.ts     the Result union and the failure() constructor every
                    failure in the app is built through
-    kill-switch.ts, origin.ts, env.ts
+    landing-rule.ts   the one function that decides where a signed in
+                   visitor lands
+    kill-switch.ts, origin.ts, return-path.ts, env.ts
   proxy.ts        refreshes the session cookie only; decides nothing
 supabase/
   migrations/     hand written SQL, the source of truth for schema and policy
 test/
-  helpers/        session mint, the fetch recorder, and a walker for the
+  helpers/        session mint, the fetch recorder, a direct database
+                   connection gated to local only, and a walker for the
                    element trees the server components return
   integration/    tests that need the real local database running
+  integration-serial/  the one project for tests that mutate state every
+                   other integration file also reads, so they cannot race
 docs/
   scope/          the living plan: every feature, its status, what done means
   specs/          accepted decisions, one per numbered directory, each with a
@@ -90,15 +115,15 @@ A feature's own code lives entirely under `src/features/<feature>/`. Anything tw
 
 ## Current state
 
-The foundation is finished. Eight features are done: the stack and architecture, coding standards and tooling, deployment and environments, the data model, the test foundation, the design system, the entry page with its link metadata, and real sign in with per user isolation. The application is live on Vercel across three environments with two hosted Supabase projects, the migration pipeline runs in CI against both, and the kill switch, Sentry, an uptime monitor and branch protection are all proven, including a drill that broke production on purpose and recovered inside a minute.
+The foundation is finished, and so is the first slice's safety net. Twelve features are done: the stack and architecture, coding standards and tooling, deployment and environments, the data model, the test foundation, the design system, the entry page with its link metadata, real sign in with per user isolation, the app shell and navigation, the terms and privacy notices, profile entry, and usage gating with the kill switch. The application is live on Vercel across three environments with two hosted Supabase projects, the migration pipeline runs in CI against both, and the kill switch, Sentry, an uptime monitor and branch protection are all proven, including a drill that broke production on purpose and recovered inside a minute.
 
-What that means concretely: there is a real front door at `/` that renders on the design system's own tokens and unfurls as a proper card when the link is pasted into a chat, 343 unit tests and 44 integration tests behind it, six tables in Postgres with the isolation rules enforced by the database, and a real person able to sign in with Google or GitHub on the live URL and reach a page that is theirs alone.
+What that means concretely: a signed in user can reach `/profile`, fill in identity, skills, work history and preferences, reload the page, and find it all still there and still editable, saved through row level security rather than through an application level check. Every outside job search call, once feature 11 starts making them, will pass through one atomic database function that checks three windows at once and cannot be slipped past under concurrent load, and this project's first failure rate alert exists behind it, proven to fire end to end with a real forced test rather than only written down. 767 unit tests and 73 integration tests back this, six tables in Postgres with the isolation rules enforced by the database, and a real person able to sign in with Google or GitHub on the live URL and reach a page that is theirs alone.
 
-Next is the app shell and navigation (feature 32), the one remaining foundation piece and the only one still needing a design decision. It settles the authenticated app's page inventory, its navigation, and where signing in actually lands, which is the gap the profile, search and application features were each about to invent separately. It must land before profile entry starts.
+Next is job search and results list (feature 11), tagged as needing a decision: `/architect` first, since it owns the real attribution asset the app shell deliberately deferred to it and adds the search source as this codebase's first company data reaches. It must land before the apply redirect (feature 12), which is waiting on it.
 
-Not built, and each waiting on the one before it: profile entry, job search against the Adzuna listings API, the apply redirect and application record, then the model client router and the fit scoring that is the product's actual differentiator, with its eval harness and cross vendor self check. After those come structured filters, listing data quality, guided application capture, and the terms and privacy notices.
+Not built, and each waiting on the one before it: the apply redirect and application record, then the model client router and the fit scoring that is the product's actual differentiator, with its eval harness and cross vendor self check. After those come structured filters, listing data quality, and guided application capture.
 
-Deliberately not built, by design rather than oversight: any AI or scoring code, which waits on a model client router that does not exist yet; an end to end browser test runner, which is chosen (Playwright) but arrives with the first feature that genuinely needs a browser rather than as an empty config; and billing of any kind, which this project rejects outright in favour of usage gating. Signing in works but has nowhere to go yet: there is no profile form, so a new account lands on a page that tells it the profile is missing. That is the tracer bullet working out loud rather than a defect, and profile entry is what closes it.
+Deliberately not built, by design rather than oversight: any AI or scoring code, which waits on a model client router that does not exist yet; an end to end browser test runner, which is chosen (Playwright) but arrives with the first feature that genuinely needs a browser rather than as an empty config; and billing of any kind, which this project rejects outright in favour of usage gating. A signed in user who already has a profile lands on `/search`, a real route wearing the shell with a placeholder body, because the search itself is what feature 11 still has to build. That is the tracer bullet working out loud rather than a defect.
 
 ---
-*Last updated: 2026-08-31. Reference document, kept current by `/overview update`. Specs in `docs/specs/` are the source of truth for any decision.*
+*Last updated: 2026-09-04. Reference document, kept current by `/overview update`. Specs in `docs/specs/` are the source of truth for any decision.*
