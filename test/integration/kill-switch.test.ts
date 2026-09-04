@@ -21,6 +21,34 @@ import { mintSession } from "../helpers/session";
  * refused outright, and that a read which cannot succeed says so out loud
  * instead of reading as "off". The fail closed decision itself is proved in
  * `src/lib/kill-switch.test.ts`, without the stack.
+ *
+ * NO TEST HERE ENGAGES THE REAL SWITCH, deliberately, even though tests
+ * within one file run sequentially in this Vitest version (confirmed against
+ * the installed `@vitest/runner` 4.1.11, `chunk-artifact.js`'s task runner:
+ * a non concurrent suite runs its tasks through a plain `for` loop). That
+ * fixes a flip racing THIS file's own read below, but not the wider problem:
+ * `app_settings` is read by every `checkUsageGate()` call across every
+ * integration file, and Vitest schedules different FILES in `test/integration/`
+ * to run in parallel by default. Tried once (2026-09-03) as a same file
+ * placement and reverted after it broke `test/integration/usage-gating.test.ts`'s
+ * own, unrelated account week burst test twice in three extra runs: that
+ * test's calls landed mid flight while this file's engaged the switch, and
+ * every one of them came back refused for the wrong reason.
+ *
+ * THE REAL ENGAGED SWITCH IS NOW A COMMITTED TEST, just not in this file:
+ * `test/integration-serial/shared-global-state.test.ts`, which
+ * `vitest.config.mts`'s `integration-serial` project runs after every
+ * `test/integration/` file has finished, via `sequence.groupOrder: 1`. It
+ * shares that one file with AC-14's database fault test rather than getting
+ * one of its own, because `groupOrder` isolates that whole PROJECT from this
+ * one but not its files from each other, and two files there raced on the
+ * first attempt. Since 2026-09-04 that project also sets `fileParallelism:
+ * false` on itself, scoped to `integration-serial` alone, so a second file
+ * dropped there would no longer race the first; the merged single file stays
+ * the default there because it is simpler, not because splitting it would be
+ * unsafe. Setting `fileParallelism: false` HERE, on `integration`, remains
+ * the wrong fix: it would serialise dozens of unrelated files for every
+ * file's sake, which is exactly what scoping it to the other project avoids.
  */
 
 const mintedUserIds: string[] = [];

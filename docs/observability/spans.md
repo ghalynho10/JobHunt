@@ -15,7 +15,7 @@ exactly the failure it exists to catch.
 | `auth.sign_in` | `auth` | `src/features/auth/actions.ts` | Not yet. One name for both providers, deliberately: the provider is a span attribute, so every sign in attempt groups under one name and binding rule 4's ratio has a single denominator rather than two half sized ones. |
 | `auth.callback` | `auth` | `src/features/auth/callback.ts` | Not yet, and it is the one here most likely to earn an alert. Spec 0007's follow-up defers the decision to feature 10, which brings the first alert rule. |
 | `auth.sign_out` | `auth` | `src/features/auth/actions.ts` | No. A failing sign out still reports through `failure()`, and the operation is best effort by design (spec 0007, invariant 6). |
-| `kill_switch.read` | `db.query` | `src/lib/kill-switch.ts` | Not yet. Feature 10 puts this read inside every gated call, and its failure rate is alerted on from there. |
+| `kill_switch.read` | `db.query` | `src/lib/kill-switch.ts` | Yes, from feature 10: `checkUsageGate()` puts this read inside every gated call (`src/lib/usage-gating/gate.ts`), and its own failure rate rule is defined in `docs/observability/README.md`, separate from `usage_gate.check`'s. |
 | `landing_rule.decide` | `function` | `src/lib/landing-rule.ts` | Not yet. It is the one place deciding where a signed in visitor lands, and all three of its callers run through it, so it has a single denominator by construction. Feature 14 layers its scoring gate onto those callers, which is when the rate starts meaning something. |
 | `door.decide` | `function` | `src/app/go/route.ts` | Not yet. The door reads the session and hands off to the landing rule, so a failure here is a visitor who cannot get in at all. Worth an alert the day `/` is the main way in. |
 | `profile.read_sections` | `db.query` | `src/features/profile/queries.ts` | Not yet. It reads the three tables that hang off a profile row, and it is deliberately separate from `profile.read`, whose failure ratio spec 0008 AC-7 already depends on. Folding the two together would change what that ratio counts. |
@@ -25,6 +25,7 @@ exactly the failure it exists to catch.
 | `profile.delete_work_experience` | `db.query` | `src/features/profile/actions.ts` | Not yet. It has its own name rather than joining the save above, because a delete that matches zero rows is reported as a failure (spec 0010, invariant 4) and folding it in would put that expected outcome into the save's ratio. |
 | `profile.save_preferences` | `db.query` | `src/features/profile/actions.ts` | Not yet. It is the section feature 11's search and feature 14's scoring both read, so a failure here is silent until something else looks wrong. |
 | `sign_in.bounce` | `function` | `src/app/(marketing)/sign-in/page.tsx` | No. It decides whether an already signed in visitor is sent onward, and its failure mode is showing the sign in page to somebody who did not need it, which is the harmless direction. It is registered because the convention applies to every named operation, not only the alarming ones. |
+| `usage_gate.check` | `function` | `src/lib/usage-gating/gate.ts` | Yes. This project's first alert rule (spec 0011, spec 0001 binding rule 4): the numerator is `usage_gate_misconfigured`, `database_unavailable`, and `external_service_failed` (the `getClaims()` call can throw), filtered by failure kind, never AC-3/AC-4's five refusal reasons and never `session_missing`. Opens as the first statement of `checkUsageGate()`, before the `getClaims()` check and before the `kill_switch.read` call it wraps, so a total denial from either mechanism still produces a span. Trace sampling is 1.0 on this span (AC-8). |
 
 The six spans feature 9 added all carry `op: "db.query"`, including the five in
 Server Actions. The op describes what the operation actually does, and each of
@@ -39,6 +40,10 @@ database read inside `landing_rule.decide` is deliberately not given an op or a
 name of its own, because it exists only to answer that decision and a second
 name would split one operation's failure ratio in two.
 
-None of the spans above is alerted on yet. They are registered because the convention
-starts at the first operation written, not at the first one that matters, and a
-convention adopted late is one nobody follows.
+Two of the spans above — `kill_switch.read` and `usage_gate.check` — are
+alerted on: feature 10's rules became Sentry metric monitors on 2026-09-03, in
+both the `development` and `production` environments of the one `jobhunt`
+Sentry project, each with an alert connected (see README.md's `## Alert
+rules`). The rest are registered but not yet alerted on, because the
+convention starts at the first operation written, not at the first one that
+matters, and a convention adopted late is one nobody follows.

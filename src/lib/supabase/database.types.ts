@@ -252,6 +252,66 @@ export type Database = {
           },
         ]
       }
+      usage_cap: {
+        Row: {
+          call_type: string
+          cap_value: number
+          period: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          call_type: string
+          cap_value: number
+          period: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          call_type?: string
+          cap_value?: number
+          period?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      usage_gate_counter: {
+        Row: {
+          attempt_count: number
+          call_type: string
+          consumed_count: number
+          id: string
+          period: string
+          period_start: string
+          profile_id: string | null
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          call_type: string
+          consumed_count?: number
+          id?: string
+          period: string
+          period_start: string
+          profile_id?: string | null
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          call_type?: string
+          consumed_count?: number
+          id?: string
+          period?: string
+          period_start?: string
+          profile_id?: string | null
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       work_experience: {
         Row: {
           company: string
@@ -304,7 +364,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      before_user_created_hook: { Args: { event: Json }; Returns: Json }
+      check_usage_gate: {
+        Args: { p_call_type: string }
+        Returns: {
+          allowed: boolean
+          configured: boolean
+          reason: string
+        }[]
+      }
+      provider_display_name: { Args: { provider: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

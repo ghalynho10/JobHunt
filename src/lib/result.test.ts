@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { capturedEvents } from "../../test/setup/sentry-transport";
 
@@ -166,6 +166,49 @@ describe("failure() reporting contract", () => {
     await drainEvents();
 
     expect(reachedSentry()).toEqual([]);
+  });
+
+  it("sets the kind as a queryable span attribute, not just the status message (spec 0011, AC-10)", async () => {
+    /**
+     * The status message alone cannot back an alert query: verified in Sentry
+     * on 2026-09-02 against a real forced failure, a failed span carries
+     * `span.status: internal_error` in the dashboard and nothing naming which
+     * kind failed (`docs/experiments/0011-usage-gating-and-kill-switch.md`).
+     * The attribute is what a rule actually filters on, so this asserts the
+     * attribute directly rather than trusting that setting the status implies
+     * it.
+     */
+    const Sentry = await import("@sentry/nextjs");
+
+    await Sentry.startSpan({ name: "test.span", op: "function" }, () => {
+      const span = Sentry.getActiveSpan();
+
+      if (!span) {
+        throw new Error("Expected an active span inside startSpan's callback.");
+      }
+
+      const setAttribute = vi.spyOn(span, "setAttribute");
+      const setStatus = vi.spyOn(span, "setStatus");
+
+      failure({
+        kind: "usage_gate_misconfigured",
+        severity: "unexpected",
+        message:
+          "This kind of search isn't switched on yet. Try again another time.",
+      });
+
+      expect(setAttribute).toHaveBeenCalledWith(
+        "failure.kind",
+        "usage_gate_misconfigured",
+      );
+      // The status still has to be set too: it is what marks the span failed
+      // at all, which is the ratio's denominator. Neither replaces the other.
+      expect(setStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "usage_gate_misconfigured" }),
+      );
+    });
+
+    await drainEvents();
   });
 
   it("reports once per failure, never twice", async () => {

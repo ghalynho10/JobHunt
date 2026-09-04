@@ -13,8 +13,14 @@ import * as Sentry from "@sentry/nextjs";
  *
  * - `unexpected`: something broke (a timeout, a malformed response, a database
  *   error). Reported to Sentry as an error.
- * - `expected`: the system worked and the answer was no (a validation error, a
- *   usage cap reached, an empty search). Reported at info level.
+ * - `expected`: the system worked and the answer was no (a validation error,
+ *   an empty search, `session_missing`). Reported at info level. NOT a usage
+ *   cap reached, or any other gate refusal (spec 0011, AC-5): `failure()`
+ *   marks the active span failed regardless of severity, and a refusal is the
+ *   system working exactly as designed, so it is never a `Failure` at all,
+ *   `success({ allowed: false, reason })` instead. Reporting it through here,
+ *   at any severity, would put a correct refusal into the numerator of the
+ *   failure rate alert built on `usage_gate.check` (binding rule 4).
  *
  * `expected` never means "ignorable". Binding rule 4 alerts on the *share* of
  * attempts that fail, because the reference project's outage was made entirely
@@ -43,7 +49,9 @@ export type FailureKind =
   /** A call to something outside this application failed or timed out. */
   | "external_service_failed"
   /** An external service answered, but not in the shape we parse. */
-  | "response_malformed";
+  | "response_malformed"
+  /** A gated call type has no cap configured, or only partially. */
+  | "usage_gate_misconfigured";
 
 export interface Failure {
   readonly ok: false;
@@ -106,9 +114,23 @@ export function failure(input: FailureInput): Failure {
  * early return, denial or guard clause. Otherwise a total denial outage produces
  * no spans, the ratio has no denominator, and the alert stays silent through
  * exactly the failure it exists to catch.
+ *
+ * BOTH THE STATUS AND THE ATTRIBUTE ARE SET, AND NEITHER IS DUPLICATION OF THE
+ * OTHER (spec 0011, AC-10). The status is what marks the span failed at all,
+ * which is what gives the ratio its denominator. But the status message is not
+ * a queryable field in Sentry: verified 2026-09-02 against a real forced
+ * failure, a failed span carries `span.status: internal_error` in the
+ * dashboard and nothing naming which kind failed, so an alert cannot filter by
+ * kind against it. The attribute is what a query actually filters on, and it
+ * carries the same name as the `failure.kind` tag `report()` sets on the event
+ * below, so the two stay easy to recognise as the same fact told twice, on
+ * purpose, to two different consumers (the span's own ratio, and the event's
+ * search index).
  */
 function markActiveSpanFailed(kind: FailureKind): void {
-  Sentry.getActiveSpan()?.setStatus({ code: SPAN_STATUS_ERROR, message: kind });
+  const span = Sentry.getActiveSpan();
+  span?.setStatus({ code: SPAN_STATUS_ERROR, message: kind });
+  span?.setAttribute("failure.kind", kind);
 }
 
 /**
