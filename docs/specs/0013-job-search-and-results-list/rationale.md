@@ -17,7 +17,7 @@ The page reads `?q=&where=` from `searchParams`; one server side function runs t
 **Pros**:
 - Matches the project's own binding rule directly: this is a read, and "Server Components read, Server Actions write."
 - Reuses spec 0008's already built and tested `/search?q=react` deep link mechanism verbatim, rather than inventing a second way to represent "this search."
-- Needs zero client JavaScript, consistent with every other page in this project so far.
+- Needs zero client JavaScript, consistent with every other page in this project so far. **This pro was true when chosen and only half true now** (noted 2026-09-05): the search itself still ships none, but feature 12 added a small per card Client Component for the apply control, because an apply must not re-render this page. See the note on the Decision in [index.md](index.md). The option was not chosen FOR this pro alone, so the choice stands.
 
 **Cons**:
 - A browser "back" button after a search re-runs the whole gate check and Adzuna call rather than reading from a client side cache. Not a real cost at this app's volume, but a genuine one at higher traffic. **Confirmed correct by measurement on 2026-09-04**, against a production build: one load plus one back moved the usage counter by two. It briefly carried a note that day claiming it was wrong, which was itself wrong; see the first Follow-up item in [index.md](index.md).

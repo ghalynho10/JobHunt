@@ -15,10 +15,21 @@ import { SENTENCES } from "@/lib/usage-gating/copy";
  * Search (spec 0013).
  *
  * A SERVER COMPONENT READING THE SEARCH TERMS FROM THE URL, never a Server
- * Action and never a client side fetch (Decision). The whole operation, gate
- * check, Adzuna call and parse, runs server side in `searchListings()`, so no
- * client JavaScript ships for search at all and a shared `/search?q=...` link
- * is a real, working search.
+ * Action and never a client side fetch (spec 0013, Decision). The whole
+ * operation, gate check, Adzuna call and parse, runs server side in
+ * `searchListings()`, and a shared `/search?q=...` link is a real, working
+ * search.
+ *
+ * THE SEARCH ITSELF STILL SHIPS NO CLIENT JAVASCRIPT; THE PAGE NO LONGER CAN
+ * SAY THAT. This comment used to end "so no client JavaScript ships for search
+ * at all", and feature 12 (spec 0014) made that half false: each result card
+ * now renders `ApplyControl`, one small Client Component, because the apply
+ * must NOT re-render this page. A re-render re-runs `searchListings()` and
+ * spends one of the 25 weekly Adzuna calls, and a form with no JavaScript needs
+ * a rendered response, which IS that re-render. So the choice was client
+ * JavaScript or a per apply cost, and the cost lost. The boundary is drawn as
+ * small as it goes: this page, the form, the twenty cards, both attributions
+ * and every salary line all stay server rendered.
  *
  * A BARE VISIT RUNS NO SEARCH AND SPENDS NO BUDGET (AC-9). The URL carrying
  * `q` or `where` is the whole signal: absent, the page prefills from the

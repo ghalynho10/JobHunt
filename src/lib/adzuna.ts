@@ -4,11 +4,17 @@
  * WHY THESE LEFT `src/features/search/`. Feature 11 owned them alone until
  * feature 12 gave `/applications` real listings to display: the source literal
  * every application row carries, and the two attribution link targets Adzuna's
- * terms fix. `AGENTS.md`'s folder rule sends anything two features share to
- * `src/lib` or `src/components`, and it matters more than tidiness here. The
- * attribution components now live in `src/components/`, so leaving these in the
- * search feature would have made a shared component import from one feature to
- * be rendered by another.
+ * terms fix. `AGENTS.md`'s folder rule sends anything two features share out of
+ * the feature folder, and it matters more than tidiness here: the attribution
+ * components now live in `src/components/`, so leaving these behind would have
+ * made a shared component import from one feature to be rendered by another.
+ *
+ * That rule names `src/lib` or `src/components/ui` as the two destinations, and
+ * `src/components/` is a third that it does not yet name. It was chosen because
+ * `src/components/ui` is spec 0005's design system and a vendor licence
+ * attribution is not a design system primitive. Spec 0014's Follow-up asks
+ * `/sync` to add the third location to `AGENTS.md` after the merge; until then
+ * this comment is the record of why it exists.
  *
  * WHAT DELIBERATELY STAYED BEHIND. `CURRENCY_BY_COUNTRY`, the request shape,
  * every Zod schema and `searchListings()` itself are search's own and are not

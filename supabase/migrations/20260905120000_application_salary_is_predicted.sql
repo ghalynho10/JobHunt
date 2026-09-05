@@ -7,7 +7,7 @@
 -- somewhere for that flag to land, the distinction died at the moment a user
 -- applied, and every later screen reading `application` (feature 23's dashboard)
 -- would have shown a guess as a stated fact. Three specs deferred this decision
--- to feature 12 (spec 0003 Follow-up line 275, spec 0013 Follow-up line 224, and
+-- to feature 12 (spec 0003's Follow-up and spec 0013's Follow-up, both since ticked, and
 -- feature 12's own scope row); spec 0014 settles it here.
 --
 -- NULLABLE, AND THAT IS THE WHOLE DESIGN. Adzuna sends `salary_is_predicted` on

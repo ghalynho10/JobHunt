@@ -71,6 +71,14 @@ export const APPLICATION_FAILURES = {
     kind: "validation_failed",
     severity: "expected",
     message: "This page is out of date. Refresh and try again.",
+    /**
+     * ONLY THE `message` OF THIS ONE IS EVER USED, unlike every other entry
+     * here. The refusal happens inside Next before any server code runs, so
+     * nothing constructs a `failure()` for it and neither the kind nor the
+     * severity ever reaches Sentry. They are declared anyway so the table
+     * stays one shape, and so the day this becomes reportable the intended
+     * classification is already written down rather than guessed at.
+     */
   },
   /**
    * The re-parse on arrival refused the listing (AC-2).

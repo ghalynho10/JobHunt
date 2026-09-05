@@ -61,7 +61,7 @@ _Steps derived from spec 0014's acceptance criteria and every row of its Value s
 Each row of the spec's Value sourcing table, checked against what the running app actually does.
 
 - [ ] `profile_id` comes from verified claims, never a form field → AC-2
-- [ ] `source` is imported from `src/features/search/adzuna.ts` rather than re declared as a second string literal → AC-2
+- [ ] `source` is imported from `ADZUNA_SOURCE` in `src/lib/adzuna.ts` rather than re declared as a second string literal → AC-2
 - [ ] `job_description` holds the snippet the card displayed, not a full posting body → AC-12
 - [ ] `salary_is_predicted` is `null` and not `false` when neither salary figure is present → AC-6
 - [ ] `applied_at`, `created_at` and `updated_at` are set by the database, and no application code writes `updated_at` → AC-2
@@ -79,7 +79,7 @@ Each row of the spec's Value sourcing table, checked against what the running ap
 - [ ] Spec 0003's `job_description` claim is corrected at **both** line 118 and line 262 → AC-12
 - [ ] Spec 0013's Follow-up item naming only line 118 is itself updated to name both → AC-12
 - [ ] Spec 0013's Decision at line 42 carries a visible note that the no client JavaScript claim no longer holds in full → AC-12
-- [ ] Spec 0013's `Listing` table at lines 63 to 65 records the non empty guarantee → AC-13
+- [ ] Spec 0013's `Listing` table records the non empty guarantee on `sourceJobId`, `title` and `companyName` (rows 71 to 73 today; the correction pass's own block quote shifted them down from 63 to 65, so search by field name rather than by line) → AC-13
 - [ ] Spec 0003's Follow-up items at lines 274 and 275 are ticked, naming AC-5 and AC-6 as what closed them → AC-5, AC-6
 
 ## Acceptance criteria coverage
