@@ -76,6 +76,30 @@ export const GITHUB: ServiceDeclaration = {
 };
 
 /**
+ * Adzuna's job search API, this product's real listing source (spec 0013).
+ *
+ * BOTH CREDENTIALS TRAVEL IN THE QUERY STRING, which is why they are named
+ * here: `searchListings()` puts `app_id` and `app_key` on the URL, so an
+ * unredacted recording would commit a live credential pair to git in the
+ * `recordedFrom.url` field. `redactUrl()` blanks them at write time, before
+ * anything reaches disk.
+ *
+ * Adzuna's response body carries no credential of its own, so
+ * `secretBodyFields` is empty and bodies are stored verbatim. That is
+ * deliberate and is the whole value of the fixture: the committed file is
+ * exactly the bytes Adzuna sent, including the quirks a hand written mock
+ * would smooth over. One of those quirks is already load bearing, see
+ * `src/features/search/adzuna.ts`: `salary_is_predicted` arrives as the
+ * STRING `"1"`, while Adzuna's own documented example shows the number `0`.
+ */
+export const ADZUNA: ServiceDeclaration = {
+  name: "adzuna",
+  keepHeaders: [...COMMON_SAFE_HEADERS],
+  secretQueryParams: ["app_id", "app_key"],
+  secretBodyFields: [],
+};
+
+/**
  * A service that carries credentials in every way one can, used by the
  * redaction test. It is a declaration rather than a real service because AC-13
  * has to prove the redaction against a request that genuinely carries an API
