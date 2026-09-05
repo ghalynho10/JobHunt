@@ -3,8 +3,13 @@ import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 
+import {
+  AdzunaAttribution,
+  JobsworthAttribution,
+} from "@/components/adzuna-attribution";
+import { relativePostedAt, salaryText } from "@/lib/listing-format";
+
 import type { Listing } from "./adzuna";
-import { AdzunaAttribution, JobsworthAttribution } from "./adzuna-attribution";
 
 /**
  * One search result (spec 0013, AC-6, AC-7, AC-8).
@@ -14,70 +19,6 @@ import { AdzunaAttribution, JobsworthAttribution } from "./adzuna-attribution";
  * about the salary; an omitted row reads as what it is, which is that Adzuna
  * did not say.
  */
-
-/**
- * The posted date, computed at render from the raw timestamp and never stored
- * formatted (`AGENTS.md`'s store raw, format at render rule).
- *
- * Returns `undefined` rather than a placeholder when the timestamp is absent
- * or unparseable, so the row disappears instead of claiming a date this app
- * does not have.
- */
-export function relativePostedAt(
-  postedAt: string | undefined,
-  now: Date,
-): string | undefined {
-  if (postedAt === undefined) return undefined;
-
-  const posted = new Date(postedAt);
-
-  if (Number.isNaN(posted.getTime())) return undefined;
-
-  const elapsedMs = posted.getTime() - now.getTime();
-  const elapsedDays = Math.round(elapsedMs / 86_400_000);
-  const formatter = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
-
-  /**
-   * Days, and hours only inside the first day. Adzuna's `created` is a
-   * posting date, so a finer unit would be precision this app cannot stand
-   * behind, and a coarser one would collapse "today" and "last week".
-   */
-  if (Math.abs(elapsedDays) >= 1) {
-    return `posted ${formatter.format(elapsedDays, "day")}`;
-  }
-
-  const elapsedHours = Math.round(elapsedMs / 3_600_000);
-  return `posted ${formatter.format(elapsedHours, "hour")}`;
-}
-
-/**
- * The salary line, or `undefined` when Adzuna stated no figure at all.
- *
- * Both figures are formatted here, at render, against the currency the
- * configured country fixes (invariant 3): the currency never comes from
- * Adzuna, whose response carries no currency field.
- */
-function salaryText(listing: Listing): string | undefined {
-  if (listing.salaryCurrency === undefined) return undefined;
-
-  const format = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: listing.salaryCurrency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-
-  if (listing.salaryMin !== undefined && listing.salaryMax !== undefined) {
-    return `${format(listing.salaryMin)} to ${format(listing.salaryMax)}`;
-  }
-
-  if (listing.salaryMin !== undefined)
-    return `from ${format(listing.salaryMin)}`;
-  if (listing.salaryMax !== undefined)
-    return `up to ${format(listing.salaryMax)}`;
-
-  return undefined;
-}
 
 export function ResultCard({
   listing,

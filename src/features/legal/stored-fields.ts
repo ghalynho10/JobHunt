@@ -296,6 +296,12 @@ export const STORED_FIELDS: readonly StoredField[] = [
   },
   {
     table: "application",
+    column: "salary_is_predicted",
+    describedAs:
+      "whether the job board estimated that pay rather than the employer stating it",
+  },
+  {
+    table: "application",
     column: "posted_at",
     describedAs: "when the opening was posted",
   },

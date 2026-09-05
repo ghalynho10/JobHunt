@@ -65,6 +65,7 @@ export type Database = {
           posted_at: string | null
           profile_id: string
           salary_currency: string | null
+          salary_is_predicted: boolean | null
           salary_max: number | null
           salary_min: number | null
           source: string
@@ -83,6 +84,7 @@ export type Database = {
           posted_at?: string | null
           profile_id: string
           salary_currency?: string | null
+          salary_is_predicted?: boolean | null
           salary_max?: number | null
           salary_min?: number | null
           source: string
@@ -101,6 +103,7 @@ export type Database = {
           posted_at?: string | null
           profile_id?: string
           salary_currency?: string | null
+          salary_is_predicted?: boolean | null
           salary_max?: number | null
           salary_min?: number | null
           source?: string

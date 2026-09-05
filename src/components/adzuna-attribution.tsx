@@ -1,4 +1,5 @@
-import { ADZUNA_ATTRIBUTION_URL, ADZUNA_JOBSWORTH_URL } from "./adzuna";
+import { ADZUNA_ATTRIBUTION_URL, ADZUNA_JOBSWORTH_URL } from "@/lib/adzuna";
+
 import {
   ADZUNA_GREEN,
   ADZUNA_LOGO_VIEWBOX,
