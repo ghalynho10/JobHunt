@@ -126,7 +126,44 @@ describe("a bare visit (AC-9)", () => {
     const tree = await render({});
 
     expect(flatten(tree).filter((el) => el.type === "input")).toHaveLength(2);
+  });
+
+  it("says the preferences could not be loaded rather than showing empty fields silently", async () => {
+    /**
+     * THE TEST THAT USED TO ASSERT THE OPPOSITE. It locked in zero alerts on
+     * this branch, which meant a failed read rendered the exact screen a
+     * reader with no stated preferences sees. Empty fields are AC-9's meaning
+     * of "no stated preference", so the failure was borrowing that meaning: a
+     * default that reads like success, which the project's own rule forbids.
+     * Raised by a fresh model review on 2026-09-04.
+     */
+    readSearchPrefill.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "Could not read search preferences.",
+      }),
+    );
+
+    const tree = await render({});
+
+    expect(alerts(tree)).toHaveLength(1);
+    expect(textOf(tree)).toContain(SEARCH_COPY.prefillFailed);
+  });
+
+  it("says nothing of the sort when the caller simply has no preferences", async () => {
+    /**
+     * The other half, and the reason the sentence exists. The two screens must
+     * not be the same, so this pins the no preferences case to no alert at all.
+     */
+    readSearchPrefill.mockResolvedValue(
+      success({ title: undefined, location: undefined }),
+    );
+
+    const tree = await render({});
+
     expect(alerts(tree)).toHaveLength(0);
+    expect(textOf(tree)).not.toContain(SEARCH_COPY.prefillFailed);
   });
 });
 

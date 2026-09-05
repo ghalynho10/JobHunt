@@ -73,12 +73,27 @@ export default async function SearchPage({
  * IT NEVER CALLS `searchListings()` (AC-9). A prefill failure falls back to
  * empty fields rather than blocking the form: the reader can still type a
  * search, and the failure is already reported by `failure()` itself.
+ *
+ * THE FAILURE IS ALSO SAID OUT LOUD, and that half was missing until a fresh
+ * model review found it on 2026-09-04. Reporting to Sentry is not the same as
+ * telling the reader: empty fields are AC-9's meaning of "no stated
+ * preference", so a failed read was quietly claiming the reader had none.
+ * `COPY-6` separates the two. It carries `role="alert"` like the page's other
+ * two failure states, since this is a real failure rather than the ordinary
+ * empty outcome, and it sits above the form rather than in place of it.
  */
 async function PrefilledForm() {
   const prefill = await readSearchPrefill();
 
   if (isFailure(prefill)) {
-    return <SearchForm />;
+    return (
+      <>
+        <div role="alert" className="mb-6">
+          <Text className="text-secondary">{SEARCH_COPY.prefillFailed}</Text>
+        </div>
+        <SearchForm />
+      </>
+    );
   }
 
   return (

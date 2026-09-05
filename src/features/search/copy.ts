@@ -37,4 +37,17 @@ export const SEARCH_COPY = {
    */
   searchFailed:
     "We couldn't load listings just now. Nothing you did caused this. Try again in a few minutes.",
+  /**
+   * `COPY-6`. Shown when the `job_preference` read behind the prefill fails
+   * (AC-9). ADDED 2026-09-04 AFTER A FRESH MODEL REVIEW, and the gap it closes
+   * is worth stating: without it a failed read renders the exact screen a
+   * reader with no stated preferences sees, so a database outage silently
+   * borrows the meaning of "you have not set any". That is the default that
+   * reads like success the project's own rule forbids.
+   *
+   * It says the search still works, because it does: the failure costs the
+   * prefill and nothing else.
+   */
+  prefillFailed:
+    "We couldn't load your saved preferences, so the fields below start empty. You can still search.",
 } as const;
