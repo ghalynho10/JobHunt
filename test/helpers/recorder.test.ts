@@ -87,6 +87,34 @@ beforeAll(async () => {
       return;
     }
 
+    /**
+     * THE SAME ECHO, BUT FOR A CREDENTIAL THAT TRAVELLED IN A HEADER. This is
+     * the shape feature 13's model providers take: the key goes up in
+     * `authorization` or `x-api-key`, never on the URL. The route echoes both
+     * back inside ordinary, undeclared body fields, and the bearer token comes
+     * back WITHOUT its `Bearer ` prefix, which is how a real service would
+     * echo it.
+     */
+    if (request.url?.startsWith("/v1/echoes-header-key")) {
+      const bearer = (request.headers["authorization"] ?? "").replace(
+        /^Bearer /,
+        "",
+      );
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          results: [
+            {
+              id: 1,
+              trace: `caller=${String(request.headers["x-api-key"] ?? "")}`,
+              signed_url: `https://example.test/land/1?token=${bearer}&v=abc`,
+            },
+          ],
+        }),
+      );
+      return;
+    }
+
     response.writeHead(200, {
       "content-type": "application/json",
       // The three things AC-13 names, on their way back out.
@@ -263,6 +291,70 @@ describe("record mode redaction (AC-13)", () => {
     expect(written).toContain("utm_source=");
     expect(written).toContain("https://example.test/land/1");
     expect(written).toContain("v=abc");
+  });
+
+  it("scrubs a credential that travelled in a header, not the query string", async () => {
+    /**
+     * THE GAP A FRESH MODEL REVIEW FOUND ON 2026-09-04. The value pass was
+     * built for the Adzuna leak above, and Adzuna sends its credentials on the
+     * URL, so the pass only ever read the URL. Every service feature 13 calls
+     * is the other shape: OpenAI and Anthropic both take a key in a header. So
+     * for the two features the branch claimed this protected, it did nothing at
+     * all.
+     *
+     * This drives the header shape end to end. The service echoes the API key
+     * into a field called `trace` and the bearer token into a `signed_url`,
+     * neither of which is or could be named in `secretBodyFields`.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-header-key`,
+      init: {
+        headers: {
+          authorization: "Bearer secret-bearer-token-1234",
+          "x-api-key": "secret-api-key-abcd",
+        },
+      },
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // The key, echoed into an undeclared field.
+    expect(written).not.toContain("secret-api-key-abcd");
+    /**
+     * The token, echoed WITHOUT its scheme word. Scrubbing only the whole
+     * header value would leave this sitting in the committed bytes, which is
+     * why `secretValues()` unwraps `Bearer ` as well as keeping it.
+     */
+    expect(written).not.toContain("secret-bearer-token-1234");
+    // The surrounding shape survives, so the recording is still evidence.
+    expect(written).toContain("caller=");
+    expect(written).toContain("https://example.test/land/1");
+    expect(written).toContain("v=abc");
+  });
+
+  it("does not scrub an ordinary header value out of the body", async () => {
+    /**
+     * The other half of the same decision, asserted so it stays a decision.
+     * Only DECLARED headers feed the value pass. Feeding it every non allow
+     * listed request header would scrub `application/json` out of every body
+     * and leave a file that proves nothing, which is a worse outcome than the
+     * leak it would be guarding against.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-header-key`,
+      init: { headers: { "content-type": "application/json" } },
+    });
+
+    const written = JSON.parse(await readFile(path, "utf8")) as {
+      response: { headers: Record<string, string>; bodyText: string };
+    };
+
+    expect(written.response.headers["content-type"]).toBe("application/json");
+    expect(written.response.bodyText).toContain("signed_url");
   });
 
   it("leaves a short secret alone rather than shredding the recording", async () => {
