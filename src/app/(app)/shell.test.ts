@@ -64,7 +64,27 @@ vi.mock("@/lib/kill-switch", () => ({
     Promise.resolve(success({ enabled: false, updatedAt: "2026-08-31" })),
 }));
 
+/**
+ * Added when feature 11 gave `/search` its real reads (spec 0013). A bare
+ * visit, which is the only state this file renders, reads the caller's
+ * `job_preference` row to prefill the form (AC-9) and never calls Adzuna.
+ * That read has its own tests; this file asserts the shell.
+ */
+vi.mock("@/features/search/preferences", () => ({
+  readSearchPrefill: () =>
+    Promise.resolve(success({ title: undefined, location: undefined })),
+}));
+
 const { default: SearchPage } = await import("./search/page");
+
+/**
+ * `/search` takes route props and reads the query string since feature 11
+ * (spec 0013). No `q` and no `where` is the bare visit, which runs no search
+ * and spends no usage gate budget (AC-9), and is the state this file is about.
+ */
+function renderSearch() {
+  return SearchPage({ searchParams: Promise.resolve({}) });
+}
 const { default: ProfilePage } = await import("./profile/page");
 
 /**
@@ -100,14 +120,14 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
      * the header with no `current`. Leaving it out of this list is how a route
      * quietly loses its chrome.
      */
-    expect(headerOf(SearchPage())).toBeDefined();
+    expect(headerOf(await renderSearch())).toBeDefined();
     expect(headerOf(await renderProfile())).toBeDefined();
     expect(headerOf(ApplicationsPage())).toBeDefined();
     expect(headerOf(await HealthPage())).toBeDefined();
   });
 
   it.each([
-    ["/search", async () => SearchPage(), "search"],
+    ["/search", renderSearch, "search"],
     ["/profile", renderProfile, "profile"],
   ] as const)(
     "%s tells the header it is the current page",
@@ -140,7 +160,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
      * not: two routes claiming the same page is wrong however the individual
      * expectations were edited.
      */
-    const claimed = [SearchPage(), await renderProfile()]
+    const claimed = [await renderSearch(), await renderProfile()]
       .map((page) => headerOf(page).current)
       .filter((current) => current !== undefined);
 
@@ -149,22 +169,17 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
 });
 
 /**
- * `/profile` LEFT THE COPY SLOT LIST WHEN FEATURE 9 BUILT IT (spec 0010). Spec
- * 0008's placeholder sentence ("Your profile lives here...") is gone from that
- * page, because the page now IS the thing the sentence was standing in for.
- * `/search` and `/applications` are still placeholders and their slots still
- * hold. The route stays in the two checks below it, which are about the shape of
- * any route rather than about a placeholder: a built route must still not shout
- * failure at an ordinary state, and must still not say something that becomes
- * false later.
+ * `/profile` LEFT THE COPY SLOT LIST WHEN FEATURE 9 BUILT IT (spec 0010), AND
+ * `/search` LEFT IT WHEN FEATURE 11 BUILT IT (spec 0013). Spec 0008's two
+ * placeholder sentences are gone from those pages, because each page now IS
+ * the thing its sentence was standing in for. `/applications` is still a
+ * placeholder and its slot still holds. Both built routes stay in the two
+ * checks below, which are about the shape of any route rather than about a
+ * placeholder: a built route must still not shout failure at an ordinary
+ * state, and must still not say something that becomes false later.
  */
 describe("the placeholder routes read as an ordinary state (AC-2)", () => {
   it.each([
-    [
-      "/search",
-      () => SearchPage(),
-      "Search comes next. This is where real listings will appear, ranked, with the reasoning shown.",
-    ],
     [
       "/applications",
       () => ApplicationsPage(),
@@ -183,7 +198,7 @@ describe("the placeholder routes read as an ordinary state (AC-2)", () => {
   );
 
   it.each([
-    ["/search", async () => SearchPage()],
+    ["/search", renderSearch],
     ["/profile", renderProfile],
     ["/applications", async () => ApplicationsPage()],
   ] as const)("%s renders no failure treatment", async (_route, render) => {
@@ -209,7 +224,7 @@ describe("the placeholder routes read as an ordinary state (AC-2)", () => {
      * gets replaced. "Coming soon" is not, because it survives as a lie.
      */
     for (const render of [
-      async () => SearchPage(),
+      renderSearch,
       renderProfile,
       async () => ApplicationsPage(),
     ]) {

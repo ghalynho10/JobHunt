@@ -185,12 +185,17 @@ describe("who else sees it (covers AC-3, AC-6)", () => {
    * INVARIANT 1, AND THE HALF THAT ACTUALLY BITES. Checking the registry's
    * companies appear is easy; the failure this guards is the opposite one, a
    * company written into the prose by hand that the registry never learned
-   * about. The three named below are precisely the ones arriving at features
-   * 11, 13 and 14, so a build that mentions one before adding its entry fails
-   * here rather than shipping a list that disagrees with itself.
+   * about. The ones named below are precisely those arriving at features 13
+   * and 14, so a build that mentions one before adding its entry fails here
+   * rather than shipping a list that disagrees with itself.
+   *
+   * ADZUNA LEFT THIS LIST ON 2026-09-04, when feature 11 (spec 0013) added it
+   * to `DATA_RECIPIENTS` as part of its own build. That is the mechanism
+   * working: a company moves off this list by becoming a real registry entry,
+   * never by being deleted from it to make a test pass.
    */
   it("names no company the registry does not hold", () => {
-    const notYetRecipients = ["Adzuna", "OpenAI", "Anthropic", "Cloudflare"];
+    const notYetRecipients = ["OpenAI", "Anthropic", "Cloudflare"];
     const named = notYetRecipients.filter((company) => text.includes(company));
 
     expect(

@@ -89,6 +89,8 @@ jobs:
           SUPABASE_SECRET_KEY: sb_secret_unit_tests_never_connect
           NEXT_PUBLIC_SITE_URL: https://usejobhunt.dev
           DEV_SESSION_ENABLED: "true"
+          ADZUNA_APP_ID: ci-placeholder-adzuna-app-id
+          ADZUNA_APP_KEY: ci-placeholder-adzuna-app-key
 
       # Pinned to the same version as the `supabase` devDependency in
       # package.json and as db-migrate.yml, so nothing applies migrations with a
@@ -148,6 +150,8 @@ jobs:
           # gives that variable exactly one remaining job. See
           # test/helpers/database.ts.
           TEST_DIRECT_DB_ENABLED: "true"
+          ADZUNA_APP_ID: ci-placeholder-adzuna-app-id
+          ADZUNA_APP_KEY: ci-placeholder-adzuna-app-key
 
       # `supabase start` applies migrations and the seed, so a seed that broke
       # would already have failed the step above. This says so out loud, because

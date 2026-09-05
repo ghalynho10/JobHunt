@@ -24,6 +24,25 @@ export interface ServiceDeclaration {
   readonly keepHeaders: readonly string[];
   /** Query parameters whose value is a credential. */
   readonly secretQueryParams: readonly string[];
+  /**
+   * REQUEST header names, lowercased, whose value is a credential.
+   *
+   * Separate from `keepHeaders` because the two answer different questions.
+   * `keepHeaders` decides what survives redaction BY POSITION, and every header
+   * outside it already loses its value, so nothing here is needed to stop a
+   * credential being committed under its own name. This list exists for the
+   * VALUE pass instead: it says which header values are secrets worth hunting
+   * for ELSEWHERE in the recording, in case the service echoed one into a place
+   * nobody declared.
+   *
+   * Named rather than inferred, and that is the whole reason this field exists.
+   * Feeding every non allow listed request header into the value pass would
+   * scrub `application/json` and `gzip, deflate` out of the body and shred the
+   * recording, which `secretValues()` explains at more length. Naming the two or
+   * three headers that actually carry a credential costs a line per service and
+   * cannot do that.
+   */
+  readonly secretHeaders: readonly string[];
   /** Top level body fields whose value is a credential. */
   readonly secretBodyFields: readonly string[];
 }
@@ -72,6 +91,38 @@ export const GITHUB: ServiceDeclaration = {
     "x-ratelimit-resource",
   ],
   secretQueryParams: [],
+  secretHeaders: [],
+  secretBodyFields: [],
+};
+
+/**
+ * Adzuna's job search API, this product's real listing source (spec 0013).
+ *
+ * BOTH CREDENTIALS TRAVEL IN THE QUERY STRING, which is why they are named
+ * here: `searchListings()` puts `app_id` and `app_key` on the URL, so an
+ * unredacted recording would commit a live credential pair to git in the
+ * `recordedFrom.url` field. `redactUrl()` blanks them at write time, before
+ * anything reaches disk.
+ *
+ * Adzuna's response body carries no credential of its own, so
+ * `secretBodyFields` is empty and bodies are stored verbatim. That is
+ * deliberate and is the whole value of the fixture: the committed file is
+ * exactly the bytes Adzuna sent, including the quirks a hand written mock
+ * would smooth over. One of those quirks is already load bearing, see
+ * `src/features/search/adzuna.ts`: `salary_is_predicted` arrives as the
+ * STRING `"1"`, while Adzuna's own documented example shows the number `0`.
+ */
+export const ADZUNA: ServiceDeclaration = {
+  name: "adzuna",
+  keepHeaders: [...COMMON_SAFE_HEADERS],
+  secretQueryParams: ["app_id", "app_key"],
+  /**
+   * Empty on purpose, and worth stating rather than leaving to inference:
+   * Adzuna sends both credentials in the query string and nothing in a header,
+   * verified against the real request `searchListings()` builds. Feature 13's
+   * model providers are the opposite shape and will fill this in.
+   */
+  secretHeaders: [],
   secretBodyFields: [],
 };
 
@@ -86,5 +137,12 @@ export const CREDENTIAL_CARRYING: ServiceDeclaration = {
   name: "credential-carrying",
   keepHeaders: [...COMMON_SAFE_HEADERS],
   secretQueryParams: ["api_key", "app_key"],
+  /**
+   * The header shape feature 13 will really use: both OpenAI and Anthropic put
+   * their key in a header, not the query string, so this declaration has to
+   * carry that case for the value pass to be provable before those features
+   * exist.
+   */
+  secretHeaders: ["authorization", "x-api-key"],
   secretBodyFields: ["password", "refresh_token"],
 };

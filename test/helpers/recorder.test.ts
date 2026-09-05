@@ -60,6 +60,60 @@ beforeAll(async () => {
       response.end("not json at all");
       return;
     }
+    /**
+     * THE ADZUNA SHAPE (spec 0013). The service copies the caller's own
+     * credential back into a URL inside an ordinary, undeclared field. No
+     * field here is named in `secretBodyFields`, and none could sensibly be:
+     * `redirect_url` is not a secret, it merely contains one. This is the
+     * route that proves redaction by value, not just by position.
+     */
+    if (request.url?.startsWith("/v1/echoes-key-in-url")) {
+      const sent = new URL(request.url, origin).searchParams.get("api_key");
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          results: [
+            {
+              id: 1,
+              redirect_url: `https://example.test/land/1?utm_source=${sent}&v=abc`,
+            },
+            {
+              id: 2,
+              redirect_url: `https://example.test/land/2?utm_source=${sent}&v=def`,
+            },
+          ],
+        }),
+      );
+      return;
+    }
+
+    /**
+     * THE SAME ECHO, BUT FOR A CREDENTIAL THAT TRAVELLED IN A HEADER. This is
+     * the shape feature 13's model providers take: the key goes up in
+     * `authorization` or `x-api-key`, never on the URL. The route echoes both
+     * back inside ordinary, undeclared body fields, and the bearer token comes
+     * back WITHOUT its `Bearer ` prefix, which is how a real service would
+     * echo it.
+     */
+    if (request.url?.startsWith("/v1/echoes-header-key")) {
+      const bearer = (request.headers["authorization"] ?? "").replace(
+        /^Bearer /,
+        "",
+      );
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          results: [
+            {
+              id: 1,
+              trace: `caller=${String(request.headers["x-api-key"] ?? "")}`,
+              signed_url: `https://example.test/land/1?token=${bearer}&v=abc`,
+            },
+          ],
+        }),
+      );
+      return;
+    }
 
     response.writeHead(200, {
       "content-type": "application/json",
@@ -208,6 +262,123 @@ describe("record mode redaction (AC-13)", () => {
     expect(written).not.toContain("super-secret-cookie-value");
     // And the declared body field.
     expect(written).not.toContain("hunter2");
+  });
+
+  it("scrubs a credential the service echoed into an undeclared field", async () => {
+    /**
+     * THE REGRESSION TEST FOR A REAL, NEAR MISS LEAK (spec 0013, feature 11).
+     * Adzuna returns every listing with `redirect_url=...&utm_source=<app_id>`,
+     * so the first real recording written for that feature carried the live
+     * application id twenty times. Redaction by position could not catch it:
+     * `redirect_url` is not a credential field, it just contains one, and no
+     * declaration could reasonably name it.
+     *
+     * Redaction by VALUE catches it, using what the request itself carried.
+     * Break `secretValues()` or `scrubValues()` in `recorder.ts` and this test
+     * fails with the credential sitting in the committed bytes, which is
+     * exactly what it is here to prevent.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-key-in-url?api_key=super-secret-key`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    expect(written).not.toContain("super-secret-key");
+    // The surrounding URL survives, so the recording is still usable evidence.
+    expect(written).toContain("utm_source=");
+    expect(written).toContain("https://example.test/land/1");
+    expect(written).toContain("v=abc");
+  });
+
+  it("scrubs a credential that travelled in a header, not the query string", async () => {
+    /**
+     * THE GAP A FRESH MODEL REVIEW FOUND ON 2026-09-04. The value pass was
+     * built for the Adzuna leak above, and Adzuna sends its credentials on the
+     * URL, so the pass only ever read the URL. Every service feature 13 calls
+     * is the other shape: OpenAI and Anthropic both take a key in a header. So
+     * for the two features the branch claimed this protected, it did nothing at
+     * all.
+     *
+     * This drives the header shape end to end. The service echoes the API key
+     * into a field called `trace` and the bearer token into a `signed_url`,
+     * neither of which is or could be named in `secretBodyFields`.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-header-key`,
+      init: {
+        headers: {
+          authorization: "Bearer secret-bearer-token-1234",
+          "x-api-key": "secret-api-key-abcd",
+        },
+      },
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // The key, echoed into an undeclared field.
+    expect(written).not.toContain("secret-api-key-abcd");
+    /**
+     * The token, echoed WITHOUT its scheme word. Scrubbing only the whole
+     * header value would leave this sitting in the committed bytes, which is
+     * why `secretValues()` unwraps `Bearer ` as well as keeping it.
+     */
+    expect(written).not.toContain("secret-bearer-token-1234");
+    // The surrounding shape survives, so the recording is still evidence.
+    expect(written).toContain("caller=");
+    expect(written).toContain("https://example.test/land/1");
+    expect(written).toContain("v=abc");
+  });
+
+  it("does not scrub an ordinary header value out of the body", async () => {
+    /**
+     * The other half of the same decision, asserted so it stays a decision.
+     * Only DECLARED headers feed the value pass. Feeding it every non allow
+     * listed request header would scrub `application/json` out of every body
+     * and leave a file that proves nothing, which is a worse outcome than the
+     * leak it would be guarding against.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-header-key`,
+      init: { headers: { "content-type": "application/json" } },
+    });
+
+    const written = JSON.parse(await readFile(path, "utf8")) as {
+      response: { headers: Record<string, string>; bodyText: string };
+    };
+
+    expect(written.response.headers["content-type"]).toBe("application/json");
+    expect(written.response.bodyText).toContain("signed_url");
+  });
+
+  it("leaves a short secret alone rather than shredding the recording", async () => {
+    /**
+     * The deliberate limit on the value pass, asserted so it is a decision
+     * rather than an accident. A very short credential would match ordinary
+     * punctuation and characters throughout a body, and a recording sprayed
+     * with `[redacted]` is worse than the leak it prevents: it stops being
+     * evidence of anything. Six characters is the floor.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-key-in-url?api_key=abc`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // Still redacted where it was DECLARED (the query parameter itself)...
+    expect(
+      new URL(JSON.parse(written).recordedFrom.url).searchParams.get("api_key"),
+    ).toBe(REDACTED);
+    // ...but not scrubbed blindly out of the body.
+    expect(written).toContain("utm_source=abc");
   });
 
   it("keeps the shape it redacted, so a reviewer can see what was there", async () => {

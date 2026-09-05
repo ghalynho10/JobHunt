@@ -188,6 +188,16 @@ function redactValue(value: unknown, fields: ReadonlySet<string>): unknown {
  *
  * A service that declares no credential carrying fields is saying its bodies
  * never hold one, so its bodies are returned untouched and unparsed.
+ *
+ * ONE HONEST CAVEAT, raised by a fresh model review on 2026-09-04. When a
+ * service DOES declare fields, this parses and re-serialises, which normalises
+ * key order, number formatting and whitespace. That is a real exception to the
+ * "byte for byte" doctrine `recordingSchema` states above, and it is accepted
+ * rather than solved: rewriting a value inside a JSON document without
+ * reparsing it means writing a JSON parser, and a recording that has been
+ * redacted is already not the exact bytes the service sent. The services whose
+ * bodies are evidence of a quirk, Adzuna above all, declare no body fields and
+ * so take the untouched path.
  */
 function redactBody(bodyText: string, service: ServiceDeclaration): string {
   if (service.secretBodyFields.length === 0) return bodyText;
@@ -206,6 +216,107 @@ function redactBody(bodyText: string, service: ServiceDeclaration): string {
 }
 
 /**
+ * The floor on a scrubbable value. Below this, see the note on shredding.
+ *
+ * Exported so a test asserting a credential is absent can reuse the same
+ * number rather than restate it: a check tighter than the scrubber would fail
+ * on values the scrubber deliberately leaves alone, and the two drifting apart
+ * would be invisible until one of them was wrong.
+ */
+export const MINIMUM_SCRUBBABLE_LENGTH = 6;
+
+/**
+ * `Bearer <token>`, `Basic <token>`, `Token <token>`: the schemes seen in the
+ * wild. Numbered group rather than a named one, because the project's
+ * `target` predates ES2018 and named groups do not compile under it.
+ */
+const AUTH_SCHEME = /^(?:bearer|basic|token)\s+(\S.*)$/i;
+
+/**
+ * The credential VALUES this request carried, read off its own URL and its own
+ * request headers.
+ *
+ * WHY THIS EXISTS, AND THE BUG THAT FOUND IT. Everything above redacts by
+ * POSITION: a named header, a named query parameter, a named body field. That
+ * is blind to a credential a service copies somewhere nobody declared. Adzuna
+ * does exactly that (spec 0013): every listing it returns carries a
+ * `redirect_url` ending `utm_source=<app_id>`, so the first real recording put
+ * the application id into the committed file twenty times, inside a field
+ * whose name is not a secret and never could be. `secretBodyFields` cannot
+ * catch it, because the credential is not a field, it is a substring of one.
+ *
+ * So the last pass redacts by VALUE instead: whatever the declared secret
+ * query parameters and secret request HEADERS actually held on this request is
+ * scrubbed wherever it appears in the finished recording. Nothing new has to be
+ * declared per response, since the values come from the request that was just
+ * made.
+ *
+ * HEADERS ARE READ AS WELL AS THE QUERY STRING, and that half is not optional
+ * even though the bug that prompted this pass was a query string one. Adzuna
+ * happens to send its credentials on the URL. The model providers feature 13
+ * calls do not: OpenAI and Anthropic both take a key in a header. A value pass
+ * that only ever looked at the URL would therefore do nothing at all for the
+ * very services most likely to need it, while the surrounding prose claimed it
+ * covered them. Found by a fresh model review on 2026-09-04.
+ *
+ * Only the DECLARED headers are read, never every header. Redaction by position
+ * can afford an allow list, because over redacting a header value costs a
+ * reviewer some context. The value pass cannot: it rewrites the whole
+ * recording, so feeding it `content-type: application/json` would delete that
+ * string from every body and leave a file that is evidence of nothing.
+ *
+ * An authentication scheme prefix is unwrapped as well as kept. `authorization`
+ * arrives as `Bearer <token>`, and a service that echoes the credential back
+ * echoes the token alone, without the word in front of it, so scrubbing only
+ * the whole header value would miss exactly the case this exists for.
+ *
+ * Very short values are skipped. A two character secret would match half the
+ * punctuation in a JSON body and shred the recording, which would be a worse
+ * outcome than the leak: the file has to stay usable evidence.
+ */
+function secretValues(
+  url: string,
+  headers: Readonly<Record<string, string>>,
+  service: ServiceDeclaration,
+): string[] {
+  const parsed = new URL(url);
+
+  const fromQuery = service.secretQueryParams.map((param) =>
+    parsed.searchParams.get(param),
+  );
+
+  /**
+   * Looked up case insensitively, because `headers` is lowercased on the way in
+   * by `headersToObject()` while a declaration is written by a human. A list
+   * that missed `Authorization` while catching `authorization` would be the
+   * same silent gap the header allow list already guards against.
+   */
+  const fromHeaders = service.secretHeaders.flatMap((name) => {
+    const value = headers[name.toLowerCase()];
+    if (value === undefined) return [];
+
+    const credential = AUTH_SCHEME.exec(value)?.[1];
+
+    return credential !== undefined ? [value, credential] : [value];
+  });
+
+  return [...fromQuery, ...fromHeaders].filter(
+    (value): value is string =>
+      value !== null &&
+      value !== undefined &&
+      value.length >= MINIMUM_SCRUBBABLE_LENGTH,
+  );
+}
+
+/** Replaces every occurrence of each secret value, wherever it sits. */
+function scrubValues(text: string, values: readonly string[]): string {
+  return values.reduce(
+    (scrubbed, value) => scrubbed.split(value).join(REDACTED),
+    text,
+  );
+}
+
+/**
  * AC-13: redaction happens AT WRITE TIME, not at read time.
  *
  * The difference is the whole guarantee. Redacting on read would leave the
@@ -220,7 +331,17 @@ export function redact(
   recording: Recording,
   service: ServiceDeclaration,
 ): Recording {
-  return {
+  /**
+   * Read from the URL AND THE REQUEST HEADERS BEFORE either is redacted, since
+   * redacting replaces exactly the values this needs to find.
+   */
+  const secrets = secretValues(
+    recording.recordedFrom.url,
+    recording.recordedFrom.headers,
+    service,
+  );
+
+  const byPosition: Recording = {
     recordedFrom: {
       method: recording.recordedFrom.method,
       url: redactUrl(recording.recordedFrom.url, service),
@@ -230,6 +351,36 @@ export function redact(
       status: recording.response.status,
       headers: redactHeaders(recording.response.headers, service),
       bodyText: redactBody(recording.response.bodyText, service),
+    },
+  };
+
+  if (secrets.length === 0) return byPosition;
+
+  /**
+   * The value pass runs LAST and over everything, so a credential a service
+   * echoed into a place nobody declared cannot survive. See `secretValues()`
+   * for the Adzuna case that made this necessary.
+   */
+  return {
+    recordedFrom: {
+      ...byPosition.recordedFrom,
+      url: scrubValues(byPosition.recordedFrom.url, secrets),
+      headers: Object.fromEntries(
+        Object.entries(byPosition.recordedFrom.headers).map(([name, value]) => [
+          name,
+          scrubValues(value, secrets),
+        ]),
+      ),
+    },
+    response: {
+      ...byPosition.response,
+      headers: Object.fromEntries(
+        Object.entries(byPosition.response.headers).map(([name, value]) => [
+          name,
+          scrubValues(value, secrets),
+        ]),
+      ),
+      bodyText: scrubValues(byPosition.response.bodyText, secrets),
     },
   };
 }

@@ -106,13 +106,15 @@ describe("every env key is accounted for (covers AC-5)", () => {
 });
 
 describe("the list the page renders (covers AC-3, AC-6)", () => {
-  it("names the five companies data reaches today", () => {
+  it("names the six companies data reaches today", () => {
     expect(DATA_RECIPIENTS.map((recipient) => recipient.id)).toEqual([
       "supabase",
       "vercel",
       "sentry",
       "google",
       "github",
+      /** Added by feature 11 (spec 0013), the first outbound job board call. */
+      "adzuna",
     ]);
   });
 

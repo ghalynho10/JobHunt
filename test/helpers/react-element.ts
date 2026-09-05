@@ -107,6 +107,59 @@ export function renderDeep(
   } as ReactElement;
 }
 
+/**
+ * `renderDeep` for a tree that contains async server components.
+ *
+ * WHY A SECOND FUNCTION RATHER THAN CHANGING THE FIRST. `renderDeep` invokes a
+ * component and walks what comes back. An async component returns a Promise,
+ * not a tree, so the sync walker stops at it and silently reports a page as
+ * though its whole body were missing: no error, no failing type, just an empty
+ * result that reads like a page rendering nothing. Feature 11's `/search` is
+ * the first page here built that way (`SearchResults` and `PrefilledForm` both
+ * await a server read), and feature 12 will be the second.
+ *
+ * Adding `await` to `renderDeep` itself would turn every existing caller's
+ * return value into a Promise, so this is additive: sync trees keep the sync
+ * walker, and a page with async components uses this one.
+ *
+ * The same licence as the rest of this file still applies, and is worth
+ * restating because it is easy to over reach: this invokes plain functions. It
+ * is valid only while the components hold no state and use no hooks. A
+ * component that needs a real renderer needs jsdom, which spec 0004 says
+ * arrives with the first test that genuinely requires a browser.
+ */
+export async function renderDeepAsync(
+  node: ReactNode | Promise<ReactNode>,
+  stopAt: readonly unknown[] = [],
+): Promise<ReactNode> {
+  const resolved = await node;
+
+  if (Array.isArray(resolved)) {
+    return Promise.all(
+      resolved.map((child) => renderDeepAsync(child, stopAt)),
+    ) as Promise<ReactNode>;
+  }
+  if (!isElement(resolved)) return resolved;
+
+  if (typeof resolved.type === "function" && !stopAt.includes(resolved.type)) {
+    const component = resolved.type as (
+      props: unknown,
+    ) => ReactNode | Promise<ReactNode>;
+    return renderDeepAsync(await component(resolved.props), stopAt);
+  }
+
+  const props = resolved.props as { readonly children?: ReactNode };
+  if (props.children === undefined) return resolved;
+
+  return {
+    ...resolved,
+    props: {
+      ...props,
+      children: await renderDeepAsync(props.children, stopAt),
+    },
+  } as ReactElement;
+}
+
 /** All text a caller would read, in order. */
 export function textOf(node: ReactNode): string {
   if (Array.isArray(node)) return node.map(textOf).join("");

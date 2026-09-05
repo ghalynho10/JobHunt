@@ -1,0 +1,157 @@
+import { describe, expect, it } from "vitest";
+
+import { MINIMUM_SCRUBBABLE_LENGTH, recordedFetch } from "./recorder";
+import { ADZUNA } from "./services";
+
+/**
+ * The recorded Adzuna response (spec 0013, Build plan step 8; spec 0004 AC-2,
+ * AC-8, AC-13).
+ *
+ * WHY A RECORDING RATHER THAN A HAND WRITTEN OBJECT, in this feature above all.
+ * The parser in `src/features/search/adzuna.ts` accepts `salary_is_predicted`
+ * as `0`, `1`, `"0"` or `"1"`, which looks like defensive noise until you see
+ * why: Adzuna's own published example shows the NUMBER `0`, and the live API
+ * returns the STRING `"1"`. A mock written from the documentation would have
+ * encoded the documented shape, agreed with a parser written from the same
+ * documentation, and passed, while every predicted salary silently failed its
+ * item parse in production. Nineteen of twenty listings in a real Boston search
+ * carry a predicted salary, so the whole page would have gone
+ * `response_malformed`. This file is the guard against that class of mistake,
+ * and it can only work because the bytes below are Adzuna's, not mine.
+ *
+ * The committed file holds no credential: `ADZUNA` names `app_id` and
+ * `app_key` as secret query parameters, so `redact()` blanks them before the
+ * recording is written (spec 0004, AC-13, redaction at write time).
+ *
+ * To re-record after an API change:
+ *   TEST_FIXTURE_MODE=record pnpm test -t "recorded Adzuna"
+ * then read the captured file before committing it.
+ */
+
+const FIXTURE = "search-software-engineer-boston";
+
+/**
+ * The URL as recorded. The two credentials read as `[redacted]` in the
+ * committed file, so this is what the recording claims it came from, with the
+ * secrets removed. In record mode the real values are substituted in below.
+ */
+const RECORDED_URL =
+  "https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=%5Bredacted%5D&app_key=%5Bredacted%5D&results_per_page=20&what=software+engineer&where=boston";
+
+function liveUrl(): string {
+  const url = new URL("https://api.adzuna.com/v1/api/jobs/us/search/1");
+  url.searchParams.set("app_id", process.env["ADZUNA_APP_ID"] ?? "");
+  url.searchParams.set("app_key", process.env["ADZUNA_APP_KEY"] ?? "");
+  url.searchParams.set("results_per_page", "20");
+  url.searchParams.set("what", "software engineer");
+  url.searchParams.set("where", "boston");
+  return url.toString();
+}
+
+async function recording() {
+  return recordedFetch(ADZUNA, FIXTURE, { url: liveUrl() });
+}
+
+describe("the recorded Adzuna response", () => {
+  it("replays a real successful search without touching the network", async () => {
+    const captured = await recording();
+
+    expect(captured.response.status).toBe(200);
+    expect(captured.response.headers["content-type"]).toContain(
+      "application/json",
+    );
+  });
+
+  it("commits no credential, in the URL or anywhere else", async () => {
+    // covers: spec 0004 AC-13
+    const captured = await recording();
+    const whole = JSON.stringify(captured);
+
+    expect(captured.recordedFrom.url).toBe(RECORDED_URL);
+    expect(captured.recordedFrom.url).toContain("app_id=%5Bredacted%5D");
+    expect(captured.recordedFrom.url).toContain("app_key=%5Bredacted%5D");
+
+    /**
+     * THE CONTAINMENT CHECK NOW RUNS ONLY ON A VALUE WORTH CHECKING, and only
+     * when there is one. Corrected on 2026-09-04 after a fresh model review.
+     *
+     * What was here was `not.toContain(process.env[...] ?? "\0")`, and every
+     * one of its three paths was wrong in a different direction. The fallback
+     * was a literal NUL BYTE, committed into this source file, which made this
+     * file the only tracked text file in the repository holding one. A JSON
+     * body never contains a NUL, so on any machine without these keys, CI
+     * included at the time, the assertion guarding "commits no credential"
+     * passed while checking nothing at all. An empty string value would have
+     * been the opposite failure, since `includes("")` is always true, and a
+     * placeholder shorter than the scrubber's floor can match ordinary listing
+     * text by accident.
+     *
+     * The floor is imported from the recorder rather than repeated, so the
+     * thing being asserted and the thing doing the scrubbing cannot drift.
+     */
+    for (const name of ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"] as const) {
+      const value = process.env[name];
+      if (value === undefined || value.length < MINIMUM_SCRUBBABLE_LENGTH)
+        continue;
+      expect(whole).not.toContain(value);
+    }
+  });
+
+  it("carries a full page of listings, so the parse below is not vacuous", async () => {
+    const captured = await recording();
+    const body: unknown = JSON.parse(captured.response.bodyText);
+    const results = (body as { results: readonly unknown[] }).results;
+
+    expect(Array.isArray(results)).toBe(true);
+    expect(results.length).toBeGreaterThan(1);
+  });
+
+  /**
+   * The parse itself is NOT asserted here, on purpose. The schema is private
+   * to `adzuna.ts`, and re declaring it in a test would recreate the exact
+   * failure this fixture exists to prevent: a copy of the shape, written by
+   * the same hand, agreeing with the original whether or not either is right.
+   * `test/integration-serial/search-listings.test.ts` replays these same
+   * bytes
+   * through the real `searchListings()` instead, so the shipped parser meets
+   * the real response through its own public entry point.
+   */
+  it("proves the string valued predicted flag the schema exists to handle", async () => {
+    /**
+     * covers: AC-7, and the reason the union in `adzuna.ts` is not paranoia.
+     * Asserted against the RAW recorded bytes rather than the parsed output,
+     * because the point is what Adzuna sends, not what the parser makes of it.
+     * If Adzuna ever switches to a JSON boolean, this fails and tells the next
+     * reader the union can be narrowed rather than leaving it unexplained.
+     */
+    const captured = await recording();
+    const body: unknown = JSON.parse(captured.response.bodyText);
+    const results = (
+      body as { results: readonly { salary_is_predicted?: unknown }[] }
+    ).results;
+
+    const rawFlags = results
+      .map((item) => item.salary_is_predicted)
+      .filter((flag) => flag !== undefined);
+
+    expect(rawFlags.length).toBeGreaterThan(0);
+    for (const flag of rawFlags) {
+      expect(
+        typeof flag === "string" || typeof flag === "number",
+        `salary_is_predicted arrived as ${typeof flag}`,
+      ).toBe(true);
+    }
+    // The live API sends strings today. Documented example shows a number.
+    expect(rawFlags.some((flag) => flag === "1" || flag === "0")).toBe(true);
+  });
+
+  it("redacted every header the allow list does not name", async () => {
+    // covers: spec 0004 AC-13
+    const captured = await recording();
+
+    for (const [name, value] of Object.entries(captured.response.headers)) {
+      if (ADZUNA.keepHeaders.includes(name)) continue;
+      expect(value, `${name} was captured verbatim`).toBe("[redacted]");
+    }
+  });
+});
