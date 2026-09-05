@@ -50,4 +50,20 @@ export const SEARCH_COPY = {
    */
   prefillFailed:
     "We couldn't load your saved preferences, so the fields below start empty. You can still search.",
+  /**
+   * `COPY-8` of spec 0014. Shown when the read behind the applied markers fails
+   * (spec 0014, AC-9).
+   *
+   * THE SAME SHAPE AS `prefillFailed` DIRECTLY ABOVE, and added for the same
+   * reason before it could ship wrong. Without it, a failed read renders twenty
+   * cards with no applied marker, which is exactly the screen a reader who has
+   * applied to none of them sees. A database outage would silently make the
+   * claim "you have applied to none of these", which the app cannot stand
+   * behind.
+   *
+   * It says the results are still usable, because they are: the failure costs
+   * the markers and nothing else.
+   */
+  appliedReadFailed:
+    "We couldn't check which jobs you've already applied to, so none are marked below.",
 } as const;

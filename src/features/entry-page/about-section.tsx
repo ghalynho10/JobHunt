@@ -48,10 +48,10 @@ import { Text } from "@/components/ui/text";
  * no test guards this card, and that reasoning still holds. This is what it
  * costs: the only guard is somebody reading the page and knowing better.
  */
-const WORKING = "sign in with Google or GitHub · profile · filtered search";
+const WORKING =
+  "sign in with Google or GitHub · profile · filtered search · application tracking";
 
-const PLANNED =
-  "ranked results with reasoning · application tracking · a no sign in demo account";
+const PLANNED = "ranked results with reasoning · a no sign in demo account";
 
 const ABOUT_PARAGRAPHS = [
   "JobHunt is a real product in progress, built and run by one engineer. I use it for my own search, so the parts that are broken get fixed because I run into them too.",

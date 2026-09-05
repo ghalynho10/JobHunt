@@ -7,6 +7,8 @@ import {
   AdzunaAttribution,
   JobsworthAttribution,
 } from "@/components/adzuna-attribution";
+import { ApplyControl } from "@/features/applications/apply-control";
+import { recordApplication } from "@/features/applications/actions";
 import { relativePostedAt, salaryText } from "@/lib/listing-format";
 
 import type { Listing } from "./adzuna";
@@ -23,6 +25,7 @@ import type { Listing } from "./adzuna";
 export function ResultCard({
   listing,
   now,
+  alreadyApplied = false,
 }: {
   readonly listing: Listing;
   /**
@@ -30,9 +33,36 @@ export function ResultCard({
    * render and a test can state what "now" is instead of racing the clock.
    */
   readonly now: Date;
+  /** Whether the caller already recorded this job (spec 0014, AC-9). */
+  readonly alreadyApplied?: boolean;
 }) {
   const posted = relativePostedAt(listing.postedAt, now);
   const salary = salaryText(listing);
+
+  /**
+   * THE APPLY ACTION, DEFINED INLINE SO IT CLOSES OVER THIS CARD'S LISTING
+   * (spec 0014, `## Decision`).
+   *
+   * IT HAS TO BE INLINE, and that is a mechanical requirement rather than a
+   * preference. Next encrypts the variables an action defined inside a
+   * component closes over, with a private key regenerated every build, so the
+   * browser can neither read the listing nor forge one
+   * (`node_modules/next/dist/docs/01-app/02-guides/data-security.md:505-526`,
+   * the `publishVersion` example). A module level `'use server'` export has
+   * nothing to close over; the alternative there is `.bind()`, documented
+   * separately at `forms.md:74-88` with no encryption claim attached to it
+   * anywhere in the installed docs. Moving this into `actions.ts` would
+   * silently turn the security model's central sentence into a false one.
+   *
+   * IT DELEGATES RATHER THAN IMPLEMENTS, so the span, the caller check, the
+   * read only cookie adapter and the insert all live in one place in the
+   * applications feature, and this stays the thin capture it needs to be.
+   */
+  async function apply() {
+    "use server";
+
+    return recordApplication(listing);
+  }
 
   return (
     <Card tone="flat" as="article">
@@ -90,6 +120,19 @@ export function ResultCard({
         >
           View the posting
         </Button>
+
+        {/*
+         * AC-1: a SEPARATE control. Opening the posting above records nothing,
+         * because looking at a job is not applying to it, and one control
+         * meaning both would fill the record with jobs nobody applied to and
+         * then block the real apply through the unique constraint.
+         */}
+        <ApplyControl
+          action={apply}
+          title={listing.title}
+          companyName={listing.companyName}
+          alreadyApplied={alreadyApplied}
+        />
       </Card.Footer>
     </Card>
   );

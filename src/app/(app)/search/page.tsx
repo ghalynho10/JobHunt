@@ -2,6 +2,7 @@ import { Heading } from "@/components/ui/heading";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 import { AppHeader } from "@/features/app-shell/app-header";
+import { readAppliedJobIds } from "@/features/applications/queries";
 import { searchListings } from "@/features/search/adzuna";
 import { SEARCH_COPY } from "@/features/search/copy";
 import { readSearchPrefill } from "@/features/search/preferences";
@@ -144,7 +145,7 @@ async function SearchResults({
   );
 }
 
-function SearchOutcome({
+async function SearchOutcome({
   result,
 }: {
   readonly result: Awaited<ReturnType<typeof searchListings>>;
@@ -193,13 +194,51 @@ function SearchOutcome({
    */
   const now = new Date();
 
+  /**
+   * AC-9 (spec 0014): which of these the reader has already applied to, asked
+   * once for the whole page and scoped to the ids actually on screen.
+   *
+   * THIS SPENDS NO ADZUNA CALL. It is a plain read of the caller's own
+   * `application` rows, so marking the list costs a database query and nothing
+   * from the weekly budget.
+   */
+  const applied = await readAppliedJobIds(
+    listings.map((listing) => listing.sourceJobId),
+  );
+
   return (
-    <ul className="space-y-4">
-      {listings.map((listing) => (
-        <li key={`${listing.source}:${listing.sourceJobId}`}>
-          <ResultCard listing={listing} now={now} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {/*
+       * `AGENTS.md`: no silent failures, and this one is easy to get wrong.
+       * Rendering every card unmarked when the read failed would silently tell
+       * the reader they have applied to none of these, which is a claim the app
+       * cannot make. `COPY-8` says what actually happened instead. This is the
+       * same shape as the failed prefill read above, which a fresh model review
+       * caught on 2026-09-04 for exactly this reason.
+       */}
+      {isFailure(applied) ? (
+        <div role="alert" className="mb-6">
+          <Text className="text-secondary">
+            {SEARCH_COPY.appliedReadFailed}
+          </Text>
+        </div>
+      ) : undefined}
+
+      <ul className="space-y-4">
+        {listings.map((listing) => (
+          <li key={`${listing.source}:${listing.sourceJobId}`}>
+            <ResultCard
+              listing={listing}
+              now={now}
+              alreadyApplied={
+                isFailure(applied)
+                  ? false
+                  : applied.value.has(listing.sourceJobId)
+              }
+            />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, success } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
+import { ApplyControl } from "@/features/applications/apply-control";
 import { SEARCH_COPY } from "@/features/search/copy";
 
 import {
@@ -42,6 +43,15 @@ vi.mock("@/features/search/adzuna", async (importOriginal) => ({
 }));
 vi.mock("@/features/search/preferences", () => ({ readSearchPrefill }));
 
+/**
+ * Added when feature 12 gave `/search` its applied markers (spec 0014, AC-9).
+ * The real read reaches `cookies()` and the database; this file is about what
+ * the page renders and how many searches it spends, so the marker read is
+ * replaced at the module boundary. It has its own tests against the real stack.
+ */
+const readAppliedJobIds = vi.fn(() => Promise.resolve(success(new Set())));
+vi.mock("@/features/applications/queries", () => ({ readAppliedJobIds }));
+
 const { default: SearchPage } = await import("./page");
 
 const listing = {
@@ -67,6 +77,12 @@ async function render(params: Record<string, string | string[] | undefined>) {
    */
   return renderDeepAsync(
     (await SearchPage({ searchParams: Promise.resolve(params) })) as never,
+    /**
+     * `ApplyControl` is stopped at rather than invoked: it is a Client
+     * Component calling `useActionState`, which has no React runtime in the
+     * unit project's `node` environment (spec 0014).
+     */
+    [ApplyControl],
   );
 }
 

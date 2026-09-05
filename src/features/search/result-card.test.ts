@@ -6,6 +6,7 @@ import {
   AdzunaAttribution,
   JobsworthAttribution,
 } from "@/components/adzuna-attribution";
+import { ApplyControl } from "@/features/applications/apply-control";
 
 import {
   flatten,
@@ -50,6 +51,14 @@ const render = (over: Partial<Listing> = {}) =>
     Button,
     JobsworthAttribution,
     AdzunaAttribution,
+    /**
+     * STOPPED AT, NOT INVOKED. `ApplyControl` is this feature's one Client
+     * Component (spec 0014) and it calls `useActionState`, which has no React
+     * runtime in the unit project's `node` environment. Its own behaviour is
+     * covered by `apply-control.test.ts`; here it is a boundary, and what
+     * matters is the props this card hands it.
+     */
+    ApplyControl,
   ]);
 
 describe("the result card", () => {
