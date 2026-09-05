@@ -373,6 +373,50 @@ describe("removing an application (AC-11)", () => {
     expect(state.status).toBe("failed");
     expect(state.message).toBe("That application is not there to remove.");
   });
+
+  it("tells a real driver failure apart from a removal that matched nothing", async () => {
+    /**
+     * THE SECOND FAILURE PATH, AND THE ONE THAT LOOKED LIKE THE FIRST.
+     * `removeApplication` has two ways to not remove a row: the delete raised
+     * an error, or it succeeded and touched nothing. The test above covers the
+     * second. This covers the first, and the pair is the point: if both
+     * collapsed onto one message the reader would be told "that application is
+     * not there" during a database outage, which is a specific and false claim
+     * about their data rather than an apology about ours.
+     *
+     * THE FAILURE IS REAL, NOT MOCKED. A malformed id makes Postgres itself
+     * raise `22P02`, invalid input syntax for uuid, through the real driver on
+     * the real stack. A stubbed client would prove only that this file can
+     * construct an error object. `/check verify` could not force this path
+     * from the browser at all (a bogus id in the URL renders the ordinary list
+     * with no confirmation), which is why it stayed unproven until now.
+     */
+    const form = new FormData();
+    form.append("application_id", "not-a-uuid");
+
+    const state = await removeApplication({ status: "idle" }, form);
+
+    expect(state.status).toBe("failed");
+    expect(state.message).toBe(
+      "Something went wrong on our side. Try again in a moment.",
+    );
+    expect(state.message).not.toBe("That application is not there to remove.");
+  });
+
+  it("refuses an empty id before it reaches the database at all", async () => {
+    /**
+     * The guard clause ahead of both paths above. An absent form field is a
+     * broken page rather than a database problem, and it must not be reported
+     * as an outage.
+     */
+    const form = new FormData();
+    form.append("application_id", "");
+
+    const state = await removeApplication({ status: "idle" }, form);
+
+    expect(state.status).toBe("failed");
+    expect(state.message).toBe("That application is not there to remove.");
+  });
 });
 
 describe("one person's applications are their own (AC-19)", () => {
