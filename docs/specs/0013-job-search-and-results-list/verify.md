@@ -18,6 +18,7 @@ Two notes on how the harder steps were exercised, so a later reader knows what t
 - [x] Sign in, visit `/search` with a `job_preference` row holding `desired_titles[0] = "software engineer"` and `desired_locations[0] = "Boston"` → both fields prefill with those exact values, no results render, and no `usage_gate_counter` row is created or incremented for `job_search` (check the table before and after) → AC-9
 - [x] Visit `/search` as a caller with **no** `job_preference` row → both fields render blank, not a placeholder or a dash, and still no gate spend → AC-9
 - [x] Visit `/search` as a caller whose `desired_titles` is an empty array → the title field is blank rather than erroring → AC-9
+- [ ] **Added at spec revision 3, not yet run.** Break the prefill read for real (revoke `select` on `job_preference` from `authenticated` inside a transaction, or point the client at a dead port) and visit bare `/search` → the page shows `COPY-6` above the form, the fields are still typeable, and typing a title and submitting still runs a real search → AC-9. **Assert the reader's experience, not the branch**: the two screens this step exists to separate are "your saved preferences could not be loaded" and "you have not saved any", so run it back to back with the no `job_preference` row step above and confirm they look different. A step that only checked the failure branch was reached would pass on the build this amendment corrects
 - [x] Submit the form with a real title and location → the URL becomes `/search?q=...&where=...`, real Adzuna listings render, at most 20 of them, and the page ships no client JavaScript for search (view source: the results are in the server rendered HTML) → AC-1
 - [x] Submit with **both** fields empty → `COPY-3` renders in a `role="alert"`, no Adzuna call is made (no new `usage_gate_counter` increment), and no results or attribution appear → AC-2
 - [x] Search a title that matches nothing (e.g. `zzzznosuchjobtitlezzzz`) → `COPY-4` renders, and it carries **no** `role="alert"`, since an empty result is an ordinary outcome and not a failure → AC-4
@@ -84,7 +85,7 @@ One step per row of the spec's Value sourcing table, exercising the edge that br
 - AC-6 · covered by the per listing count, both size measurements, the link targets, and the drift test
 - AC-7 · covered by the predicted, stated, and absent salary steps, plus the string flag value sourcing step
 - AC-8 · covered by the full field step, the new tab link step, and both relative date steps
-- AC-9 · covered by the three prefill steps and the prefill source step
+- AC-9 · covered by the three prefill steps, the prefill source step, and the failed read step added at spec revision 3 (the one step in this file not yet run)
 - AC-10 · covered by the reload, back and fresh tab counting step
 - AC-11 · covered by the `/privacy` step and the removed entry command step
 - AC-12 · covered by the "What's real today" step
