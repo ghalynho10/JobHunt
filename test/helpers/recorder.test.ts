@@ -60,6 +60,32 @@ beforeAll(async () => {
       response.end("not json at all");
       return;
     }
+    /**
+     * THE ADZUNA SHAPE (spec 0013). The service copies the caller's own
+     * credential back into a URL inside an ordinary, undeclared field. No
+     * field here is named in `secretBodyFields`, and none could sensibly be:
+     * `redirect_url` is not a secret, it merely contains one. This is the
+     * route that proves redaction by value, not just by position.
+     */
+    if (request.url?.startsWith("/v1/echoes-key-in-url")) {
+      const sent = new URL(request.url, origin).searchParams.get("api_key");
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          results: [
+            {
+              id: 1,
+              redirect_url: `https://example.test/land/1?utm_source=${sent}&v=abc`,
+            },
+            {
+              id: 2,
+              redirect_url: `https://example.test/land/2?utm_source=${sent}&v=def`,
+            },
+          ],
+        }),
+      );
+      return;
+    }
 
     response.writeHead(200, {
       "content-type": "application/json",
@@ -208,6 +234,59 @@ describe("record mode redaction (AC-13)", () => {
     expect(written).not.toContain("super-secret-cookie-value");
     // And the declared body field.
     expect(written).not.toContain("hunter2");
+  });
+
+  it("scrubs a credential the service echoed into an undeclared field", async () => {
+    /**
+     * THE REGRESSION TEST FOR A REAL, NEAR MISS LEAK (spec 0013, feature 11).
+     * Adzuna returns every listing with `redirect_url=...&utm_source=<app_id>`,
+     * so the first real recording written for that feature carried the live
+     * application id twenty times. Redaction by position could not catch it:
+     * `redirect_url` is not a credential field, it just contains one, and no
+     * declaration could reasonably name it.
+     *
+     * Redaction by VALUE catches it, using what the request itself carried.
+     * Break `secretValues()` or `scrubValues()` in `recorder.ts` and this test
+     * fails with the credential sitting in the committed bytes, which is
+     * exactly what it is here to prevent.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-key-in-url?api_key=super-secret-key`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    expect(written).not.toContain("super-secret-key");
+    // The surrounding URL survives, so the recording is still usable evidence.
+    expect(written).toContain("utm_source=");
+    expect(written).toContain("https://example.test/land/1");
+    expect(written).toContain("v=abc");
+  });
+
+  it("leaves a short secret alone rather than shredding the recording", async () => {
+    /**
+     * The deliberate limit on the value pass, asserted so it is a decision
+     * rather than an accident. A very short credential would match ordinary
+     * punctuation and characters throughout a body, and a recording sprayed
+     * with `[redacted]` is worse than the leak it prevents: it stops being
+     * evidence of anything. Six characters is the floor.
+     */
+    vi.stubEnv("TEST_FIXTURE_MODE", "record");
+
+    await recordedFetch(CREDENTIAL_CARRYING, NAME, {
+      url: `${origin}/v1/echoes-key-in-url?api_key=abc`,
+    });
+
+    const written = await readFile(path, "utf8");
+
+    // Still redacted where it was DECLARED (the query parameter itself)...
+    expect(
+      new URL(JSON.parse(written).recordedFrom.url).searchParams.get("api_key"),
+    ).toBe(REDACTED);
+    // ...but not scrubbed blindly out of the body.
+    expect(written).toContain("utm_source=abc");
   });
 
   it("keeps the shape it redacted, so a reviewer can see what was there", async () => {

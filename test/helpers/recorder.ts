@@ -206,6 +206,43 @@ function redactBody(bodyText: string, service: ServiceDeclaration): string {
 }
 
 /**
+ * The credential VALUES this request carried, read off its own URL.
+ *
+ * WHY THIS EXISTS, AND THE BUG THAT FOUND IT. Everything above redacts by
+ * POSITION: a named header, a named query parameter, a named body field. That
+ * is blind to a credential a service copies somewhere nobody declared. Adzuna
+ * does exactly that (spec 0013): every listing it returns carries a
+ * `redirect_url` ending `utm_source=<app_id>`, so the first real recording put
+ * the application id into the committed file twenty times, inside a field
+ * whose name is not a secret and never could be. `secretBodyFields` cannot
+ * catch it, because the credential is not a field, it is a substring of one.
+ *
+ * So the last pass redacts by VALUE instead: whatever the declared secret
+ * query parameters actually held on this request is scrubbed wherever it
+ * appears in the finished recording. Nothing new has to be declared, since the
+ * values come from the request that was just made.
+ *
+ * Very short values are skipped. A two character secret would match half the
+ * punctuation in a JSON body and shred the recording, which would be a worse
+ * outcome than the leak: the file has to stay usable evidence.
+ */
+function secretValues(url: string, service: ServiceDeclaration): string[] {
+  const parsed = new URL(url);
+
+  return service.secretQueryParams
+    .map((param) => parsed.searchParams.get(param))
+    .filter((value): value is string => value !== null && value.length >= 6);
+}
+
+/** Replaces every occurrence of each secret value, wherever it sits. */
+function scrubValues(text: string, values: readonly string[]): string {
+  return values.reduce(
+    (scrubbed, value) => scrubbed.split(value).join(REDACTED),
+    text,
+  );
+}
+
+/**
  * AC-13: redaction happens AT WRITE TIME, not at read time.
  *
  * The difference is the whole guarantee. Redacting on read would leave the
@@ -220,7 +257,13 @@ export function redact(
   recording: Recording,
   service: ServiceDeclaration,
 ): Recording {
-  return {
+  /**
+   * Read from the URL BEFORE it is redacted, since redacting replaces exactly
+   * the values this needs to find.
+   */
+  const secrets = secretValues(recording.recordedFrom.url, service);
+
+  const byPosition: Recording = {
     recordedFrom: {
       method: recording.recordedFrom.method,
       url: redactUrl(recording.recordedFrom.url, service),
@@ -230,6 +273,36 @@ export function redact(
       status: recording.response.status,
       headers: redactHeaders(recording.response.headers, service),
       bodyText: redactBody(recording.response.bodyText, service),
+    },
+  };
+
+  if (secrets.length === 0) return byPosition;
+
+  /**
+   * The value pass runs LAST and over everything, so a credential a service
+   * echoed into a place nobody declared cannot survive. See `secretValues()`
+   * for the Adzuna case that made this necessary.
+   */
+  return {
+    recordedFrom: {
+      ...byPosition.recordedFrom,
+      url: scrubValues(byPosition.recordedFrom.url, secrets),
+      headers: Object.fromEntries(
+        Object.entries(byPosition.recordedFrom.headers).map(([name, value]) => [
+          name,
+          scrubValues(value, secrets),
+        ]),
+      ),
+    },
+    response: {
+      ...byPosition.response,
+      headers: Object.fromEntries(
+        Object.entries(byPosition.response.headers).map(([name, value]) => [
+          name,
+          scrubValues(value, secrets),
+        ]),
+      ),
+      bodyText: scrubValues(byPosition.response.bodyText, secrets),
     },
   };
 }
