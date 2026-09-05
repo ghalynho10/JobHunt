@@ -17,6 +17,12 @@ import { RETURN_PATH_HEADER, RETURN_PATH_MAX_LENGTH } from "@/lib/return-path";
  * a callable endpoint whatever page renders it), and row level security in
  * Postgres is the guarantee behind both.
  *
+ * ONE CARVE OUT, AND IT IS ABOUT WHERE THE REFRESH LANDS, NOT WHETHER IT
+ * HAPPENS. On a Server Action request the refreshed cookie is handed to this
+ * request's own code but not to the browser, because a cookie written during an
+ * action makes Next re-render the current route, and on `/search` that costs an
+ * Adzuna call. See `setAll` below (spec 0014, AC-10 and AC-20).
+ *
  * THE SECOND JOB CANNOT BECOME THE FIRST ONE. The header is set on every request
  * the matcher covers, unconditionally. This file reads no session, holds no list
  * of routes, and cannot tell a protected path from a public one, which is what
@@ -25,6 +31,14 @@ import { RETURN_PATH_HEADER, RETURN_PATH_MAX_LENGTH } from "@/lib/return-path";
  * In Next.js 16 this file is `proxy.ts`, not `middleware.ts`, and it runs on the
  * Node runtime.
  */
+
+/**
+ * The header Next puts on a Server Action dispatch, and the only way this file
+ * can tell one from an ordinary request. A request without it is not dispatched
+ * as an action either, so nothing is lost by trusting it here.
+ */
+const SERVER_ACTION_HEADER = "next-action";
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: forwardedHeaders(request) },
@@ -41,6 +55,41 @@ export async function proxy(request: NextRequest) {
         setAll(cookiesToSet, headers) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
+          }
+
+          /**
+           * SPEC 0014, AC-10 AND AC-20: on a Server Action request the refresh
+           * reaches this request's own code (the loop above) but NOT the
+           * browser, and skipping that write is the whole point.
+           *
+           * Next re-renders the current route into an action's response when a
+           * cookie is mutated during it (`server-actions.md:47`). On `/search`
+           * that re-render re-runs `searchListings()` and spends one of the 25
+           * weekly Adzuna calls (spec 0011). AC-20 anticipated that write coming
+           * from inside the action and stopped it there with
+           * `readOnlyCookieAdapter`. It arrives from HERE instead: this file
+           * runs on the action POST too, and a reader whose tab sat idle past
+           * token expiry gets the refresh on that POST rather than on an
+           * ordinary navigation.
+           *
+           * MEASURED, not reasoned: with this branch absent, an apply on an
+           * expired session moved every `job_search` counter row by one and the
+           * action response carried `x-action-revalidated: 1`. With it present,
+           * three consecutive applies on an expired session wrote three rows,
+           * moved no counter, and carried no such header.
+           *
+           * WHAT IT COSTS. The browser keeps its stale cookie until its next
+           * ordinary request, which refreshes and persists as usual. That
+           * refresh reuses a token this request already rotated; GoTrue accepts
+           * it (`refresh_token_reuse_interval`), and the session was confirmed
+           * alive across three applies and a twelve second pause.
+           */
+          if (request.headers.has(SERVER_ACTION_HEADER)) {
+            response = NextResponse.next({
+              request: { headers: forwardedHeaders(request) },
+            });
+
+            return;
           }
 
           /**
