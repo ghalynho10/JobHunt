@@ -296,6 +296,20 @@ export async function searchListings(
       const parsedQuery = searchQuerySchema.safeParse(input);
 
       if (!parsedQuery.success) {
+        /**
+         * THIS MESSAGE IS NEVER SHOWN TO ANYONE. It reaches Sentry only. The
+         * sentence the reader sees is `SEARCH_COPY.bothFieldsBlank`, which the
+         * page renders on the form itself, and the two are deliberately not
+         * the same string: one is a spec approved sentence, the other is a
+         * log line. Said here so nobody "fixes" the mismatch by copying the
+         * copy in and quietly creating a second home for it.
+         *
+         * It also FAILS THE `search.run` SPAN, which is registered behaviour
+         * rather than an accident: `failure()` marks the active span failed
+         * whatever the severity, so a blank submit sits in that span's failure
+         * ratio. `docs/observability/spans.md` says so in the row, and anyone
+         * building the rate alert has to decide what to do about it.
+         */
         return failure({
           kind: "validation_failed",
           severity: "expected",
