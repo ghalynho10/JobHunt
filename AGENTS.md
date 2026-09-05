@@ -115,5 +115,6 @@ this file instead; /reflex flags it and the engineer moves it.
 - [src/features/entry-page/AGENTS.md](src/features/entry-page/AGENTS.md): the entry page's section modules, and the invariants that keep the page honest
 - [src/features/auth/AGENTS.md](src/features/auth/AGENTS.md): the OAuth handshake, the failure code table, and the refusal hook's one shared string
 - [src/features/legal/AGENTS.md](src/features/legal/AGENTS.md): the terms and privacy notices, and the two registries that keep their claims true
+- [src/features/applications/AGENTS.md](src/features/applications/AGENTS.md): recording an application, and the re-render rules that keep an apply from spending an Adzuna call
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
