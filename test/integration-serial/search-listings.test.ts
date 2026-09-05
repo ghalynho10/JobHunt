@@ -399,6 +399,61 @@ describe("one bad listing does not blank a good page (AC-1, AC-5)", () => {
 });
 
 describe("the item transform, on a real item edited at one field", () => {
+  /**
+   * BUILT FROM THE RECORDED ITEM, one field at a time, rather than from an
+   * invented object. The point of the fixture is that the parser meets a real
+   * response, so a test that hand wrote its own item would give up exactly the
+   * property that makes this suite worth having. Each case changes the single
+   * field it is about and leaves the other twenty alone.
+   */
+  async function realItemWith(
+    overrides: Readonly<Record<string, unknown>>,
+  ): Promise<string> {
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    return JSON.stringify({ results: [{ ...real.results[0], ...overrides }] });
+  }
+
+  it("drops both salary figures when the pair is inverted", async () => {
+    /**
+     * The rule spec 0013's Feature design states and nothing exercised until
+     * now, raised by a fresh model review on 2026-09-04. A max below a min is
+     * dropped rather than passed on, because `application`'s own check
+     * constraint (spec 0003) would refuse the inverted pair at feature 12's
+     * insert. Without this, a later simplification of the transform would go
+     * unnoticed until that insert failed in production.
+     */
+    const { session } = await freshSession("search-inverted");
+    respondWith(await realItemWith({ salary_min: 200000, salary_max: 100000 }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    const listing = result.value.value[0];
+    expect(listing).toBeDefined();
+    expect(listing?.salaryMin).toBeUndefined();
+    expect(listing?.salaryMax).toBeUndefined();
+    // The currency hangs off having a figure at all, so it has to go too.
+    expect(listing?.salaryCurrency).toBeUndefined();
+    // The rest of the listing survives: this is a field level rule, not a drop.
+    expect(listing?.title).toBeTruthy();
+  });
+
+  it("keeps a salary pair that is merely equal", async () => {
+    // The boundary either side of the rule, so `<` cannot quietly become `<=`.
+    const { session } = await freshSession("search-equalsalary");
+    respondWith(await realItemWith({ salary_min: 100000, salary_max: 100000 }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    expect(result.value.value[0]?.salaryMin).toBe(100000);
+    expect(result.value.value[0]?.salaryMax).toBe(100000);
+  });
+
   it("drops a listing whose url is not http or https", async () => {
     /**
      * A bare `z.url()` accepts `javascript:alert(1)`, and this value is
