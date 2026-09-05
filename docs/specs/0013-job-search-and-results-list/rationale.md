@@ -20,7 +20,7 @@ The page reads `?q=&where=` from `searchParams`; one server side function runs t
 - Needs zero client JavaScript, consistent with every other page in this project so far.
 
 **Cons**:
-- A browser "back" button after a search re-runs the whole gate check and Adzuna call rather than reading from a client side cache. Not a real cost at this app's volume, but a genuine one at higher traffic.
+- A browser "back" button after a search re-runs the whole gate check and Adzuna call rather than reading from a client side cache. Not a real cost at this app's volume, but a genuine one at higher traffic. **Confirmed correct by measurement on 2026-09-04**, against a production build: one load plus one back moved the usage counter by two. It briefly carried a note that day claiming it was wrong, which was itself wrong; see the first Follow-up item in [index.md](index.md).
 
 ### Option 2: A Server Action triggered search
 
