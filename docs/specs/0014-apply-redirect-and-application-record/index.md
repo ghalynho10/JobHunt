@@ -1,6 +1,6 @@
 # 0014 · Apply redirect and application record
 
-**Status**: Proposed
+**Status**: In Progress
 **Date**: 2026-09-05
 **Revision**: 2 (revised the same day, after a cross check on a different model found two ways the design could spend budget or lose its security property silently; see `## Follow-up`)
 
