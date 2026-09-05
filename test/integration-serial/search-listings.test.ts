@@ -398,6 +398,37 @@ describe("one bad listing does not blank a good page (AC-1, AC-5)", () => {
   });
 });
 
+describe("the item transform, on a real item edited at one field", () => {
+  it("drops a listing whose url is not http or https", async () => {
+    /**
+     * A bare `z.url()` accepts `javascript:alert(1)`, and this value is
+     * rendered as an `href` on every card. The scheme restriction added on
+     * 2026-09-04 turns a hostile listing into an ordinary dropped item.
+     */
+    const { session } = await freshSession("search-scheme");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    respondWith(
+      JSON.stringify({
+        results: [
+          { ...real.results[0], redirect_url: "javascript:alert(1)" },
+          real.results[1],
+        ],
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    // Dropped and counted, exactly like any other unparseable item, and the
+    // good listing beside it still reaches the reader.
+    expect(result.value.value).toHaveLength(1);
+    expect(result.value.value[0]?.url.startsWith("https://")).toBe(true);
+  });
+});
+
 describe("the search prefill reads the caller's own row (AC-9)", () => {
   it("returns the first stated title and location", async () => {
     const { session, supabase, user } = await freshSession("prefill-ok");

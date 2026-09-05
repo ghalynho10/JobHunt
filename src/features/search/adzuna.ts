@@ -117,7 +117,18 @@ const adzunaItemSchema = z
     title: z.string(),
     company: z.object({ display_name: z.string() }),
     location: z.object({ display_name: z.string() }).optional(),
-    redirect_url: z.url(),
+    /**
+     * SCHEME RESTRICTED, not merely parseable. A bare `z.url()` accepts
+     * anything WHATWG can parse, `javascript:alert(1)` included, verified
+     * against the installed Zod 4.4.3, and this value flows straight into a
+     * rendered `href` on every card. The boundary parse exists so this app
+     * extends no trust to Adzuna's response shape, so it refuses the scheme
+     * here rather than relying on React to blunt it downstream. An off scheme
+     * listing is then dropped by the item level drop and count rule below,
+     * exactly like any other unparseable item. Raised by a fresh model review
+     * on 2026-09-04.
+     */
+    redirect_url: z.url({ protocol: /^https?$/ }),
     description: z.string().optional(),
     salary_min: z.number().optional(),
     salary_max: z.number().optional(),
