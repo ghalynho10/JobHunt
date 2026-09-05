@@ -1,6 +1,6 @@
 # 0014 · Apply redirect and application record
 
-**Status**: In Progress
+**Status**: Accepted
 **Date**: 2026-09-05
 **Revision**: 4 (2026-09-05, after `/check verify` and `/debug` measured three of this spec's own claims and found two of them wrong. **AC-20 named the wrong mechanism**: the read only cookie adapter is real defence in depth but is not what keeps an expired session apply free, because the cookie write came from `src/proxy.ts`, which runs on the action `POST` too. New **AC-20a** records the fix and amends specs 0008 and 0001. **The stale build does not cost a search**: revision 3 recorded that it does, from a hand built `POST`; a real browser against a genuinely stale build gets a `404` and moves no counter. AC-21 and one `## Consequences` line are corrected. Everything else revision 3 said held up under measurement.)
 
