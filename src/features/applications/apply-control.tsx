@@ -5,8 +5,13 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 
+import { APPLICATION_FAILURES } from "./failures";
 import { CONTROLS, markAppliedLabel } from "./copy";
-import { IDLE_STATE, type ApplicationActionState } from "./form-state";
+import {
+  failedState,
+  IDLE_STATE,
+  type ApplicationActionState,
+} from "./form-state";
 
 /**
  * The apply control on one search result (spec 0014, AC-1, AC-9, AC-21).
@@ -46,7 +51,42 @@ export function ApplyControl({
   /** From `readAppliedJobIds` at render time (AC-9). */
   readonly alreadyApplied: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, IDLE_STATE);
+  /**
+   * AC-21: A DISPATCH THAT NEVER REACHES THE SERVER ACTION IS STILL A FAILURE
+   * THE READER HAS TO SEE, and it cannot be handled anywhere else.
+   *
+   * The listing travels in a closure encrypted with a key regenerated on every
+   * build (`data-security.md:526`: "actions can only be invoked for a specific
+   * build"), so any results page left open across a deploy holds a control the
+   * framework refuses. OBSERVED FOR REAL during this build: a production server
+   * answered such a request with `Failed to find Server Action. This request
+   * might be from an older or newer deployment.`
+   *
+   * IT CANNOT BE CAUGHT IN THE ACTION. Next rejects the dispatch before any of
+   * this feature's server code runs, so `recordApplication` never executes and
+   * has nothing to report. The only place left is here, around the call.
+   *
+   * WORSE THAN A DEAD BUTTON, WHICH IS WHY IT IS NOT LEFT ALONE. That same
+   * observation showed the refused request falling back to re-rendering
+   * `/search`, which re-runs the Adzuna search: a stale apply costs the reader
+   * one of their 25 weekly calls and, without this, tells them nothing at all.
+   */
+  const [state, formAction, pending] = useActionState(
+    async (): Promise<ApplicationActionState> => {
+      try {
+        return await action();
+      } catch {
+        /**
+         * Deliberately catching everything rather than matching a message. The
+         * refusal is the framework's, its wording is not ours to depend on, and
+         * every way this dispatch can fail leaves the reader in the same place:
+         * nothing was recorded and a reload is the way out.
+         */
+        return failedState(APPLICATION_FAILURES.stale_build.message);
+      }
+    },
+    IDLE_STATE,
+  );
 
   const applied = alreadyApplied || state.status === "applied";
 
