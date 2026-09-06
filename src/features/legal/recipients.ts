@@ -118,9 +118,21 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
   {
     id: "openai",
     name: "OpenAI",
-    receives:
-      "a listing and the profile being scored against it, for the ai_scoring tier",
-    why: "It answers the model client router's scoring calls (spec 0012), so a score has to reach it to be produced.",
+    /**
+     * CORRECTED 2026-09-06 BY `/check review`. The original copy said this
+     * company "receives a listing and the profile being scored against it",
+     * present tense, which was false: no feature calls the model client
+     * router in production (grep `callTier(` under `src/`, ignoring tests,
+     * turns up only doc comments). That claim described feature 14's future
+     * behaviour, not anything this app does today, which is exactly what
+     * `src/features/legal/AGENTS.md` forbids ("nothing here may describe a
+     * control that does not exist"). The original `why` also leaked internal
+     * jargon ("the model client router", "(spec 0012)", "ai_scoring") into
+     * rendered legal copy, the only entry in this file that did; every
+     * neighbour uses plain, spec free language.
+     */
+    receives: "nothing yet",
+    why: "It is configured for a scoring feature this app has not built yet, so nothing reaches it in the meantime.",
     envKeys: ["OPENAI_API_KEY"],
   },
   {
@@ -132,9 +144,9 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
      * rather than two deliberately separate entries.
      */
     name: "Google (Gemini API)",
-    receives:
-      "the same listing and profile content sent to OpenAI, for the ai_check tier's cross vendor check",
-    why: "It answers the model client router's check calls (spec 0012), on a vendor deliberately different from ai_scoring's.",
+    /** Corrected 2026-09-06 alongside the OpenAI entry above; same reason. */
+    receives: "nothing yet",
+    why: "It is configured for that same not yet built feature, on a second, different vendor, so nothing reaches it in the meantime either.",
     envKeys: ["GOOGLE_GENERATIVE_AI_API_KEY"],
   },
 ];
