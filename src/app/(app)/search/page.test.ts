@@ -52,6 +52,23 @@ vi.mock("@/features/search/preferences", () => ({ readSearchPrefill }));
 const readAppliedJobIds = vi.fn(() => Promise.resolve(success(new Set())));
 vi.mock("@/features/applications/queries", () => ({ readAppliedJobIds }));
 
+/**
+ * Added when feature 14 gave `/search` its scoring (spec 0015). Both reach the
+ * database or a real vendor: the gate reads the caller's own profile, and
+ * `scoreListings()` spends twenty `ai_scoring` calls. This file is about what
+ * the page renders and which of the three scoring states it renders, so both
+ * are replaced at the module boundary.
+ *
+ * THE DEFAULT IS `thin`, WHICH IS THE UNSCORED LIST. Every assertion spec 0013
+ * wrote about this page predates scoring and is about the result list itself,
+ * so the default here is the state where that list renders exactly as it did
+ * before. The scoring states each set their own.
+ */
+const readScoringProfile = vi.hoisted(() => vi.fn());
+const scoreListings = vi.hoisted(() => vi.fn());
+vi.mock("@/features/scoring/profile-gate", () => ({ readScoringProfile }));
+vi.mock("@/features/scoring/score-listings", () => ({ scoreListings }));
+
 const { default: SearchPage } = await import("./page");
 
 const listing = {
@@ -97,6 +114,7 @@ beforeEach(() => {
   readSearchPrefill.mockResolvedValue(
     success({ title: undefined, location: undefined }),
   );
+  readScoringProfile.mockResolvedValue({ kind: "thin" });
 });
 
 describe("a bare visit (AC-9)", () => {

@@ -1,12 +1,23 @@
+import Link from "next/link";
+import { Suspense } from "react";
+
 import { Heading } from "@/components/ui/heading";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 import { AppHeader } from "@/features/app-shell/app-header";
 import { readAppliedJobIds } from "@/features/applications/queries";
+import { SCORING_COPY } from "@/features/scoring/copy";
+import { readScoringProfile } from "@/features/scoring/profile-gate";
+import { BANDS, bandRank } from "@/features/scoring/rubric";
+import type { ScoringProfile } from "@/features/scoring/rubric";
+import type { ScoreOutcome } from "@/features/scoring/score";
+import { ScoreCard } from "@/features/scoring/score-card";
+import { scoreListings } from "@/features/scoring/score-listings";
+import type { Listing } from "@/features/search/adzuna";
 import { searchListings } from "@/features/search/adzuna";
 import { SEARCH_COPY } from "@/features/search/copy";
 import { readSearchPrefill } from "@/features/search/preferences";
-import { ResultCard } from "@/features/search/result-card";
+import { ResultList } from "@/features/search/result-list";
 import { SearchForm } from "@/features/search/search-form";
 import { isFailure } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
@@ -212,10 +223,17 @@ async function SearchOutcome({
    * THIS SPENDS NO ADZUNA CALL. It is a plain read of the caller's own
    * `application` rows, so marking the list costs a database query and nothing
    * from the weekly budget.
+   *
+   * BOTH READS RUN CONCURRENTLY (spec 0015). Neither depends on the other and
+   * both sit between the reader and their results, so running them in series
+   * would make the page wait two round trips to show one screen.
    */
-  const applied = await readAppliedJobIds(
-    listings.map((listing) => listing.sourceJobId),
-  );
+  const [applied, scoring] = await Promise.all([
+    readAppliedJobIds(listings.map((listing) => listing.sourceJobId)),
+    readScoringProfile(),
+  ]);
+
+  const appliedIds = isFailure(applied) ? undefined : applied.value;
 
   return (
     <>
@@ -235,21 +253,212 @@ async function SearchOutcome({
         </div>
       ) : undefined}
 
-      <ul className="space-y-4">
-        {listings.map((listing) => (
-          <li key={`${listing.source}:${listing.sourceJobId}`}>
-            <ResultCard
-              listing={listing}
+      {/*
+       * Spec 0015, the profile read failure. Same shape and same reasoning as
+       * the two failed reads above it: an unscored list with nothing said would
+       * quietly claim this search does not score.
+       */}
+      {scoring.kind === "unavailable" ? (
+        <div role="alert" className="mb-6">
+          <Text className="text-secondary">
+            {SCORING_COPY.profileReadFailed}
+          </Text>
+        </div>
+      ) : undefined}
+
+      {/*
+       * AC-7: the thin profile gate. NO `role="alert"`, because nothing failed.
+       * A profile with no skills and no work history is an ordinary starting
+       * state, and this is the same convention the empty results state above
+       * already sets.
+       */}
+      {scoring.kind === "thin" ? (
+        <div className="mb-6">
+          <Text className="text-secondary">
+            {SCORING_COPY.thinProfile.split(SCORING_COPY.thinProfileLink)[0]}
+            <Link href="/profile" className="underline underline-offset-2">
+              {SCORING_COPY.thinProfileLink}
+            </Link>
+            {SCORING_COPY.thinProfile.split(SCORING_COPY.thinProfileLink)[1]}
+          </Text>
+        </div>
+      ) : undefined}
+
+      {scoring.kind === "score" ? (
+        /**
+         * AC-9: THE LIST RENDERS IMMEDIATELY AND THE PAGE IS NEVER BLOCKED ON
+         * SCORING. The fallback is the whole result list in Adzuna's own order,
+         * every card complete and clickable, each carrying its pending
+         * indicator. Twenty concurrent model calls at a 30 second per call
+         * timeout sit inside this boundary; nothing above or below it waits.
+         *
+         * This is the Strategic Suspense Boundaries pattern named in spec
+         * 0015's Decision: the boundary is drawn around exactly the slow thing
+         * and no more.
+         */
+        <Suspense
+          fallback={
+            <ResultList
+              rows={listings.map((listing) => ({
+                listing,
+                score: <ScoreCard outcome="pending" />,
+                busy: true,
+              }))}
               now={now}
-              alreadyApplied={
-                isFailure(applied)
-                  ? false
-                  : applied.value.has(listing.sourceJobId)
-              }
+              appliedIds={appliedIds}
             />
-          </li>
-        ))}
-      </ul>
+          }
+        >
+          <ScoredResults
+            profile={scoring.profile}
+            listings={listings}
+            now={now}
+            appliedIds={appliedIds}
+          />
+        </Suspense>
+      ) : (
+        <ResultList
+          rows={listings.map((listing) => ({ listing }))}
+          now={now}
+          appliedIds={appliedIds}
+        />
+      )}
     </>
   );
+}
+
+/**
+ * The resolved half of the Suspense boundary: every outcome in, ranked once,
+ * rendered (spec 0015, AC-8, AC-9, AC-10, AC-11).
+ *
+ * IT SORTS EXACTLY ONCE, AFTER EVERY OUTCOME HAS RESOLVED, and that is a
+ * deliberate trade recorded in spec 0015's Consequences rather than a
+ * simplification. Revealing each card as its own call lands would reorder the
+ * list under the reader's cursor up to twenty times. The cost is that the one
+ * visible reorder waits for the slowest of the twenty calls, and in a vendor
+ * outage that is the full 30 second timeout with twenty failure states at the
+ * end of it. The list itself is on screen and usable throughout.
+ */
+async function ScoredResults({
+  profile,
+  listings,
+  now,
+  appliedIds,
+}: {
+  readonly profile: ScoringProfile;
+  readonly listings: readonly Listing[];
+  readonly now: Date;
+  readonly appliedIds: ReadonlySet<string> | undefined;
+}) {
+  const outcomes = await scoreListings(profile, listings);
+
+  /**
+   * AC-9: outcomes are paired to their listing HERE, in Adzuna's original
+   * order, before anything reorders. Everything downstream carries the pair, so
+   * the sort moves a listing and its own outcome together and no later step
+   * can match them up by an array position that has since changed.
+   *
+   * A MISSING OUTCOME THROWS RATHER THAN RENDERS. `scoreListings()` returns one
+   * outcome per listing by construction, so a hole here is a programmer bug,
+   * and a bug should reach the error boundary (`AGENTS.md`). Rendering the card
+   * as unscored instead would hide a broken pairing behind a screen that looks
+   * exactly like a working one.
+   */
+  const paired = listings.map((listing, index) => {
+    const outcome = outcomes[index];
+
+    if (outcome === undefined) {
+      throw new Error(
+        `scoreListings() returned ${outcomes.length} outcomes for ${listings.length} listings.`,
+      );
+    }
+
+    return { listing, outcome };
+  });
+
+  /**
+   * AC-11: the cap notice, taken from the FIRST refused call in the listing's
+   * original order, read off `paired` before the sort touches it.
+   *
+   * WHY THE FIRST AND NOT A LIST OF THEM. Twenty concurrent calls can straddle
+   * a cap boundary and come back with more than one distinct reason, and a
+   * notice that enumerated them would describe the machinery rather than tell
+   * the reader what to do. One sentence, from feature 10's own `SENTENCES`
+   * table, is what this feature renders; it writes no copy of its own for any
+   * of the five reasons.
+   */
+  const refusal = paired.find(
+    (row) => !isFailure(row.outcome) && !row.outcome.value.allowed,
+  )?.outcome;
+
+  const refusedReason =
+    refusal === undefined || isFailure(refusal) || refusal.value.allowed
+      ? undefined
+      : refusal.value.reason;
+
+  /**
+   * AC-9's ranking. Scored cards first, by band, `strong_match` at the top;
+   * then every refused or failed card after all of them.
+   *
+   * `[...paired].sort()` COPIES FIRST, so `paired` above stays in Adzuna's
+   * order for the refusal lookup, which AC-11 defines against that order.
+   *
+   * THE TIE BREAK IS THE SORT'S OWN STABILITY, not a second comparison on
+   * `sourceJobId` or on anything else. `Array.prototype.sort` has been required
+   * to be stable since ES2019, so two cards in the same band come out in the
+   * relative order they went in, which is Adzuna's. Adding a tie break here
+   * would replace Adzuna's own relevance ordering with an arbitrary one.
+   */
+  const ranked = [...paired].sort(
+    (left, right) => outcomeRank(left.outcome) - outcomeRank(right.outcome),
+  );
+
+  return (
+    <>
+      {refusedReason === undefined ? undefined : (
+        <div role="alert" className="mb-6">
+          <Text className="text-secondary">{SENTENCES[refusedReason]}</Text>
+        </div>
+      )}
+
+      {/*
+       * AC-16, `COPY-7`. `role="status"` rather than a bare `aria-live`
+       * container: this node arrives with the streamed content and does not
+       * exist during the fallback, and a role carries the live semantics with
+       * it rather than depending on the region having been present beforehand.
+       *
+       * IT IS VISIBLE RATHER THAN SCREEN READER ONLY, on purpose. The list just
+       * reordered itself under everyone, not only under a screen reader, and a
+       * sighted reader who was halfway down it deserves the same one line of
+       * explanation.
+       */}
+      <div role="status" className="mb-6">
+        <Text variant="monoLabel">{SCORING_COPY.reranked}</Text>
+      </div>
+
+      <ResultList
+        rows={ranked.map(({ listing, outcome }) => ({
+          listing,
+          score: <ScoreCard outcome={outcome} />,
+        }))}
+        now={now}
+        appliedIds={appliedIds}
+      />
+    </>
+  );
+}
+
+/**
+ * Where one outcome sorts (AC-9). Lower is higher on the page.
+ *
+ * REFUSED AND FAILED SHARE THE LAST RANK, so both land after every scored card
+ * while keeping their own relative order between them through the sort's
+ * stability. They are told apart by what renders on the card, not by where the
+ * card sits: a failure shows `COPY-3` and a refusal shows nothing at all, with
+ * the cap named once above the list.
+ */
+function outcomeRank(outcome: ScoreOutcome): number {
+  if (isFailure(outcome) || !outcome.value.allowed) return BANDS.length;
+
+  return bandRank(outcome.value.value.band);
 }
