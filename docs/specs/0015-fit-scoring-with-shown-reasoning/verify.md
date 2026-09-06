@@ -1,0 +1,83 @@
+# Verify: fit scoring with shown reasoning · spec 0015 · updated 2026-09-06
+
+_Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
+
+Every step below needs a signed in caller with a real profile, a real Adzuna
+search, and real `ai_scoring` budget left, unless it says otherwise. A scored
+`/search` render spends up to 20 `ai_scoring` calls plus one Adzuna call, so
+plan the run rather than reloading freely.
+
+**Two counter reading rules this feature inherits, both learned the hard way.**
+Read `usage_gate_counter` through `test/helpers/database.ts` or `psql`, never
+through the Supabase Data API: that table carries no row level security policy
+(spec 0011), so PostgREST cannot see it and every reading comes back zero
+whatever the app did. And make any counter move on purpose once before trusting
+a "did not move" reading.
+
+## UI / manual
+
+- [ ] Sign in with a profile that has at least one skill or one work history entry → search `/search?q=engineer` → the result list appears in Adzuna's original order with every card showing `Checking fit against your profile…`, before any band appears → **AC-9**
+- [ ] Keep watching that same render → the list reorders exactly **once**, when the last outcome lands; it never reorders card by card as scores arrive → **AC-9**
+- [ ] On the reordered list → `Strong match` cards sit above `Good match`, and `Not a match` sits last → **AC-9**
+- [ ] Two cards in the same band → they stay in the relative order Adzuna returned them, not alphabetical and not by company → **AC-9**
+- [ ] Before the scores land, press Tab into a result card's "View the posting" link → when the re-sort happens, focus is still on a real control and has not jumped to the top of the document → **AC-16**
+- [ ] With a screen reader running, load a scored search → each pending card is announced as busy, and `Results are now ranked by fit.` is announced once when the order changes → **AC-16**
+- [ ] On any scored card → the second skill list is headed `Not mentioned in this posting` and carries the caption `This posting only shows part of the description, so this is not a confirmed gap.`; the word "missing" appears nowhere on the page → **AC-5**
+- [ ] On any scored card → the matched skills are all skills the caller actually has in `/profile`, spelled the way the caller wrote them → **AC-5**
+- [ ] Find a listing whose visible text states a visa stance → its sponsorship badge renders as its own separate badge beside the band badge, never merged into it → **AC-6**
+- [ ] Find a listing whose visible text says nothing about visas → no sponsorship badge renders at all → **AC-6**
+- [ ] Sign in as a caller with zero skills and zero work history → search → the plain unscored list renders plus `Add your skills or work experience to your profile…` with `your profile` linking to `/profile`; no band, no pending indicator, no scoring copy anywhere → **AC-7**
+- [ ] Add one skill and nothing else to that same profile → search again → every card is scored normally → **AC-7**
+- [ ] Visit `/` → the "What's real today" card lists `ranked results with reasoning` under **working**, and `a no sign in demo account` is the only thing left under **planned** → **AC-15**
+- [ ] Read the whole scored page as a reader who has never seen it → no band, badge, or sentence claims the posting requires something the visible excerpt does not actually say → **AC-4**, **AC-12**
+
+## Commands
+
+- [ ] `pnpm test` → the unit suite passes, including `src/features/scoring/rubric.test.ts` (the anchors, the truncation caveat, the untrusted text instructions, the post-parse filter) → **AC-1**, **AC-4**, **AC-5**, **AC-12**, **AC-13**
+- [ ] `TEST_LIVE_MODEL_CALLS_ENABLED=true pnpm test:integration -t "real vendor"` → `test/integration/fit-scoring-live.test.ts` passes against OpenAI, proving the wire schema is one the vendor's structured output mode actually accepts and that the band comes back as one of the five → **AC-1**, **AC-3**
+- [ ] Read `usage_gate_counter` for `ai_scoring` through `test/helpers/database.ts` immediately before and after a search made by a caller with zero skills and zero work history → the count is unchanged → **AC-7**
+- [ ] Read the same counter before and after a scored search of 20 listings → it rose by exactly 20, never by 1 and never by more → **AC-3**, **AC-8**
+- [ ] In Sentry, open one `/search` transaction for a scored render → exactly one `scoring.score_listings` span, carrying `listings`, `scored`, `refused` and `failed`, with `scored + refused + failed` equal to `listings` → **AC-14**
+- [ ] In that same transaction → the `ai.call_tier` spans overlap in time rather than running end to end in sequence → **AC-8**
+- [ ] Zero the `ai_scoring` `usage_cap` row for a test account, then search → one page level sentence from `SENTENCES` appears above the list, no card shows `Could not score this listing right now.`, and no band renders → **AC-11**
+- [ ] With the cap zeroed, confirm `usage_gate_counter` did not rise → a refused call never reaches the vendor → **AC-11**
+- [ ] Point `OPENAI_API_KEY` at an invalid value and search → every card shows `Could not score this listing right now.`, the page shows no cap notice, and the failure sentence is visibly different from the refusal sentence above → **AC-10**
+
+## Value sourcing
+
+_One step per row of spec 0015's Value sourcing table, so each value's SOURCE is exercised rather than only its presence._
+
+- [ ] Score the same listing against two different profiles → the band, the matched skills and the reasoning all change → the score comes from the caller's own profile, not from the listing alone
+- [ ] Sign in as user A, search, note a band; sign in as user B with a different profile and search the same terms → B never sees A's score → the profile scored is always the caller's own, through `readOwnProfile()`
+- [ ] Add a skill to `/profile` that no posting mentions, then search → it can appear under "Not mentioned in this posting" but never under "Matched in this posting" on a card whose text does not contain it
+- [ ] Rename a skill in `/profile` (delete plus re-add with different capitalisation) → the card renders the NEW spelling, proving the displayed name comes from the caller's row rather than from the model's echo
+- [ ] Give a profile more than 50 skills and more than 5 work history entries → the scoring still succeeds and the reasoning references only recent roles → the prompt is bounded by `boundProfile()`, not by the row count
+- [ ] Set a `minimum_pay` well above every listing's salary, and `remote_preference` to `remote`, then search on site listings → bands still reflect skills and experience; a preference mismatch alone never pushes a listing down a band → the band's source is skills and experience only
+- [ ] Break the profile read (stop the database mid render, or point at a bad key) → the page shows `We couldn't read your profile just now…` rather than the "add your skills" sentence, and still renders the results → a failed read never borrows the thin profile's meaning
+- [ ] After the one time re-sort, confirm each card's band, skills and reasoning still belong to the job title above them → outcomes are paired by `sourceJobId`, never by array position
+- [ ] Reload a scored `/search` twice → the counter rises by 20 each time → scores are never cached, which is the cost spec 0015's Consequences records
+
+## Acceptance-criteria coverage
+
+- AC-1 · covered by the unit suite (`rubric.test.ts`) and the live vendor test
+- AC-2 · **not covered here, by design.** Whether the five bands spread real listings needs authored variety this feature does not carry; spec 0015 defers it to feature 16's eval harness against feature 15's ground truth set
+- AC-3 · covered by the counter step and the live vendor test
+- AC-4 · covered by the unit suite and the manual read
+- AC-5 · covered by the two manual card steps and the unit suite's filter tests
+- AC-6 · covered by the two sponsorship badge steps
+- AC-7 · covered by the two profile steps and the counter step
+- AC-8 · covered by the counter step and the Sentry overlap step
+- AC-9 · covered by the four ordering and immediacy steps, all browser only
+- AC-10 · covered by the invalid key step
+- AC-11 · covered by the two zeroed cap steps
+- AC-12 · covered by the unit suite; the manual read is the only end to end check, and it is a spot check rather than a proof (the defence is instruction level, not a sandbox)
+- AC-13 · covered by the unit suite and the over sized profile step
+- AC-14 · covered by the Sentry span step
+- AC-15 · covered by the entry page step
+- AC-16 · covered by the focus step and the screen reader step, both browser only
+
+## Known gaps this list cannot close
+
+- **AC-16's focus clause is not proved by any test in this repo, and may not hold.** `/search` reveals the ranked list by replacing a `<Suspense>` fallback, which is new DOM: a browser moves focus to `<body>` when the element it was on is removed. The focus step above is the only thing that will tell us. If it fails, the fix is a spec level decision (a client component that restores focus, against this page's deliberate minimum of client JavaScript), not a patch.
+- **`SCORING_COPY.profileReadFailed` is not in spec 0015's copy table.** It was added during the build for the state the spec left with no sentence, the same way `COPY-6` of spec 0013 and `COPY-8` of spec 0014 were. It needs ratifying into the spec's copy table.
+- **Spec 0015's first Follow-up item is a release blocker, not a nicety.** OpenAI's terms on training and retention for API submitted content must be read, and the privacy notice's "not used to train models" claim confirmed or changed, before this ships against real profile data. This is the first feature that sends a person's own summary, skills and work history to somebody else's model.
