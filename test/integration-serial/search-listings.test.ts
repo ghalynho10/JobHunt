@@ -555,3 +555,107 @@ describe("the search prefill reads the caller's own row (AC-9)", () => {
     expect(result.value.title).toBeUndefined();
   });
 });
+
+describe("a required field arriving empty (spec 0014, AC-13)", () => {
+  /**
+   * WHY THIS EXISTS, AND WHY IT IS NOT AN ORDINARY PARSER TEST. Spec 0014
+   * tightened `sourceJobId`, `title` and `companyName` to reject an empty or
+   * whitespace only value, because those three land in `application` columns
+   * carrying `check (length(trim(...)) > 0)`. Without the tightening a blank
+   * advert parses, renders as a card with no title, and is refused only at the
+   * moment the reader marks it applied, which turns Adzuna's data quality into
+   * this application's error.
+   *
+   * `/check verify` proved these four cases on 2026-09-05 with a throwaway
+   * file that was then deleted, so the committed suite had nothing. This is
+   * that proof made permanent.
+   *
+   * ONE GOOD ITEM SITS BESIDE THE BAD ONE IN EVERY CASE. Asserting only that
+   * the batch fails would pass just as well if the parser rejected everything,
+   * so each case asserts the survivor count instead: the bad row is dropped
+   * AND the good row still reaches the reader.
+   */
+  async function twoItems(
+    overrides: Readonly<Record<string, unknown>>,
+  ): Promise<string> {
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    return JSON.stringify({
+      results: [real.results[0], { ...real.results[1], ...overrides }],
+    });
+  }
+
+  const cases = [
+    { name: "an empty title", slug: "ac13title", overrides: { title: "" } },
+    {
+      name: "a whitespace only title",
+      slug: "ac13ws",
+      overrides: { title: "   " },
+    },
+    {
+      name: "an empty company display_name",
+      slug: "ac13company",
+      overrides: { company: { display_name: "" } },
+    },
+    { name: "an empty id", slug: "ac13id", overrides: { id: "" } },
+  ] as const;
+
+  for (const testCase of cases) {
+    it(`drops an item with ${testCase.name} and keeps the good one`, async () => {
+      const { session } = await freshSession(testCase.slug);
+
+      respondWith(await twoItems(testCase.overrides));
+
+      const result = await searchListings({ title: "engineer" }, session.jar);
+
+      if (isFailure(result) || !result.value.allowed)
+        throw new Error("unexpected refusal or failure");
+      expect(result.value.value).toHaveLength(1);
+    });
+  }
+
+  it("reports a batch where every item is blank as response_malformed", async () => {
+    /**
+     * The boundary the drop rule stops at. One blank advert among twenty is
+     * Adzuna's data; twenty blank adverts is the integration itself drifting,
+     * and the reader is told rather than shown an empty page that looks like
+     * a search with no matches.
+     */
+    const { session } = await freshSession("ac13all");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+
+    respondWith(
+      JSON.stringify({
+        results: real.results
+          .slice(0, 3)
+          .map((item) => ({ ...item, title: "" })),
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    expect(isFailure(result)).toBe(true);
+    if (isFailure(result)) expect(result.kind).toBe("response_malformed");
+  });
+
+  it("keeps an item whose optional field is empty, so the rule is not 'drop anything blank'", async () => {
+    /**
+     * The counterweight. `location` and the description are optional, and an
+     * advert missing one is still a real advert. A parser that rejected every
+     * empty string would pass all five cases above and quietly throw away
+     * usable listings.
+     */
+    const { session } = await freshSession("ac13optional");
+
+    respondWith(await twoItems({ description: "" }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected refusal or failure");
+    expect(result.value.value).toHaveLength(2);
+  });
+});

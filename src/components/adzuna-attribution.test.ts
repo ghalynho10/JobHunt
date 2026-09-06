@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  flatten,
-  renderDeep,
-  textOf,
-} from "../../../test/helpers/react-element";
+import { flatten, renderDeep, textOf } from "../../test/helpers/react-element";
 
-import { ADZUNA_ATTRIBUTION_URL, ADZUNA_JOBSWORTH_URL } from "./adzuna";
+import { ADZUNA_ATTRIBUTION_URL, ADZUNA_JOBSWORTH_URL } from "@/lib/adzuna";
 import { AdzunaAttribution, JobsworthAttribution } from "./adzuna-attribution";
 
 /**

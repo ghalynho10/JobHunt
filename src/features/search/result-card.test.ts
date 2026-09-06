@@ -3,14 +3,19 @@ import { describe, expect, it } from "vitest";
 import { Button } from "@/components/ui/button";
 
 import {
+  AdzunaAttribution,
+  JobsworthAttribution,
+} from "@/components/adzuna-attribution";
+import { ApplyControl } from "@/features/applications/apply-control";
+
+import {
   flatten,
   renderDeep,
   textOf,
 } from "../../../test/helpers/react-element";
 
 import type { Listing } from "./adzuna";
-import { AdzunaAttribution, JobsworthAttribution } from "./adzuna-attribution";
-import { ResultCard, relativePostedAt } from "./result-card";
+import { ResultCard } from "./result-card";
 
 /**
  * One search result (spec 0013, AC-6, AC-7, AC-8, invariant 7).
@@ -46,51 +51,15 @@ const render = (over: Partial<Listing> = {}) =>
     Button,
     JobsworthAttribution,
     AdzunaAttribution,
-  ]);
-
-describe("relativePostedAt (AC-8)", () => {
-  it("reads in hours inside the first day", () => {
-    expect(relativePostedAt("2026-09-04T09:00:00Z", NOW)).toBe(
-      "posted 3 hours ago",
-    );
-  });
-
-  it("reads in days beyond the first", () => {
-    expect(relativePostedAt("2026-09-01T12:00:00Z", NOW)).toBe(
-      "posted 3 days ago",
-    );
-  });
-
-  it("says yesterday in words rather than 1 day ago", () => {
-    expect(relativePostedAt("2026-09-03T12:00:00Z", NOW)).toBe(
-      "posted yesterday",
-    );
-  });
-
-  it("returns nothing when the timestamp is absent", () => {
-    // Not an empty string and not a placeholder: the row disappears entirely.
-    expect(relativePostedAt(undefined, NOW)).toBeUndefined();
-  });
-
-  it("returns nothing rather than Invalid Date when the timestamp is junk", () => {
-    expect(relativePostedAt("not a date", NOW)).toBeUndefined();
-  });
-
-  it("is the same in any timezone, being an elapsed difference", () => {
     /**
-     * The value sourcing risk this exists for: a relative date computed from a
-     * local calendar day would differ either side of the date line. Computed
-     * from elapsed milliseconds, it cannot.
+     * STOPPED AT, NOT INVOKED. `ApplyControl` is this feature's one Client
+     * Component (spec 0014) and it calls `useActionState`, which has no React
+     * runtime in the unit project's `node` environment. Its own behaviour is
+     * covered by `apply-control.test.ts`; here it is a boundary, and what
+     * matters is the props this card hands it.
      */
-    const seen = ["UTC", "Pacific/Kiritimati", "Pacific/Midway"].map((tz) => {
-      process.env.TZ = tz;
-      return relativePostedAt("2026-09-01T12:00:00Z", NOW);
-    });
-    process.env.TZ = "UTC";
-
-    expect(new Set(seen).size).toBe(1);
-  });
-});
+    ApplyControl,
+  ]);
 
 describe("the result card", () => {
   it("shows the title, company and location (AC-8)", () => {

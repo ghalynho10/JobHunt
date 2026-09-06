@@ -75,6 +75,16 @@ vi.mock("@/features/search/preferences", () => ({
     Promise.resolve(success({ title: undefined, location: undefined })),
 }));
 
+/**
+ * Added when feature 12 gave `/applications` its real reads (spec 0014). An
+ * empty list is the state this file renders, which is still the shell plus the
+ * page's own copy, exactly what every assertion here is about. The read has its
+ * own tests against the real stack.
+ */
+vi.mock("@/features/applications/queries", () => ({
+  readApplications: () => Promise.resolve(success([])),
+}));
+
 const { default: SearchPage } = await import("./search/page");
 
 /**
@@ -99,6 +109,15 @@ function renderProfile() {
   });
 }
 const { default: ApplicationsPage } = await import("./applications/page");
+
+/**
+ * `/applications` takes route props and reads the query string since feature 12
+ * (spec 0014, AC-11). No `remove` is the plain list view, which is the state
+ * every assertion in this file is about.
+ */
+function renderApplications() {
+  return ApplicationsPage({ searchParams: Promise.resolve({}) });
+}
 const { default: HealthPage } = await import("./health/page");
 
 /** The one `AppHeader` a route composed, with the props it was given. */
@@ -122,7 +141,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
      */
     expect(headerOf(await renderSearch())).toBeDefined();
     expect(headerOf(await renderProfile())).toBeDefined();
-    expect(headerOf(ApplicationsPage())).toBeDefined();
+    expect(headerOf(await renderApplications())).toBeDefined();
     expect(headerOf(await HealthPage())).toBeDefined();
   });
 
@@ -138,7 +157,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
   );
 
   it.each([
-    ["/applications", () => ApplicationsPage()],
+    ["/applications", renderApplications],
     ["/health", async () => await HealthPage()],
   ] as const)(
     "%s claims no current page, because it is in no navigation",
@@ -169,38 +188,46 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
 });
 
 /**
- * `/profile` LEFT THE COPY SLOT LIST WHEN FEATURE 9 BUILT IT (spec 0010), AND
- * `/search` LEFT IT WHEN FEATURE 11 BUILT IT (spec 0013). Spec 0008's two
- * placeholder sentences are gone from those pages, because each page now IS
- * the thing its sentence was standing in for. `/applications` is still a
- * placeholder and its slot still holds. Both built routes stay in the two
- * checks below, which are about the shape of any route rather than about a
- * placeholder: a built route must still not shout failure at an ordinary
- * state, and must still not say something that becomes false later.
+ * EVERY ROUTE HAS NOW LEFT THE PLACEHOLDER LIST. `/profile` left when feature 9
+ * built it (spec 0010), `/search` when feature 11 built it (spec 0013), and
+ * `/applications` when feature 12 built it (spec 0014). Spec 0008's placeholder
+ * sentences are gone from all three, because each page now IS the thing its
+ * sentence was standing in for.
+ *
+ * THE `/applications` SENTENCE IS THE ONE THAT SURVIVED, and deliberately so.
+ * It always described what the page would hold rather than apologising for
+ * being empty, so it reads correctly now that rows land there, and spec 0014
+ * AC-17 keeps it as the empty state's own copy rather than rewriting a true
+ * sentence. The assertion below is therefore no longer about a placeholder: it
+ * holds a real page to copy the engineer wrote.
+ *
+ * The two checks below are about the shape of any route rather than about a
+ * placeholder: a built route must still not shout failure at an ordinary state,
+ * and must still not say something that becomes false later.
  */
-describe("the placeholder routes read as an ordinary state (AC-2)", () => {
+describe("every route reads as an ordinary state (AC-2)", () => {
   it.each([
     [
       "/applications",
-      () => ApplicationsPage(),
+      renderApplications,
       "Every job you apply to will be recorded here, so you can see what you sent and when.",
     ],
   ] as const)(
     "%s renders its copy slot verbatim",
-    (_route, render, sentence) => {
+    async (_route, render, sentence) => {
       /**
        * The engineer's copy, used verbatim from spec 0008's Copy table. Asserted
        * character for character because `/develop` is forbidden to reword it, and
        * a paraphrase is exactly the change nobody notices in review.
        */
-      expect(textOf(render())).toContain(sentence);
+      expect(textOf((await render()) as never)).toContain(sentence);
     },
   );
 
   it.each([
     ["/search", renderSearch],
     ["/profile", renderProfile],
-    ["/applications", async () => ApplicationsPage()],
+    ["/applications", renderApplications],
   ] as const)("%s renders no failure treatment", async (_route, render) => {
     /**
      * AC-2: a route that is not built yet is an ordinary expected state, not a
@@ -223,11 +250,7 @@ describe("the placeholder routes read as an ordinary state (AC-2)", () => {
      * shipped. A sentence saying a route is not built yet is fine, because it
      * gets replaced. "Coming soon" is not, because it survives as a lie.
      */
-    for (const render of [
-      renderSearch,
-      renderProfile,
-      async () => ApplicationsPage(),
-    ]) {
+    for (const render of [renderSearch, renderProfile, renderApplications]) {
       expect(textOf((await render()) as never).toLowerCase()).not.toContain(
         "coming soon",
       );

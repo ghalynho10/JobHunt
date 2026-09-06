@@ -22,7 +22,7 @@ import {
  * mark to the same standard against `docs/design/logo/`.
  */
 
-const svg = readFileSync("src/features/search/adzuna-logo.svg", "utf8");
+const svg = readFileSync("src/components/adzuna-logo.svg", "utf8");
 
 describe("the Adzuna geometry has not drifted from adzuna-logo.svg", () => {
   /**

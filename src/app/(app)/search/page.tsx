@@ -2,6 +2,7 @@ import { Heading } from "@/components/ui/heading";
 import { Section } from "@/components/ui/section";
 import { Text } from "@/components/ui/text";
 import { AppHeader } from "@/features/app-shell/app-header";
+import { readAppliedJobIds } from "@/features/applications/queries";
 import { searchListings } from "@/features/search/adzuna";
 import { SEARCH_COPY } from "@/features/search/copy";
 import { readSearchPrefill } from "@/features/search/preferences";
@@ -14,10 +15,21 @@ import { SENTENCES } from "@/lib/usage-gating/copy";
  * Search (spec 0013).
  *
  * A SERVER COMPONENT READING THE SEARCH TERMS FROM THE URL, never a Server
- * Action and never a client side fetch (Decision). The whole operation, gate
- * check, Adzuna call and parse, runs server side in `searchListings()`, so no
- * client JavaScript ships for search at all and a shared `/search?q=...` link
- * is a real, working search.
+ * Action and never a client side fetch (spec 0013, Decision). The whole
+ * operation, gate check, Adzuna call and parse, runs server side in
+ * `searchListings()`, and a shared `/search?q=...` link is a real, working
+ * search.
+ *
+ * THE SEARCH ITSELF STILL SHIPS NO CLIENT JAVASCRIPT; THE PAGE NO LONGER CAN
+ * SAY THAT. This comment used to end "so no client JavaScript ships for search
+ * at all", and feature 12 (spec 0014) made that half false: each result card
+ * now renders `ApplyControl`, one small Client Component, because the apply
+ * must NOT re-render this page. A re-render re-runs `searchListings()` and
+ * spends one of the 25 weekly Adzuna calls, and a form with no JavaScript needs
+ * a rendered response, which IS that re-render. So the choice was client
+ * JavaScript or a per apply cost, and the cost lost. The boundary is drawn as
+ * small as it goes: this page, the form, the twenty cards, both attributions
+ * and every salary line all stay server rendered.
  *
  * A BARE VISIT RUNS NO SEARCH AND SPENDS NO BUDGET (AC-9). The URL carrying
  * `q` or `where` is the whole signal: absent, the page prefills from the
@@ -144,7 +156,7 @@ async function SearchResults({
   );
 }
 
-function SearchOutcome({
+async function SearchOutcome({
   result,
 }: {
   readonly result: Awaited<ReturnType<typeof searchListings>>;
@@ -193,13 +205,51 @@ function SearchOutcome({
    */
   const now = new Date();
 
+  /**
+   * AC-9 (spec 0014): which of these the reader has already applied to, asked
+   * once for the whole page and scoped to the ids actually on screen.
+   *
+   * THIS SPENDS NO ADZUNA CALL. It is a plain read of the caller's own
+   * `application` rows, so marking the list costs a database query and nothing
+   * from the weekly budget.
+   */
+  const applied = await readAppliedJobIds(
+    listings.map((listing) => listing.sourceJobId),
+  );
+
   return (
-    <ul className="space-y-4">
-      {listings.map((listing) => (
-        <li key={`${listing.source}:${listing.sourceJobId}`}>
-          <ResultCard listing={listing} now={now} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {/*
+       * `AGENTS.md`: no silent failures, and this one is easy to get wrong.
+       * Rendering every card unmarked when the read failed would silently tell
+       * the reader they have applied to none of these, which is a claim the app
+       * cannot make. `COPY-8` says what actually happened instead. This is the
+       * same shape as the failed prefill read above, which a fresh model review
+       * caught on 2026-09-04 for exactly this reason.
+       */}
+      {isFailure(applied) ? (
+        <div role="alert" className="mb-6">
+          <Text className="text-secondary">
+            {SEARCH_COPY.appliedReadFailed}
+          </Text>
+        </div>
+      ) : undefined}
+
+      <ul className="space-y-4">
+        {listings.map((listing) => (
+          <li key={`${listing.source}:${listing.sourceJobId}`}>
+            <ResultCard
+              listing={listing}
+              now={now}
+              alreadyApplied={
+                isFailure(applied)
+                  ? false
+                  : applied.value.has(listing.sourceJobId)
+              }
+            />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

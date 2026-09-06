@@ -5,6 +5,7 @@ import type { CookieMethodsServer } from "@supabase/ssr";
 import { z } from "zod";
 
 import { env } from "@/env";
+import { ADZUNA_COUNTRY, ADZUNA_SOURCE } from "@/lib/adzuna";
 import {
   attempt,
   failure,
@@ -21,47 +22,16 @@ import { withUsageGate } from "@/lib/usage-gating/with-usage-gate";
  */
 
 /**
- * The configured country (spec 0013, Feature design). A code constant, not an
- * environment variable, since it carries no secret and does not vary by
- * deploy environment. Widening this to more than one country is a code
- * change until a second market is actually needed (Consequences).
+ * Never read from Adzuna, whose response carries no currency field at all.
+ *
+ * This one stayed here while the country, the two attribution URLs and the
+ * source literal moved to `src/lib/adzuna.ts` (spec 0014): only this feature
+ * parses a response, so only this feature needs to know what currency the
+ * configured country implies.
  */
-export const ADZUNA_COUNTRY = "us" as const;
-
-/** Never read from Adzuna, whose response carries no currency field at all. */
 const CURRENCY_BY_COUNTRY: Readonly<Record<typeof ADZUNA_COUNTRY, string>> = {
   us: "USD",
 };
-
-/**
- * The main attribution's link target, per Adzuna's terms allowing "the
- * relevant local domain" (AC-6).
- */
-const ATTRIBUTION_DOMAIN_BY_COUNTRY: Readonly<
-  Record<typeof ADZUNA_COUNTRY, string>
-> = {
-  us: "https://www.adzuna.com",
-};
-
-/** The main "Jobs by Adzuna" attribution link target for the configured country. */
-export const ADZUNA_ATTRIBUTION_URL =
-  ATTRIBUTION_DOMAIN_BY_COUNTRY[ADZUNA_COUNTRY];
-
-/**
- * The Jobsworth salary attribution's link target, quoted verbatim from
- * Adzuna's terms (AC-7). Unlike the main attribution clause, the terms offer
- * no "or relevant local domain" alternative here, so this is fixed rather
- * than derived from `ADZUNA_COUNTRY` (Follow-up).
- */
-export const ADZUNA_JOBSWORTH_URL =
-  "http://www.adzuna.co.uk/jobs/salary-predictor.html";
-
-/**
- * The literal every displayed listing carries as its source, exported once so
- * feature 12 imports the same value rather than re-declaring it (spec 0003's
- * Value sourcing table names this feature as the one that sets it).
- */
-export const ADZUNA_SOURCE = "adzuna" as const;
 
 const RESULTS_PER_PAGE = 20;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -113,9 +83,23 @@ const envelopeSchema = z.object({
  */
 const adzunaItemSchema = z
   .object({
-    id: z.coerce.string(),
-    title: z.string(),
-    company: z.object({ display_name: z.string() }),
+    /**
+     * THESE THREE ARE TRIMMED AND REQUIRED NON EMPTY, and that is a schema
+     * obligation rather than tidiness (spec 0014, AC-13). Each one lands in an
+     * `application` column carrying `check (length(trim(...)) > 0)`
+     * (`supabase/migrations/20260825162457_data_model.sql:172` onward), so a
+     * plain `z.string()` here let an empty valued advert render as a blank
+     * heading and then be refused by the database at feature 12's insert, as a
+     * raw error rather than as an expected failure. Refusing it at the parse
+     * makes it an ordinary dropped item instead, on the drop and count path
+     * this schema already has, before anybody can see it or apply to it.
+     *
+     * `redirect_url` is the fourth such column and needs nothing added: a URL
+     * cannot be the empty string.
+     */
+    id: z.coerce.string().trim().min(1),
+    title: z.string().trim().min(1),
+    company: z.object({ display_name: z.string().trim().min(1) }),
     location: z.object({ display_name: z.string() }).optional(),
     /**
      * SCHEME RESTRICTED, not merely parseable. A bare `z.url()` accepts

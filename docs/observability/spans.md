@@ -28,6 +28,10 @@ exactly the failure it exists to catch.
 | `usage_gate.check` | `function` | `src/lib/usage-gating/gate.ts` | Yes. This project's first alert rule (spec 0011, spec 0001 binding rule 4): the numerator is `usage_gate_misconfigured`, `database_unavailable`, and `external_service_failed` (the `getClaims()` call can throw), filtered by failure kind, never AC-3/AC-4's five refusal reasons and never `session_missing`. Opens as the first statement of `checkUsageGate()`, before the `getClaims()` check and before the `kill_switch.read` call it wraps, so a total denial from either mechanism still produces a span. Trace sampling is 1.0 on this span (AC-8). |
 | `search.read_prefill` | `db.query` | `src/features/search/preferences.ts` | Not yet. It reads the caller's own `job_preference` row to prefill the search fields (spec 0013, AC-9), and it is deliberately separate from `search.run`: a bare `/search` visit runs this and never that, so folding the two together would put a visit that spends no budget into the outbound call's ratio. |
 | `search.run` | `http.client` | `src/features/search/adzuna.ts` | Not yet. It opens before the query is even parsed (binding rule 4), so THREE kinds fail it, not two: `external_service_failed` and `response_malformed` from the Adzuna call itself, and `validation_failed` when both fields arrive blank, which is a reader typing nothing rather than an integration fault. Corrected 2026-09-04 after a fresh model review; the row previously named only the first two, so an alert built from it would have read blank submissions as an Adzuna incident. A gate refusal runs INSIDE this span and correctly does not fail it, since spec 0011 AC-5 returns a refusal as a success carrying `allowed: false` (spec 0013, AC-2, AC-3, AC-5, AC-10). Anyone building the rate alert should either exclude `validation_failed` in the alert query or accept that blank submissions sit in the numerator; moving the parse ahead of the span is not the fix, it would break binding rule 4. |
+| `application.record` | `db.query` | `src/features/applications/actions.ts` | Not yet. It is the write that closes the Slice 1 loop, and the one operation in this app whose failure a reader meets while deciding where to spend an application. Worth an alert once the product has real users. Note for whoever builds that rule: `validation_failed` sits in this span's failures and covers two ORDINARY outcomes, a job already applied to and a listing that would not parse, so a ratio built without excluding it would read a busy afternoon as an incident. |
+| `application.remove` | `db.query` | `src/features/applications/actions.ts` | Not yet. IT HAS ITS OWN NAME RATHER THAN JOINING THE WRITE ABOVE, the same choice spec 0010 made splitting `profile.delete_work_experience` from the save: a removal matching zero rows is reported as a failure (spec 0014, AC-11), and folding it in would put that expected outcome into the record's ratio. |
+| `application.read_list` | `db.query` | `src/features/applications/queries.ts` | Not yet. It backs `/applications`, which is the only cheap way to see a recorded application, since the alternative is re-running a search and spending one of 25 weekly Adzuna calls. A failure here is the reader being told nothing is there. |
+| `search.read_applied` | `db.query` | `src/features/applications/queries.ts` | Not yet. DELIBERATELY SEPARATE FROM `application.read_list`, though both read the same table from the same module: this one runs per `/search` render and that one per `/applications` render, so one name would let healthy traffic on either page dilute an outage on the other. Its failure is visible rather than silent (`COPY-8`), because rendering the cards unmarked would claim the reader had applied to none of them. |
 
 The six spans feature 9 added all carry `op: "db.query"`, including the five in
 Server Actions. The op describes what the operation actually does, and each of
@@ -35,6 +39,15 @@ those actions is one statement against Postgres wrapped in a caller check and a
 parse. `profile.save_work_experience` is the one name covering two operations,
 told apart by an attribute rather than by a second name, for the reason its row
 gives.
+
+The four spans feature 12 added all carry `op: "db.query"`, including the two
+in Server Actions, on the same reasoning feature 9's rows give: the op describes
+what the operation actually does, and each of these is one statement against
+Postgres wrapped in a caller check and a parse. Two of the four are a matched
+pair split on purpose, `application.read_list` and `search.read_applied`, which
+is the opposite call from `auth.sign_in`'s one name for two providers: there the
+two attempts are the same operation told apart by an attribute, here they are
+two operations on two pages that happen to query one table.
 
 The three spans feature 32 added all carry `op: "function"` rather than a
 transport specific op. They are decisions rather than queries or requests: the

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, success } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
+import { ApplyControl } from "@/features/applications/apply-control";
 import { SEARCH_COPY } from "@/features/search/copy";
 
 import {
@@ -42,6 +43,15 @@ vi.mock("@/features/search/adzuna", async (importOriginal) => ({
 }));
 vi.mock("@/features/search/preferences", () => ({ readSearchPrefill }));
 
+/**
+ * Added when feature 12 gave `/search` its applied markers (spec 0014, AC-9).
+ * The real read reaches `cookies()` and the database; this file is about what
+ * the page renders and how many searches it spends, so the marker read is
+ * replaced at the module boundary. It has its own tests against the real stack.
+ */
+const readAppliedJobIds = vi.fn(() => Promise.resolve(success(new Set())));
+vi.mock("@/features/applications/queries", () => ({ readAppliedJobIds }));
+
 const { default: SearchPage } = await import("./page");
 
 const listing = {
@@ -67,6 +77,12 @@ async function render(params: Record<string, string | string[] | undefined>) {
    */
   return renderDeepAsync(
     (await SearchPage({ searchParams: Promise.resolve(params) })) as never,
+    /**
+     * `ApplyControl` is stopped at rather than invoked: it is a Client
+     * Component calling `useActionState`, which has no React runtime in the
+     * unit project's `node` environment (spec 0014).
+     */
+    [ApplyControl],
   );
 }
 
@@ -427,5 +443,78 @@ describe("the four states are told apart, not merely present", () => {
         expect(text, `two states share a sentence`).not.toContain(other);
       }
     }
+  });
+});
+
+describe("the applied marker read fails (AC-9, COPY-8)", () => {
+  /**
+   * THE BRANCH NOTHING PROVED UNTIL NOW. `/check verify` on 2026-09-05 could
+   * not force this read to fail from outside the code (it needs a privilege
+   * change the local stack refuses), and the stub at the top of this file
+   * returns a success on every other path, so the failure branch shipped with
+   * no coverage in either direction.
+   *
+   * WHY IT MATTERS MORE THAN AN ORDINARY BRANCH. `page.tsx` falls back to
+   * `alreadyApplied={false}` for every card when the read fails. That is the
+   * correct fallback (it cannot invent markers) but on its own it renders a
+   * screen identical to the one a reader who has applied to nothing sees. The
+   * sentence is the only thing separating "we could not check" from "you have
+   * applied to none of these", and the second is a claim the app cannot stand
+   * behind. This is the "default that reads like success" `AGENTS.md` forbids.
+   */
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: [listing] }),
+    );
+    readAppliedJobIds.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "internal detail the reader must never see",
+      }) as never,
+    );
+  });
+
+  it("says the applied state could not be read", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain(SEARCH_COPY.appliedReadFailed);
+  });
+
+  it("still renders the results, because the failure costs the markers and nothing else", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain("Software Engineer");
+    expect(text).toContain("Acme");
+  });
+
+  it("announces it, so a reader who does not re-scan the page still learns of it", async () => {
+    const announced = alerts(await render({ q: "engineer" })).map((element) =>
+      textOf(element),
+    );
+
+    expect(
+      announced.some((t) => t.includes(SEARCH_COPY.appliedReadFailed)),
+    ).toBe(true);
+  });
+
+  it("never leaks the internal failure message to the reader", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).not.toContain("internal detail the reader must never see");
+    expect(text).not.toContain("database_unavailable");
+  });
+
+  it("is absent when the read succeeds, so the sentence tracks the failure and not the render", async () => {
+    /**
+     * The non vacuity check. Without this, an unconditional sentence would
+     * pass every assertion above while telling a reader with working markers
+     * that their markers are broken.
+     */
+    readAppliedJobIds.mockResolvedValue(success(new Set()) as never);
+
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).not.toContain(SEARCH_COPY.appliedReadFailed);
   });
 });

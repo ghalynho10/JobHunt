@@ -17,6 +17,12 @@ import { RETURN_PATH_HEADER, RETURN_PATH_MAX_LENGTH } from "@/lib/return-path";
  * a callable endpoint whatever page renders it), and row level security in
  * Postgres is the guarantee behind both.
  *
+ * ONE CARVE OUT, AND IT IS ABOUT WHERE THE REFRESH LANDS, NOT WHETHER IT
+ * HAPPENS. On a Server Action request the refreshed cookie is handed to this
+ * request's own code but not to the browser, because a cookie written during an
+ * action makes Next re-render the current route, and on `/search` that costs an
+ * Adzuna call. See `setAll` below (spec 0014, AC-10 and AC-20).
+ *
  * THE SECOND JOB CANNOT BECOME THE FIRST ONE. The header is set on every request
  * the matcher covers, unconditionally. This file reads no session, holds no list
  * of routes, and cannot tell a protected path from a public one, which is what
@@ -25,6 +31,38 @@ import { RETURN_PATH_HEADER, RETURN_PATH_MAX_LENGTH } from "@/lib/return-path";
  * In Next.js 16 this file is `proxy.ts`, not `middleware.ts`, and it runs on the
  * Node runtime.
  */
+
+/**
+ * The header Next puts on the **fetch** dispatch of a Server Action.
+ *
+ * IT DOES NOT IDENTIFY EVERY ACTION REQUEST, and an earlier version of this
+ * comment claimed it did. Next accepts three shapes
+ * (`server-action-request-meta.js`: `isFetchAction || isURLEncodedAction ||
+ * isMultipartAction`) and only the first carries this header; the other two are
+ * a plain form `POST` identified by `content-type` alone, which is what React
+ * renders for a form whose action is a real Server Action reference, so it keeps
+ * working before hydration and without JavaScript. `remove-form.tsx` and the
+ * three profile forms are all that shape today.
+ *
+ * MATCHING ONLY THIS HEADER IS STILL RIGHT, AND WIDENING IT WOULD BE WRONG.
+ * The branch below exists to stop a re-render being added to a response. A form
+ * `POST` has no such choice: with no JavaScript the response *is* the next
+ * document, so the render happens whatever this file does, and withholding the
+ * refreshed cookie there would only fail to persist the session on a request
+ * that behaves like a navigation. So the header is not a proxy for "is an
+ * action", it is a precise test for "is a dispatch whose response we can keep a
+ * re-render out of", which is the only case worth acting on.
+ *
+ * THE CONSEQUENCE WORTH KNOWING. A Server Action reached from a progressively
+ * enhanced form on a page that spends a metered call will spend one on every no
+ * JavaScript submit, and no change here can prevent it. `/search` is safe
+ * because its apply control is a client closure that cannot submit natively
+ * (verified in the served markup: React emits `action="javascript:throw ..."`
+ * and no `$ACTION_ID_` field). Anything later that puts a form action on a
+ * costly page needs its own answer.
+ */
+const SERVER_ACTION_HEADER = "next-action";
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: forwardedHeaders(request) },
@@ -41,6 +79,48 @@ export async function proxy(request: NextRequest) {
         setAll(cookiesToSet, headers) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
+          }
+
+          /**
+           * SPEC 0014, AC-10 AND AC-20: on a Server Action request the refresh
+           * reaches this request's own code (the loop above) but NOT the
+           * browser, and skipping that write is the whole point.
+           *
+           * Next re-renders the current route into an action's response when a
+           * cookie is mutated during it (`server-actions.md:47`). On `/search`
+           * that re-render re-runs `searchListings()` and spends one of the 25
+           * weekly Adzuna calls (spec 0011). AC-20 anticipated that write coming
+           * from inside the action and stopped it there with
+           * `readOnlyCookieAdapter`. It arrives from HERE instead: this file
+           * runs on the action POST too, and a reader whose tab sat idle past
+           * token expiry gets the refresh on that POST rather than on an
+           * ordinary navigation.
+           *
+           * MEASURED, not reasoned: with this branch absent, an apply on an
+           * expired session moved every `job_search` counter row by one and the
+           * action response carried `x-action-revalidated: 1`. With it present,
+           * three consecutive applies on an expired session wrote three rows,
+           * moved no counter, and carried no such header.
+           *
+           * WHAT IT COSTS. The browser keeps its stale cookie until its next
+           * ordinary request, which refreshes and persists as usual. That
+           * refresh reuses a token this request already rotated; GoTrue accepts
+           * it (`refresh_token_reuse_interval`, 10 seconds here).
+           *
+           * The case worth testing is two actions FURTHER APART THAN THAT
+           * INTERVAL with no request between them, since anything in between
+           * persists a fresh cookie and hides the problem. Driven at sixteen
+           * seconds: both applies succeeded, both rows landed, and the session
+           * was still alive afterwards. An earlier measurement spaced its
+           * applies six seconds apart, inside the interval, and so proved less
+           * than it was written up as proving.
+           */
+          if (request.headers.has(SERVER_ACTION_HEADER)) {
+            response = NextResponse.next({
+              request: { headers: forwardedHeaders(request) },
+            });
+
+            return;
           }
 
           /**

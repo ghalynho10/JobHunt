@@ -36,8 +36,12 @@ import { Text } from "@/components/ui/text";
  * 0010, AC-16). That is the mechanism above working as intended for the first
  * time: a claim left `planned` and joined `working` because the thing it names
  * now exists. `filtered search` followed on 2026-09-04, when feature 11
- * shipped the real Adzuna search (spec 0013, AC-12). Three remain under
- * `planned`, each owned by the feature that will move it.
+ * shipped the real Adzuna search (spec 0013, AC-12), and `application
+ * tracking` on 2026-09-05, when feature 12 made applications real (spec 0014,
+ * AC-16). Two remain under `planned`, each owned by the feature that will move
+ * it. `about-section.test.ts` names those two individually, so the next
+ * feature to ship has to come here and remove its own rather than the row
+ * quietly emptying.
  *
  * THE PLACEHOLDER OUTLIVED ITS OWN DEADLINE, and that is worth recording here
  * rather than only in the scope. It read `nothing yet · this page is the first
@@ -48,10 +52,10 @@ import { Text } from "@/components/ui/text";
  * no test guards this card, and that reasoning still holds. This is what it
  * costs: the only guard is somebody reading the page and knowing better.
  */
-const WORKING = "sign in with Google or GitHub · profile · filtered search";
+const WORKING =
+  "sign in with Google or GitHub · profile · filtered search · application tracking";
 
-const PLANNED =
-  "ranked results with reasoning · application tracking · a no sign in demo account";
+const PLANNED = "ranked results with reasoning · a no sign in demo account";
 
 const ABOUT_PARAGRAPHS = [
   "JobHunt is a real product in progress, built and run by one engineer. I use it for my own search, so the parts that are broken get fixed because I run into them too.",
