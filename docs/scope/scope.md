@@ -25,7 +25,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 10 | Usage gating & kill switch | Slice 1 | done |
 | 11 | Job search & results list | Slice 1 | done |
 | 12 | Apply redirect & application record | Slice 1 | done |
-| 13 | Model client router | Slice 2 | in-progress |
+| 13 | Model client router | Slice 2 | done |
 | 14 | Fit scoring with shown reasoning | Slice 2 | planned |
 | 15 | Eval ground truth set | Slice 2 | planned |
 | 16 | Eval harness runner | Slice 2 | planned |
@@ -256,21 +256,22 @@ _Owed a decision on the predicted salary flag, recorded from spec [0013](../spec
 
 The differentiator and the answer to the sharpest finding in the reference audits: a scoring feature that shipped, passed every test, and returned a nearly constant meaningless number. Most of the build time belongs here.
 
-### 13. Model client router
+### 13. Model client router · done
 One thin client every AI call routes through: tier in, response out, with model and provider read from configuration and never written into a feature. This is what makes the deliberately cross vendor design swappable later. Built here with its first real caller in hand rather than as an empty foundation, because that is what keeps it a router. Watch this one: it is a named place where scope quietly expands into a framework.
 **Done when:** two tiers resolve from configuration to two different vendors, a feature calling it names a tier and never a model, swapping a model is a configuration change with no feature code touched, and a provider failure surfaces as a visible error rather than a default that reads as success.
 _Owes the privacy notice a recipient entry, recorded from spec [0009](../specs/0009-terms-and-privacy-notices/index.md) on 2026-09-01. The router is where a model provider's credential lands, so each vendor it routes to is a company data reaches and belongs in `DATA_RECIPIENTS`. The AC-5 guard fails the unit suite as soon as the key is declared in `src/env.ts`, so this cannot ship silently. Because the design is deliberately cross vendor, the entry is per vendor rather than one line saying "a model provider"._
 _Was blocked on feature 10 merging to `main`, recorded from spec [0012](../specs/0012-model-client-router/index.md) on 2026-09-03. **Resolved 2026-09-04**: feature 10 merged to `main` at `5b01b4c` (pull request 86) and spec 0011 is Accepted, so `checkUsageGate()` and the `usage_cap` table both exist on `main` today, at `src/lib/usage-gating/`, the path commit `d309e65` relocated it to before the merge. This feature's build, the migration included, is unblocked._
 
 - [x] Design it (spec): [0012](../specs/0012-model-client-router/index.md)
-- [ ] Build it: `/develop model client router`
-  - [ ] Configuration: `@ai-sdk/openai`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
-  - [ ] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `checkUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
-  - [ ] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
-  - [ ] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
-  - [ ] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
-- [ ] Verify it: `/check verify model client router`
-- [ ] Test it: `/test model client router`
+- [x] Build it: `/develop model client router` — code in `src/lib/ai/`
+  - [x] Configuration: `@ai-sdk/openai`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
+  - [x] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `withUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
+  - [x] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
+  - [x] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
+  - [x] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
+- [x] Verify it: `/check verify model client router`
+- [x] Test it: `/test model client router`
+- [x] Review it (fresh model): `/check review model client router` · two rounds, both reviewed on Claude Opus 5 against author Sonnet 5. **Round 1**, 2026-09-06, 21 files: verdict **Blocked**, one blocker (CI missing both new required env keys, `OPENAI_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY`, which would have failed every check the moment a pull request opened), three majors and three minors. Findings in [2026-09-06-feat-model-client-router.md](../reviews/2026-09-06-feat-model-client-router.md). **Round 2**, 2026-09-06, a different Opus 5 instance, 24 files: independently re-verified all six round 1 findings rather than trusting the account (five resolved, one, the `withUsageGate` test mock, deliberately accepted), then found two new problems introduced by round 1's own fixes. An ESLint rule banned importing the router it tells you to import: `no-restricted-imports`'s `patterns.group` matches with gitignore style path semantics, where a slash free entry like `"ai"` matches a path segment at any depth rather than an exact module name, so it also fired on `@/lib/ai/client` and `@/lib/ai/tiers`, and `pnpm lint` stayed green only because nothing outside `src/lib/ai/` imported the router yet. And `/privacy` claimed "five" companies while rendering eight, an off by one already present before this branch that this branch widened to three. Verdict **Changes requested**. Findings in [2026-09-06-feat-model-client-router-round-2.md](../reviews/2026-09-06-feat-model-client-router-round-2.md). Both new majors were fixed the same day, and one minor was taken (`truncated` registered as a queryable `ai.call_tier` span attribute in `spans.md`). **One round 2 minor was rejected on a false premise**: it claimed the three AI packages were the only floating runtime versions in `package.json`; counted directly, 19 of the repo's 30 dependencies use `^`, including `eslint`, `typescript`, `prettier` and every `@types/*`, and spec 0012's own Build plan step 1 says none pinned. The rejection and its evidence are recorded in the round 2 findings file so it is not re-raised.
 
 ### 14. Fit scoring with shown reasoning · needs a decision · GA
 Score a listing against the profile and stated preferences, and show the work: the skills that matched and the skills that are missing, not just a number. The shown reasoning is both the usability point and a built in sanity check against the constant score failure mode. The spec defines the scoring bands, which is what makes the eval ranges in feature 15 meaningful.

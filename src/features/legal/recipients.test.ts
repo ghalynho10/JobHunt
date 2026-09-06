@@ -106,7 +106,7 @@ describe("every env key is accounted for (covers AC-5)", () => {
 });
 
 describe("the list the page renders (covers AC-3, AC-6)", () => {
-  it("names the six companies data reaches today", () => {
+  it("names the eight companies data reaches today", () => {
     expect(DATA_RECIPIENTS.map((recipient) => recipient.id)).toEqual([
       "supabase",
       "vercel",
@@ -115,6 +115,9 @@ describe("the list the page renders (covers AC-3, AC-6)", () => {
       "github",
       /** Added by feature 11 (spec 0013), the first outbound job board call. */
       "adzuna",
+      /** Added by feature 13 (spec 0012), the model client router. */
+      "openai",
+      "google-ai",
     ]);
   });
 

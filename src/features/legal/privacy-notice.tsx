@@ -62,7 +62,7 @@ const PURPOSES = [
 ];
 
 const RECIPIENTS_INTRO = [
-  "Five other companies are involved in running this service. Each one is named here with what it actually receives, and this list is generated from the same registry the codebase uses, so a new one cannot be added without appearing here.",
+  "The other companies involved in running this service are named here, with what each one actually receives, and this list is generated from the same registry the codebase uses, so a new one cannot be added without appearing here.",
 ];
 
 const SENTRY_CLAIM = [
@@ -76,7 +76,7 @@ const NEVER_INTRO = [
 const NEVER = [
   "Your data is not sold, and never has been.",
   "It is not used for advertising, and there is no advertising on this service.",
-  "It is not shared with data brokers or any other party beyond the five companies named above.",
+  "It is not shared with data brokers or any other party beyond the companies named above.",
   "It is not used to train machine learning models, by anyone.",
   "It is not read for any purpose other than running this service for you.",
 ];

@@ -115,6 +115,40 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
     why: "It is the job board this app searches against, so a search has to reach it to answer anything.",
     envKeys: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"],
   },
+  {
+    id: "openai",
+    name: "OpenAI",
+    /**
+     * CORRECTED 2026-09-06 BY `/check review`. The original copy said this
+     * company "receives a listing and the profile being scored against it",
+     * present tense, which was false: no feature calls the model client
+     * router in production (grep `callTier(` under `src/`, ignoring tests,
+     * turns up only doc comments). That claim described feature 14's future
+     * behaviour, not anything this app does today, which is exactly what
+     * `src/features/legal/AGENTS.md` forbids ("nothing here may describe a
+     * control that does not exist"). The original `why` also leaked internal
+     * jargon ("the model client router", "(spec 0012)", "ai_scoring") into
+     * rendered legal copy, the only entry in this file that did; every
+     * neighbour uses plain, spec free language.
+     */
+    receives: "nothing yet",
+    why: "It is configured for a scoring feature this app has not built yet, so nothing reaches it in the meantime.",
+    envKeys: ["OPENAI_API_KEY"],
+  },
+  {
+    id: "google-ai",
+    /**
+     * Named to read distinctly from the "google" entry above (Google's sign
+     * in purpose): the two are unrelated flows sharing one company, and a
+     * page showing "Google" twice back to back would read as a duplicate
+     * rather than two deliberately separate entries.
+     */
+    name: "Google (Gemini API)",
+    /** Corrected 2026-09-06 alongside the OpenAI entry above; same reason. */
+    receives: "nothing yet",
+    why: "It is configured for that same not yet built feature, on a second, different vendor, so nothing reaches it in the meantime either.",
+    envKeys: ["GOOGLE_GENERATIVE_AI_API_KEY"],
+  },
 ];
 
 /**

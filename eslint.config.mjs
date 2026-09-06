@@ -46,6 +46,23 @@ export default defineConfig([
    * The allow list lives in spec 0001 binding rule 1: the development only test
    * session mint, the kill switch read, and the seeded demo account. Adding a
    * fourth caller means editing that spec, not this file.
+   *
+   * THE AI SDK GROUP BELOW IS THE SAME RULE NAME AS THE ONE IN THE NEXT BLOCK,
+   * merged into this one rather than left in a second `src/app/**` matching
+   * config: ESLint flat config does not merge two configs' `patterns` arrays
+   * for one rule key, the later matching config replaces the earlier one's
+   * value outright, so a separate block would have silently deleted this
+   * secret key restriction for every file under `src/app`.
+   *
+   * `"ai"` IS A `paths` ENTRY, NOT A `patterns` GROUP, corrected 2026-09-06 by
+   * a `/check review` round 2: `patterns.group` matches with gitignore-style
+   * path semantics, where a slash-free entry matches a segment AT ANY DEPTH,
+   * not an exact module specifier. `group: ["ai"]` therefore banned
+   * `@/lib/ai/client` and `@/lib/ai/tiers`, the exact import this rule's own
+   * message tells a caller to write, confirmed against the real config
+   * before this fix. `paths` matches the import source exactly, which is
+   * what a bare package name needs; `ai/*` stays in `patterns` since that one
+   * genuinely needs the wildcard for a subpath import.
    */
   {
     files: ["src/app/**/*.{ts,tsx}"],
@@ -53,6 +70,13 @@ export default defineConfig([
       "@typescript-eslint/no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "ai",
+              message:
+                "Spec 0012, AC-3: only src/lib/ai/tiers.ts and src/lib/ai/client.ts may import an AI SDK package. Call callTier() from src/lib/ai/client.ts instead, so the call is gated through checkUsageGate() and every generation parameter stays fixed in tiers.ts.",
+            },
+          ],
           patterns: [
             {
               group: [
@@ -62,6 +86,62 @@ export default defineConfig([
               ],
               message:
                 "Binding rule 1 (spec 0001): the secret key client skips row level security and may not be imported from src/app. Read data through src/lib/supabase/server.ts instead.",
+            },
+            {
+              group: ["@ai-sdk/*", "ai/*"],
+              message:
+                "Spec 0012, AC-3: only src/lib/ai/tiers.ts and src/lib/ai/client.ts may import an AI SDK package. Call callTier() from src/lib/ai/client.ts instead, so the call is gated through checkUsageGate() and every generation parameter stays fixed in tiers.ts.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  /**
+   * SPEC 0012, AC-3, added 2026-09-06 by `/check review`. `src/lib/ai/tiers.ts`
+   * fixes each tier's vendor, model and generation parameters in one file, and
+   * `src/lib/ai/client.ts`'s `callTier()` is the only door that gates a vendor
+   * call through `checkUsageGate()` before it can spend money. A file elsewhere
+   * that imports an `@ai-sdk/` package, or the plain `ai` package (which is
+   * enough on its own: `generateObject` from `ai` can be called directly on the
+   * live model instances `tiers.ts` already exports), bypasses both.
+   *
+   * COVERS THE REST OF `src/`, NOT `src/app`: that subtree's copy of this same
+   * restriction lives merged into the block above, for the reason given there.
+   *
+   * `src/lib/ai/tiers.test.ts` enforces the same rule with a source-tree walk
+   * that also catches the side effect, dynamic and `require` import forms this
+   * ESLint rule does not; the two are complementary, not redundant, one catches
+   * the mistake at author time and the other locks it in as a running check.
+   *
+   * `"ai"` IS A `paths` ENTRY HERE TOO, for the same reason given on the
+   * merged `src/app` block above.
+   */
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/app/**",
+      "src/lib/ai/tiers.ts",
+      "src/lib/ai/client.ts",
+      "src/**/*.test.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "ai",
+              message:
+                "Spec 0012, AC-3: only src/lib/ai/tiers.ts and src/lib/ai/client.ts may import an AI SDK package. Call callTier() from src/lib/ai/client.ts instead, so the call is gated through checkUsageGate() and every generation parameter stays fixed in tiers.ts.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@ai-sdk/*", "ai/*"],
+              message:
+                "Spec 0012, AC-3: only src/lib/ai/tiers.ts and src/lib/ai/client.ts may import an AI SDK package. Call callTier() from src/lib/ai/client.ts instead, so the call is gated through checkUsageGate() and every generation parameter stays fixed in tiers.ts.",
             },
           ],
         },

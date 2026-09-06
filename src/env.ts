@@ -70,6 +70,19 @@ export const env = createEnv({
     ADZUNA_APP_ID: z.string().min(1),
     /** Feature 11, spec 0013. Adzuna's application key credential. */
     ADZUNA_APP_KEY: z.string().min(1),
+
+    /**
+     * Feature 13, spec 0012. Backs the `ai_scoring` tier in `src/lib/ai/tiers.ts`.
+     * Read only there, and passed explicitly to `createOpenAI()` rather than
+     * left to the provider package's own implicit environment read.
+     */
+    OPENAI_API_KEY: z.string().min(1),
+    /**
+     * Feature 13, spec 0012. Backs the `ai_check` tier in `src/lib/ai/tiers.ts`.
+     * Read only there, and passed explicitly to `createGoogle()` rather than
+     * left to the provider package's own implicit environment read.
+     */
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -124,6 +137,8 @@ export const env = createEnv({
     UI_PREVIEW_ENABLED: process.env.UI_PREVIEW_ENABLED,
     ADZUNA_APP_ID: process.env.ADZUNA_APP_ID,
     ADZUNA_APP_KEY: process.env.ADZUNA_APP_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
