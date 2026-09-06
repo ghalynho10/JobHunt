@@ -2,7 +2,7 @@
 
 *Bring this into `/architect eval ground truth set`. These are starting points, not final — the architect pass may adjust the schema or specifics.*
 
-*Updated: band system changed from 4 bands (Strong/Moderate/Weak/Poor) to 5 bands (Strong match/Good match/Possible match/Weak match/Not a match), per spec 0015's decision that 4 bands risked concentrating variance at a hard boundary, and 3 bands risked collapsing most real listings into one middle band. Two pairs below are flagged unresolved — read the "Open questions" section before treating this as final.*
+*Updated: band system changed from 4 bands (Strong/Moderate/Weak/Poor) to 5 bands (Strong match/Good match/Possible match/Weak match/Not a match), per spec 0015's own decision that 4 bands risked concentrating variance at a hard boundary, and 3 bands risked collapsing most real listings into one middle band. Two pairs below are flagged unresolved — read the "Open questions" section before treating this as final.*
 
 ## Why three archetypes, not one
 
@@ -68,6 +68,8 @@ Spec 0015's own follow-up notes require at least one test case proving pay, loca
 | Identical posting, same skills/seniority — but pay below the profile's stated minimum, location outside `desired_locations`, on-site instead of the stated `remote_preference` | Strong match (same as above) | **The actual test.** If this comes back lower than the pair above, preferences are leaking into the band — a real bug, not sampling noise |
 
 **One thing this pair-pair needs that didn't exist before: archetype 1 needs an explicit `job_preference` defined.** The archetypes as written only specify skills, seniority, and domain — none currently state desired pay, location, or remote preference. That has to be decided (even arbitrarily, e.g. "remote preferred, $120k minimum, Atlanta or remote only") before these two pairs can actually be written, since the whole test depends on one version matching that preference and one version violating it.
+
+## The two pairs that matter most
 
 Archetype 2's first pair and archetype 3's first pair are load-bearing — they're what actually proves the seniority-caps-skills-grades-within-it rule works, rather than just asserting it. That's exactly why both are flagged unresolved above rather than given a default label. If either fails repeatedly (not just once — see the multi-run note below) once you do settle on an expected band, that's the rubric's core rule breaking, not a minor miss.
 
