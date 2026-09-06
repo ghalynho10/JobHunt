@@ -1,7 +1,7 @@
 # 0015. Fit scoring with shown reasoning
 
 **Date**: 2026-09-06
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -128,15 +128,22 @@ No new database table. A score is never persisted (see Consequences); it is an i
 
 ## Build plan
 
-1. Write `src/features/scoring/rubric.ts`: the five band anchors (their exact wording), the Zod `fitScoreSchema` (`band` enum, `matchedSkills`, `notMentionedSkills`, `reasoning` capped at 600 characters, the three value `sponsorshipSignal` enum), the post-parse skill name filter, and the prompt builder taking a bounded profile and one listing, including the truncation caveat, the missing-description case, and the untrusted input instructions. Satisfies **AC-1**, **AC-4**, **AC-5**, **AC-6**, **AC-12**, **AC-13**, and is the anchor wording **AC-2** is later measured against.
-2. Write `src/features/scoring/score.ts`: `scoreListing()`, calling `callTier("ai_scoring", fitScoreSchema, { system, prompt })` with the prompt `rubric.ts` builds, returning its `Result` unchanged. Satisfies **AC-3**.
-3. Write `src/features/scoring/score-card.tsx`: the band badge, the matched and not mentioned lists, the reasoning, the optional sponsorship badge, plus the pending state and the per card failure state, taking a `ScoreOutcome | "pending"` prop so it renders every state this feature has from day one. Satisfies the display half of **AC-5**, **AC-6**.
-4. The thin end to end thread (this project's Tracer Bullet approach): extend the search page's `SearchOutcome` to read the caller's own profile, skill count, and work experience count through the existing `readOwnProfile()` / `readProfileSections()`, gate on both counts being zero (rendering the unscored list plus the `/profile` link, `COPY-5`, only then), and otherwise wrap a call to `scoreListing()` against the first listing only in a `<Suspense>` boundary whose fallback renders that one card's pending state (`COPY-4`), so the page is never blocked even in this first thin slice. Proves profile to score to card to Suspense end to end on one listing before scaling to all 20. Satisfies **AC-7**.
-5. Write `src/features/scoring/score-listings.ts`: `scoreListings()`, opening the `scoring.score_listings` span first, firing `scoreListing()` concurrently across every listing (`Promise.all`, since each call already returns a `Result` rather than throwing), tallying the scored, refused, and failed counts as span attributes once every outcome resolves. Register the span in `docs/observability/spans.md`. Satisfies **AC-8**, **AC-14**.
-6. Widen the thread from one listing to all 20: swap the single `scoreListing()` call from step 4 for `scoreListings()` inside the same Suspense boundary, whose fallback now renders the whole list unscored, in Adzuna's original order, with every card in its pending state (the Strategic Suspense Boundaries pattern named in Decision). Satisfies **AC-9**'s immediate render half.
-7. Add the resolved states: sort the outcomes by band once all have resolved (**AC-9**'s re-sort half), the per card failure state (**AC-10**), and the page level cap reached notice reusing `SENTENCES` (**AC-11**).
-8. Tests: the critical test scenarios above, the prompt builder's truncation unit test, and the thin profile gate.
-9. Move `ranked results with reasoning` from `planned` to `working` in `src/features/entry-page/about-section.tsx`. This sits outside this feature's own code area and nothing else in the build prompts it, the exact shape that left this same clause unmet for two days on feature 7 and had to be named explicitly again on features 9, 11, 12, and 14. Satisfies **AC-15**.
+_Progress ticked by `/develop` on 2026-09-06. Steps 4 and 6 were built at full
+width in one step rather than as one listing then twenty: the thin thread's
+value is catching an integration problem with one call instead of twenty, and
+no live call could be made during this build (it needs
+`TEST_LIVE_MODEL_CALLS_ENABLED` and real vendor keys), so the narrow slice
+would have proved nothing the wide one does not._
+
+1. [x] Write `src/features/scoring/rubric.ts`: the five band anchors (their exact wording), the Zod `fitScoreSchema` (`band` enum, `matchedSkills`, `notMentionedSkills`, `reasoning` capped at 600 characters, the three value `sponsorshipSignal` enum), the post-parse skill name filter, and the prompt builder taking a bounded profile and one listing, including the truncation caveat, the missing-description case, and the untrusted input instructions. Satisfies **AC-1**, **AC-4**, **AC-5**, **AC-6**, **AC-12**, **AC-13**, and is the anchor wording **AC-2** is later measured against.
+2. [x] Write `src/features/scoring/score.ts`: `scoreListing()`, calling `callTier("ai_scoring", fitScoreSchema, { system, prompt })` with the prompt `rubric.ts` builds, returning its `Result` unchanged. Satisfies **AC-3**.
+3. [x] Write `src/features/scoring/score-card.tsx`: the band badge, the matched and not mentioned lists, the reasoning, the optional sponsorship badge, plus the pending state and the per card failure state, taking a `ScoreOutcome | "pending"` prop so it renders every state this feature has from day one. Satisfies the display half of **AC-5**, **AC-6**.
+4. [x] The thin end to end thread (this project's Tracer Bullet approach): extend the search page's `SearchOutcome` to read the caller's own profile, skill count, and work experience count through the existing `readOwnProfile()` / `readProfileSections()`, gate on both counts being zero (rendering the unscored list plus the `/profile` link, `COPY-5`, only then), and otherwise wrap a call to `scoreListing()` against the first listing only in a `<Suspense>` boundary whose fallback renders that one card's pending state (`COPY-4`), so the page is never blocked even in this first thin slice. Proves profile to score to card to Suspense end to end on one listing before scaling to all 20. Satisfies **AC-7**.
+5. [x] Write `src/features/scoring/score-listings.ts`: `scoreListings()`, opening the `scoring.score_listings` span first, firing `scoreListing()` concurrently across every listing (`Promise.all`, since each call already returns a `Result` rather than throwing), tallying the scored, refused, and failed counts as span attributes once every outcome resolves. Register the span in `docs/observability/spans.md`. Satisfies **AC-8**, **AC-14**.
+6. [x] Widen the thread from one listing to all 20: swap the single `scoreListing()` call from step 4 for `scoreListings()` inside the same Suspense boundary, whose fallback now renders the whole list unscored, in Adzuna's original order, with every card in its pending state (the Strategic Suspense Boundaries pattern named in Decision). Satisfies **AC-9**'s immediate render half.
+7. [x] Add the resolved states: sort the outcomes by band once all have resolved (**AC-9**'s re-sort half), the per card failure state (**AC-10**), and the page level cap reached notice reusing `SENTENCES` (**AC-11**).
+8. [x] Tests: the critical test scenarios above, the prompt builder's truncation unit test, and the thin profile gate.
+9. [x] Move `ranked results with reasoning` from `planned` to `working` in `src/features/entry-page/about-section.tsx`. This sits outside this feature's own code area and nothing else in the build prompts it, the exact shape that left this same clause unmet for two days on feature 7 and had to be named explicitly again on features 9, 11, 12, and 14. Satisfies **AC-15**.
 
 ## Consequences
 
