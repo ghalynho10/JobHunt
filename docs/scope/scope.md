@@ -264,10 +264,10 @@ _Was blocked on feature 10 merging to `main`, recorded from spec [0012](../specs
 
 - [x] Design it (spec): [0012](../specs/0012-model-client-router/index.md)
 - [ ] Build it: `/develop model client router`
-  - [ ] Configuration: `@ai-sdk/anthropic`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
+  - [ ] Configuration: `@ai-sdk/openai`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
   - [ ] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `checkUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
   - [ ] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
-  - [ ] Privacy registry: `anthropic` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
+  - [ ] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
   - [ ] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
 - [ ] Verify it: `/check verify model client router`
 - [ ] Test it: `/test model client router`
