@@ -80,9 +80,25 @@ describe("TIERS (covers AC-1)", () => {
  * Spec 0012, AC-3: a caller never supplies a vendor name, a model id, or a
  * generation parameter. Proven here by the same source-tree walk
  * `no-tracking.test.ts` uses: no file under `src/` other than this feature's
- * own `tiers.ts` may import an `@ai-sdk/` package.
+ * own `tiers.ts` (the vendor and model map) and `client.ts` (the router
+ * itself, the one file allowed to call `generateObject`) may import an
+ * `@ai-sdk/` package OR the plain `ai` package.
+ *
+ * `ai` ITSELF IS PART OF THE OFFENDER SET, corrected 2026-09-06 by
+ * `/check review`: the original guard matched only `@ai-sdk/`, which let a
+ * file write `import { generateObject } from "ai"` and call it directly on
+ * `TIERS.ai_scoring.model` (already a live, exported model instance),
+ * skipping `callTier()`, `withUsageGate()`, and every fixed generation
+ * parameter this file exists to protect. Banning `@ai-sdk/` alone stopped
+ * only the harder path (constructing a new provider client); the easier one,
+ * reusing the model `tiers.ts` already built, went unchecked.
+ *
+ * FOUR IMPORT FORMS ARE CHECKED, not just `from "…"`: a side effect import
+ * (`import "@ai-sdk/x"`), a dynamic import (`import("@ai-sdk/x")`), and
+ * `require("@ai-sdk/x")` each reach the same package without ever writing
+ * `from`, so a regex anchored only on that keyword would miss them.
  */
-describe("no file other than tiers.ts imports an @ai-sdk/ package (covers AC-3)", () => {
+describe("no file other than tiers.ts and client.ts imports an @ai-sdk/ or ai package (covers AC-3)", () => {
   const root = (path: string): string =>
     fileURLToPath(new URL(`../../../${path}`, import.meta.url));
 
@@ -96,26 +112,41 @@ describe("no file other than tiers.ts imports an @ai-sdk/ package (covers AC-3)"
     });
   }
 
+  const ALLOWED_FILES = [
+    "/src/lib/ai/tiers.ts",
+    "/src/lib/ai/client.ts",
+  ] as const;
+
   const files = sourceFiles(root("src")).filter(
-    (path) => !path.endsWith("/src/lib/ai/tiers.ts"),
+    (path) => !ALLOWED_FILES.some((allowed) => path.endsWith(allowed)),
   );
 
   it("walks the real source tree, so the check is not vacuous", () => {
     expect(files.length).toBeGreaterThan(20);
   });
 
-  it("imports no @ai-sdk/ package outside tiers.ts", () => {
+  /** The package name, quoted, either bare `ai` or an `@ai-sdk/…` scope. */
+  const PACKAGE = String.raw`(@ai-sdk\/[^"']+|ai)`;
+
+  const OFFENDER_PATTERNS = [
+    new RegExp(String.raw`from\s+["']${PACKAGE}["']`), // import x from "ai"
+    new RegExp(String.raw`import\s+["']${PACKAGE}["']`), // import "ai" (side effect)
+    new RegExp(String.raw`import\s*\(\s*["']${PACKAGE}["']`), // await import("ai")
+    new RegExp(String.raw`require\s*\(\s*["']${PACKAGE}["']`), // require("ai")
+  ];
+
+  it("imports no @ai-sdk/ or ai package outside tiers.ts and client.ts", () => {
     const offenders = files.filter((path) => {
       const code = readFileSync(path, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
 
-      return /from\s+["']@ai-sdk\//.test(code);
+      return OFFENDER_PATTERNS.some((pattern) => pattern.test(code));
     });
 
     expect(
       offenders,
-      "Only src/lib/ai/tiers.ts may import an @ai-sdk/ package. A caller that imports one directly can bypass tiers.ts's fixed vendor, model and generation parameters.",
+      "Only src/lib/ai/tiers.ts and src/lib/ai/client.ts may import an @ai-sdk/ or ai package. A caller that imports one directly, or that calls generateObject on a model pulled from TIERS, bypasses the usage gate and every fixed generation parameter. Call src/lib/ai/client.ts's callTier() instead.",
     ).toEqual([]);
   });
 });
