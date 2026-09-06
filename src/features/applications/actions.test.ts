@@ -164,3 +164,76 @@ describe("the apply action triggers no re-render (AC-10)", () => {
     }
   });
 });
+
+describe("the apply control's catch reports before it explains (AC-21)", () => {
+  it("captures the error rather than only returning the stale build message", async () => {
+    /**
+     * A SOURCE LEVEL GUARD, for the same reason as the one above: `ApplyControl`
+     * is a Client Component calling `useActionState`, and the unit project runs
+     * in `node` with no React runtime, so the catch cannot be driven here. The
+     * page test stops at this component rather than rendering it.
+     *
+     * WHAT WOULD GO WRONG WITHOUT IT. That catch takes everything, not only the
+     * framework's stale build refusal: a dropped connection, a blocking
+     * extension, any client side fault. All of them are shown to the reader as
+     * "This page is out of date", which is right for one case and wrong for the
+     * rest. Since the dispatch never reached the server, nothing on this path
+     * goes through `failure()`, so without an explicit capture a real client
+     * regression is invisible to us and indistinguishable from the ordinary
+     * staleness that follows every deploy. Found by a fresh model review on
+     * 2026-09-05.
+     */
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(
+      "src/features/applications/apply-control.tsx",
+      "utf8",
+    );
+
+    const start = source.indexOf("} catch (error) {");
+    /** Searched from the catch onward: `IDLE_STATE` is imported further up. */
+    const end = source.indexOf("IDLE_STATE,", start);
+
+    expect(
+      start,
+      "the dispatch catch should bind its error so it can be reported",
+    ).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    const body = source.slice(start, end);
+
+    expect(
+      body,
+      "the catch must report the error, or a real client fault hides behind the stale build message (spec 0014, AC-21)",
+    ).toContain("Sentry.captureException(error");
+
+    /**
+     * The reader still gets the one sentence. A capture that replaced the
+     * message would trade a silent failure for an invisible one.
+     */
+    expect(body).toContain("APPLICATION_FAILURES.stale_build.message");
+  });
+
+  it("sends nothing from the listing with it, so the privacy notice stays true", async () => {
+    /**
+     * Spec 0009's notice claims Sentry receives no personal data. The captured
+     * snapshot is exactly the kind of value that would break that claim if it
+     * were attached as context, so this pins the capture to the error plus one
+     * operation tag.
+     */
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(
+      "src/features/applications/apply-control.tsx",
+      "utf8",
+    );
+
+    const start = source.indexOf("Sentry.captureException(error");
+    const call = source.slice(start, source.indexOf("\n", start));
+
+    for (const leaked of ["listing", "snapshot", "title", "companyName"]) {
+      expect(
+        call,
+        `the capture must not carry ${leaked}: spec 0009's privacy notice says Sentry receives no personal data`,
+      ).not.toContain(leaked);
+    }
+  });
+});

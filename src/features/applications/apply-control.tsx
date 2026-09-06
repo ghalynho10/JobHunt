@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -75,13 +76,32 @@ export function ApplyControl({
     async (): Promise<ApplicationActionState> => {
       try {
         return await action();
-      } catch {
+      } catch (error) {
         /**
          * Deliberately catching everything rather than matching a message. The
          * refusal is the framework's, its wording is not ours to depend on, and
          * every way this dispatch can fail leaves the reader in the same place:
          * nothing was recorded and a reload is the way out.
+         *
+         * THE READER GETS ONE SENTENCE; WE DO NOT GET TO KEEP ONE STORY.
+         * Catching everything means this also swallows a dropped connection, a
+         * blocking extension and any other client side fault, and every one of
+         * them would be shown as a stale build, which is wrong for all but the
+         * first. `failure()` cannot help here (the dispatch never reached the
+         * server, so nothing on this path goes through it), so the report is
+         * made explicitly, the same way `global-error.tsx` does it. Without
+         * this, a real client regression is indistinguishable from the ordinary
+         * staleness that follows every deploy, and hides behind a sentence
+         * saying nothing is wrong. Added 2026-09-05 after a review found it.
+         *
+         * NOTHING FROM THE LISTING GOES WITH IT. Spec 0009 has the privacy
+         * notice claiming Sentry receives no personal data, so this sends the
+         * error and one tag naming the operation, never the captured snapshot.
          */
+        Sentry.captureException(error, {
+          tags: { operation: "apply_dispatch" },
+        });
+
         return failedState(APPLICATION_FAILURES.stale_build.message);
       }
     },

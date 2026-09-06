@@ -28,7 +28,7 @@ The two routes are [src/app/(app)/applications/page.tsx](<../../app/(app)/applic
 - **The database is the real guarantee, not the checks in this directory.** The duplicate refusal is the unique constraint, the missing profile refusal is the foreign key, and the predicted salary pairing is a check constraint. Each is mapped to a reader facing sentence by `failures.ts`; none is prevented by looking first.
 - **`salary_is_predicted` is `null`, never `false`, when there is no salary at all.** `false` would be a claim about a figure that does not exist, and the pairing check constraint refuses the row either way.
 - **A failed read says so.** `readAppliedJobIds` failing renders `COPY-8` rather than twenty cards marked as not applied, which would silently tell the reader they have applied to none of them. That branch had no test until feature 12 was already closed; it has one now, broken on purpose in both directions.
-- **The stale build message is the one failure here that never reaches Sentry.** The framework refuses the dispatch before any of this code runs, so `ApplyControl` catches it around the call and `failure()` is never involved.
+- **The stale build message is the one failure here that does not go through `failure()`.** The framework refuses the dispatch before any of this code runs, so `ApplyControl` catches it around the call. It still reports: that catch takes everything, including a dropped connection or a blocking extension, so it calls `Sentry.captureException` explicitly before showing the message. Without that, a real client regression looks exactly like the ordinary staleness that follows every deploy.
 
 ## Testing
 
