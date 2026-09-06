@@ -270,7 +270,7 @@ _Was blocked on feature 10 merging to `main`, recorded from spec [0012](../specs
   - [x] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
   - [x] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
 - [x] Verify it: `/check verify model client router`
-- [ ] Test it: `/test model client router`
+- [x] Test it: `/test model client router`
 
 ### 14. Fit scoring with shown reasoning · needs a decision · GA
 Score a listing against the profile and stated preferences, and show the work: the skills that matched and the skills that are missing, not just a number. The shown reasoning is both the usability point and a built in sanity check against the constant score failure mode. The spec defines the scoring bands, which is what makes the eval ranges in feature 15 meaningful.
