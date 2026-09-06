@@ -227,7 +227,42 @@ describe("the apply control's catch reports before it explains (AC-21)", () => {
     );
 
     const start = source.indexOf("Sentry.captureException(error");
-    const call = source.slice(start, source.indexOf("\n", start));
+
+    expect(start).toBeGreaterThan(-1);
+
+    /**
+     * THE WHOLE CALL, NOT ITS FIRST LINE, AND THIS IS THE SECOND TIME THIS
+     * FILE HAS LEARNED IT. The first version sliced to the next newline, which
+     * was right only while the call fitted on one line. It was broken on
+     * purpose and did fail, so it looked proved. Prettier then split the call
+     * across three lines in the very commit that landed it, the slice shrank to
+     * `Sentry.captureException(error, {`, and the loop below started comparing
+     * four names against a fragment none of them can appear in: passing every
+     * run, checking nothing. Counting bracket depth reads the whole expression
+     * however it is later formatted.
+     */
+    const open = source.indexOf("(", start);
+    let depth = 0;
+    let end = open;
+
+    for (; end < source.length; end += 1) {
+      if (source[end] === "(") depth += 1;
+      else if (source[end] === ")") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+
+    const call = source.slice(start, end + 1);
+
+    /**
+     * The guard on the guard. If the slice ever collapses to the opening line
+     * again, this fails immediately instead of the loop below going quiet.
+     */
+    expect(
+      call,
+      "the slice must reach past the opening line, or the check below is vacuous",
+    ).toContain("operation");
 
     for (const leaked of ["listing", "snapshot", "title", "companyName"]) {
       expect(
