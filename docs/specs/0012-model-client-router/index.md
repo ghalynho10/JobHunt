@@ -1,7 +1,7 @@
 # 0012. Model client router
 
 **Date**: 2026-09-03
-**Status**: In Progress
+**Status**: Accepted
 **Revised**: 2026-09-06, by `/architect fit scoring with shown reasoning`, before feature 13 was built (this spec was still Proposed, so this is an in place correction, not a supersede). Two things changed: the vendor assigned to `ai_scoring` (OpenAI replaces Anthropic; Google is unchanged for `ai_check`), and the `usage_cap` seed values, which were sized on an assumption feature 11's real shape (shipped 2026-09-04) contradicts. See Rationale for both.
 
 ## Summary
