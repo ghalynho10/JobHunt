@@ -185,17 +185,21 @@ describe("who else sees it (covers AC-3, AC-6)", () => {
    * INVARIANT 1, AND THE HALF THAT ACTUALLY BITES. Checking the registry's
    * companies appear is easy; the failure this guards is the opposite one, a
    * company written into the prose by hand that the registry never learned
-   * about. The ones named below are precisely those arriving at features 13
-   * and 14, so a build that mentions one before adding its entry fails here
-   * rather than shipping a list that disagrees with itself.
+   * about. Anthropic is named below because spec 0012's 2026-09-06 revision
+   * considered it for the model client router and did not pick it (parked,
+   * not rejected, see spec 0012's rationale): a build that mentions it in the
+   * prose before it becomes a real registry entry fails here rather than
+   * shipping a list that disagrees with itself.
    *
    * ADZUNA LEFT THIS LIST ON 2026-09-04, when feature 11 (spec 0013) added it
-   * to `DATA_RECIPIENTS` as part of its own build. That is the mechanism
-   * working: a company moves off this list by becoming a real registry entry,
-   * never by being deleted from it to make a test pass.
+   * to `DATA_RECIPIENTS` as part of its own build. OPENAI LEFT ON 2026-09-06,
+   * when feature 13 (spec 0012) added it and `google-ai` as part of its own
+   * build. That is the mechanism working: a company moves off this list by
+   * becoming a real registry entry, never by being deleted from it to make a
+   * test pass.
    */
   it("names no company the registry does not hold", () => {
-    const notYetRecipients = ["OpenAI", "Anthropic", "Cloudflare"];
+    const notYetRecipients = ["Anthropic", "Cloudflare"];
     const named = notYetRecipients.filter((company) => text.includes(company));
 
     expect(

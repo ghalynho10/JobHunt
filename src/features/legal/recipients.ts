@@ -115,6 +115,28 @@ export const DATA_RECIPIENTS: readonly DataRecipient[] = [
     why: "It is the job board this app searches against, so a search has to reach it to answer anything.",
     envKeys: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"],
   },
+  {
+    id: "openai",
+    name: "OpenAI",
+    receives:
+      "a listing and the profile being scored against it, for the ai_scoring tier",
+    why: "It answers the model client router's scoring calls (spec 0012), so a score has to reach it to be produced.",
+    envKeys: ["OPENAI_API_KEY"],
+  },
+  {
+    id: "google-ai",
+    /**
+     * Named to read distinctly from the "google" entry above (Google's sign
+     * in purpose): the two are unrelated flows sharing one company, and a
+     * page showing "Google" twice back to back would read as a duplicate
+     * rather than two deliberately separate entries.
+     */
+    name: "Google (Gemini API)",
+    receives:
+      "the same listing and profile content sent to OpenAI, for the ai_check tier's cross vendor check",
+    why: "It answers the model client router's check calls (spec 0012), on a vendor deliberately different from ai_scoring's.",
+    envKeys: ["GOOGLE_GENERATIVE_AI_API_KEY"],
+  },
 ];
 
 /**
