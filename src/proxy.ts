@@ -33,9 +33,33 @@ import { RETURN_PATH_HEADER, RETURN_PATH_MAX_LENGTH } from "@/lib/return-path";
  */
 
 /**
- * The header Next puts on a Server Action dispatch, and the only way this file
- * can tell one from an ordinary request. A request without it is not dispatched
- * as an action either, so nothing is lost by trusting it here.
+ * The header Next puts on the **fetch** dispatch of a Server Action.
+ *
+ * IT DOES NOT IDENTIFY EVERY ACTION REQUEST, and an earlier version of this
+ * comment claimed it did. Next accepts three shapes
+ * (`server-action-request-meta.js`: `isFetchAction || isURLEncodedAction ||
+ * isMultipartAction`) and only the first carries this header; the other two are
+ * a plain form `POST` identified by `content-type` alone, which is what React
+ * renders for a form whose action is a real Server Action reference, so it keeps
+ * working before hydration and without JavaScript. `remove-form.tsx` and the
+ * three profile forms are all that shape today.
+ *
+ * MATCHING ONLY THIS HEADER IS STILL RIGHT, AND WIDENING IT WOULD BE WRONG.
+ * The branch below exists to stop a re-render being added to a response. A form
+ * `POST` has no such choice: with no JavaScript the response *is* the next
+ * document, so the render happens whatever this file does, and withholding the
+ * refreshed cookie there would only fail to persist the session on a request
+ * that behaves like a navigation. So the header is not a proxy for "is an
+ * action", it is a precise test for "is a dispatch whose response we can keep a
+ * re-render out of", which is the only case worth acting on.
+ *
+ * THE CONSEQUENCE WORTH KNOWING. A Server Action reached from a progressively
+ * enhanced form on a page that spends a metered call will spend one on every no
+ * JavaScript submit, and no change here can prevent it. `/search` is safe
+ * because its apply control is a client closure that cannot submit natively
+ * (verified in the served markup: React emits `action="javascript:throw ..."`
+ * and no `$ACTION_ID_` field). Anything later that puts a form action on a
+ * costly page needs its own answer.
  */
 const SERVER_ACTION_HEADER = "next-action";
 
@@ -81,8 +105,15 @@ export async function proxy(request: NextRequest) {
            * WHAT IT COSTS. The browser keeps its stale cookie until its next
            * ordinary request, which refreshes and persists as usual. That
            * refresh reuses a token this request already rotated; GoTrue accepts
-           * it (`refresh_token_reuse_interval`), and the session was confirmed
-           * alive across three applies and a twelve second pause.
+           * it (`refresh_token_reuse_interval`, 10 seconds here).
+           *
+           * The case worth testing is two actions FURTHER APART THAN THAT
+           * INTERVAL with no request between them, since anything in between
+           * persists a fresh cookie and hides the problem. Driven at sixteen
+           * seconds: both applies succeeded, both rows landed, and the session
+           * was still alive afterwards. An earlier measurement spaced its
+           * applies six seconds apart, inside the interval, and so proved less
+           * than it was written up as proving.
            */
           if (request.headers.has(SERVER_ACTION_HEADER)) {
             response = NextResponse.next({
