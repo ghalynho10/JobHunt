@@ -263,12 +263,12 @@ _Owes the privacy notice a recipient entry, recorded from spec [0009](../specs/0
 _Was blocked on feature 10 merging to `main`, recorded from spec [0012](../specs/0012-model-client-router/index.md) on 2026-09-03. **Resolved 2026-09-04**: feature 10 merged to `main` at `5b01b4c` (pull request 86) and spec 0011 is Accepted, so `checkUsageGate()` and the `usage_cap` table both exist on `main` today, at `src/lib/usage-gating/`, the path commit `d309e65` relocated it to before the merge. This feature's build, the migration included, is unblocked._
 
 - [x] Design it (spec): [0012](../specs/0012-model-client-router/index.md)
-- [ ] Build it: `/develop model client router`
-  - [ ] Configuration: `@ai-sdk/openai`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
-  - [ ] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `checkUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
-  - [ ] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
-  - [ ] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
-  - [ ] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
+- [x] Build it: `/develop model client router` — code in `src/lib/ai/`
+  - [x] Configuration: `@ai-sdk/openai`, `@ai-sdk/google` and `ai` added, the two vendor keys validated in `src/env.ts`, and the six `usage_cap` seed rows migrated for `ai_scoring` and `ai_check` (AC-8, AC-10)
+  - [x] Router core: `tiers.ts`, `failures.ts`, and `client.ts`'s `callTier()`, gated through `checkUsageGate()` before every vendor call, classifying a caught error into `response_malformed` or `external_service_failed` (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10)
+  - [x] Observability: the `ai.call_tier` span registered in `docs/observability/spans.md` (AC-7)
+  - [x] Privacy registry: `openai` and `google-ai` added to `DATA_RECIPIENTS`, the privacy page's stale watchlist and comment corrected (AC-9)
+  - [x] Tests: the source guard, the `classify()` unit tests, and the gated real vendor integration tests (AC-1 through AC-8)
 - [ ] Verify it: `/check verify model client router`
 - [ ] Test it: `/test model client router`
 
