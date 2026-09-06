@@ -4,6 +4,34 @@ import { z } from "zod";
 import { isFailure } from "@/lib/result";
 
 /**
+ * `getActiveSpan` alone is replaced, not the whole module: `Sentry.startSpan`
+ * stays real, so `callTier()`'s own span still opens and closes for real in
+ * every other test in this file. `vi.spyOn` cannot touch it directly (an ESM
+ * named export's binding is not configurable), which is why this is a
+ * `vi.mock` rather than a spy on the imported namespace.
+ */
+const getActiveSpan = vi.hoisted(() => vi.fn());
+
+vi.mock("@sentry/nextjs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@sentry/nextjs")>();
+  /**
+   * A `Proxy` over `actual`, not an object spread: `@sentry/nextjs`'s real
+   * module exports at least one property (`withScope`) that a plain
+   * `{ ...actual, getActiveSpan }` silently drops, confirmed 2026-09-06 by
+   * every test below failing with "No withScope export is defined on the
+   * mock" the moment the spread form was tried. The `Proxy` forwards every
+   * property read straight to the real module regardless of how it is
+   * defined, and only intercepts the one export this file needs to replace.
+   */
+  return new Proxy(actual, {
+    get(target, prop, receiver) {
+      if (prop === "getActiveSpan") return getActiveSpan;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+});
+
+/**
  * `withUsageGate` is replaced at the module boundary, the same seam
  * `with-usage-gate.test.ts` itself proves correct in isolation: it always
  * invokes its `fn` thunk and wraps a success as `{ allowed: true, value }`,
@@ -46,7 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-function noObjectGeneratedError() {
+function noObjectGeneratedError(finishReason: "stop" | "length" = "stop") {
   return new NoObjectGeneratedError({
     message: "The model did not produce a parsable object.",
     response: { id: "resp-1", timestamp: new Date(0), modelId: "test" },
@@ -61,7 +89,7 @@ function noObjectGeneratedError() {
       outputTokenDetails: { textTokens: 5, reasoningTokens: undefined },
       totalTokens: 15,
     },
-    finishReason: "stop",
+    finishReason,
   });
 }
 
@@ -192,6 +220,59 @@ describe("callTier(): the failure path (covers AC-5, AC-6)", () => {
         AI_ROUTER_FAILURES.external_service_failed.message,
       );
       expect(result.message).not.toMatch(/ECONNREFUSED/);
+    }
+  });
+
+  /**
+   * A truncated response (the model ran out of room before finishing) throws
+   * the same `NoObjectGeneratedError` class a genuine schema mismatch does,
+   * with `finishReason: "length"` attached (spec 0012's rationale for
+   * `ai_scoring`'s `maxOutputTokens: 2048`, a placeholder feature 14 may have
+   * to raise). `classify()` still reads this as `response_malformed` on
+   * purpose: this fix does not add a `FailureKind` for it, that is a spec
+   * level decision. What it does add is a queryable span attribute, so a
+   * truncation reads as a truncation in Sentry rather than as an ordinary
+   * vendor schema failure.
+   */
+  it("marks a truncated response with a span attribute, but still classifies it as response_malformed (covers AC-6)", async () => {
+    const fakeSpan = { setAttribute: vi.fn(), setStatus: vi.fn() };
+    getActiveSpan.mockReturnValue(fakeSpan);
+
+    try {
+      generateObject.mockRejectedValueOnce(noObjectGeneratedError("length"));
+
+      const result = await callTier("ai_scoring", SCHEMA, "a prompt");
+
+      expect(isFailure(result)).toBe(true);
+      if (isFailure(result)) {
+        expect(result.kind).toBe("response_malformed");
+        expect(result.message).toBe(
+          AI_ROUTER_FAILURES.response_malformed.message,
+        );
+      }
+
+      expect(fakeSpan.setAttribute).toHaveBeenCalledWith("stage", "vendor");
+      expect(fakeSpan.setAttribute).toHaveBeenCalledWith("truncated", true);
+    } finally {
+      getActiveSpan.mockReturnValue(undefined);
+    }
+  });
+
+  it("does not mark an ordinary schema mismatch as truncated", async () => {
+    const fakeSpan = { setAttribute: vi.fn(), setStatus: vi.fn() };
+    getActiveSpan.mockReturnValue(fakeSpan);
+
+    try {
+      generateObject.mockRejectedValueOnce(noObjectGeneratedError("stop"));
+
+      await callTier("ai_scoring", SCHEMA, "a prompt");
+
+      expect(fakeSpan.setAttribute).not.toHaveBeenCalledWith(
+        "truncated",
+        expect.anything(),
+      );
+    } finally {
+      getActiveSpan.mockReturnValue(undefined);
     }
   });
 });

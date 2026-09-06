@@ -108,6 +108,27 @@ async function generateForTier<T>(
      */
     Sentry.getActiveSpan()?.setAttribute("stage", "vendor");
 
+    /**
+     * A truncated response is a `NoObjectGeneratedError` too: the JSON simply
+     * cuts off mid object and fails to parse, throwing the same class a
+     * genuine schema mismatch does, with `finishReason: "length"` attached.
+     * `classify()` still reads this as `response_malformed` on purpose:
+     * spec 0012 carries no `FailureKind` for "the output ceiling was too
+     * low", and adding one is a spec level decision this fix does not make.
+     * This attribute is what tells the two apart at a glance instead, a
+     * queryable signal rather than a new kind: `ai_scoring`'s
+     * `maxOutputTokens` (2048) is a placeholder spec 0012 itself flags as a
+     * number feature 14 may have to raise, and a query on `truncated: true`
+     * is what would show that happening rather than reading as an ordinary
+     * vendor schema failure.
+     */
+    if (
+      NoObjectGeneratedError.isInstance(error) &&
+      error.finishReason === "length"
+    ) {
+      Sentry.getActiveSpan()?.setAttribute("truncated", true);
+    }
+
     return failure({
       kind: AI_ROUTER_FAILURES[kind].kind,
       severity: AI_ROUTER_FAILURES[kind].severity,
