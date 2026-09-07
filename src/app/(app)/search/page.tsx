@@ -413,6 +413,24 @@ async function ScoredResults({
     (left, right) => outcomeRank(left.outcome) - outcomeRank(right.outcome),
   );
 
+  /**
+   * Whether anything was actually ranked, which is what `COPY-7` claims.
+   *
+   * THE SORT ALWAYS RUNS; A RANKING DOES NOT ALWAYS RESULT. When every outcome
+   * is a refusal or a failure they all tie at the same rank, so the sort is a
+   * no operation and the list stays in Adzuna's own order. Announcing a ranking
+   * there states something untrue, which is why this is a condition rather than
+   * the unconditional render it used to be (found by `/check verify` on
+   * 2026-09-06, reproduced in both the all refused and all failed cases).
+   *
+   * "AT LEAST ONE SCORED" IS THE RIGHT TEST, not "no refusals" and not "no
+   * failures". A partly scored batch is genuinely ranked by fit, so the
+   * sentence is true there and still renders.
+   */
+  const anythingScored = paired.some(
+    (row) => !isFailure(row.outcome) && row.outcome.value.allowed,
+  );
+
   return (
     <>
       {refusedReason === undefined ? undefined : (
@@ -431,10 +449,17 @@ async function ScoredResults({
        * reordered itself under everyone, not only under a screen reader, and a
        * sighted reader who was halfway down it deserves the same one line of
        * explanation.
+       *
+       * IT IS CONDITIONAL, and that is the whole point of `anythingScored`
+       * above: a batch where nothing scored has nothing to announce, and saying
+       * it anyway tells a reader who cannot see the list that it is ranked when
+       * it is not.
        */}
-      <div role="status" className="mb-6">
-        <Text variant="monoLabel">{SCORING_COPY.reranked}</Text>
-      </div>
+      {anythingScored ? (
+        <div role="status" className="mb-6">
+          <Text variant="monoLabel">{SCORING_COPY.reranked}</Text>
+        </div>
+      ) : undefined}
 
       <ResultList
         rows={ranked.map(({ listing, outcome }) => ({

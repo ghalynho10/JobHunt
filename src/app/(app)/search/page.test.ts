@@ -849,3 +849,102 @@ describe("the usage cap refusing the batch (AC-11)", () => {
     expect(text).toContain(SENTENCES["account_week_cap_reached"]);
   });
 });
+
+/**
+ * The re-rank announcement only fires when something was actually ranked
+ * (spec 0015, AC-16, `COPY-7`).
+ *
+ * FOUND BY `/check verify` ON 2026-09-06, against the running app, in two
+ * independent scenarios: a batch where the usage cap refused every call, and a
+ * batch where every vendor call failed. Both rendered "Results are now ranked
+ * by fit." over a list that was in Adzuna's untouched order, because every
+ * outcome tied at the same rank and the sort was a no operation.
+ *
+ * WHY IT MATTERS MORE THAN IT LOOKS. The sentence is not decoration, it is the
+ * page's one claim about what just happened, and `role="status"` reads it out
+ * to somebody who cannot see the list to check. Telling a screen reader user
+ * their results are ranked by fit when nothing was scored is the "default that
+ * reads like success" `AGENTS.md` forbids, and it is worse here than a silent
+ * omission would be: a reader who trusts it stops looking for the cap notice
+ * that explains why there are no bands.
+ *
+ * THE CONDITION IS "AT LEAST ONE CARD SCORED", not "no refusals" and not "no
+ * failures". A partly scored batch genuinely is ranked by fit, so the sentence
+ * is true there and still renders.
+ */
+describe("the re-rank announcement (AC-16, COPY-7)", () => {
+  const statuses = (tree: unknown) =>
+    flatten(tree as never)
+      .filter(
+        (element) => (element.props as { role?: string }).role === "status",
+      )
+      .map((element) => textOf(element));
+
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+  });
+
+  it("announces the ranking when at least one listing was scored", async () => {
+    /**
+     * THE COUNTERWEIGHT, and it comes first so the two below cannot pass by the
+     * announcement simply having been deleted.
+     */
+    scoreListings.mockResolvedValue([
+      scoreOf("good_match"),
+      failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "vendor down",
+      }),
+    ]);
+
+    expect(statuses(await render({ q: "engineer" }))).toContain(
+      "Results are now ranked by fit.",
+    );
+  });
+
+  it("stays silent when the usage cap refused every call", async () => {
+    scoreListings.mockResolvedValue([
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+    ]);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(statuses(tree)).toEqual([]);
+    /** The cap notice is what the reader needs here, and it still renders. */
+    expect(textOf(tree)).toContain(SENTENCES["account_week_cap_reached"]);
+  });
+
+  it("stays silent when every vendor call failed", async () => {
+    scoreListings.mockResolvedValue([
+      failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "vendor down",
+      }),
+      failure({
+        kind: "response_malformed",
+        severity: "unexpected",
+        message: "bad shape",
+      }),
+    ]);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(statuses(tree)).toEqual([]);
+    /** The per card failure state is what the reader needs here. */
+    expect(textOf(tree)).toContain("Could not score this listing right now.");
+  });
+});
