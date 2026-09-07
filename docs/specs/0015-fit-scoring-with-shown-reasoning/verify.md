@@ -1,4 +1,4 @@
-# Verify: fit scoring with shown reasoning · spec 0015 · updated 2026-09-06
+# Verify: fit scoring with shown reasoning · spec 0015 · updated 2026-09-07
 
 _Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -19,7 +19,7 @@ a "did not move" reading.
 - [x] Sign in with a profile that has at least one skill or one work history entry → search `/search?q=engineer` → the result list appears in Adzuna's original order with every card showing `Checking fit against your profile…`, before any band appears → **AC-9**
 - [x] Keep watching that same render → the list reorders exactly **once**, when the last outcome lands; it never reorders card by card as scores arrive → **AC-9**
 - [x] On the reordered list → `Strong match` cards sit above `Good match`, and `Not a match` sits last → **AC-9**
-- [ ] Two cards in the same band → they stay in the relative order Adzuna returned them, not alphabetical and not by company → **AC-9**
+- [x] Two cards in the same band → they stay in the relative order Adzuna returned them, not alphabetical and not by company → **AC-9**. _Driven by the engineer in a real browser on 2026-09-07, signed in as `dev-one@example.test`: two `Good match` cards held their Adzuna order, neither alphabetical nor by company._
 
 ### Keyboard focus across the reveal (AC-16's focus half, AC-17)
 
@@ -30,7 +30,7 @@ these on one scored search where possible: each reload spends an Adzuna call
 and up to 20 `ai_scoring` calls._
 
 - [x] Before the scores land, Tab into a card's "View the posting" link and note which job it belongs to → after the re-sort, focus is on **that same link on that same job**, wherever the card has moved to, and not merely on some control → **AC-16**, **AC-17**
-- [ ] Repeat on a card near the bottom of the pending list whose band ranks it near the top → after the reveal the page has scrolled so the restored control is visible on screen, not left off screen above or below the fold → **AC-17** (WCAG 2.2, Focus Not Obscured)
+- [x] Repeat on a card near the bottom of the pending list whose band ranks it near the top → after the reveal the page has scrolled so the restored control is visible on screen, not left off screen above or below the fold → **AC-17** (WCAG 2.2, Focus Not Obscured). _Driven by the engineer in a real browser on 2026-09-07: a card tabbed into near the bottom of the pending list, ranked into a top position by the reveal, kept focus on its own `View the posting` link and was scrolled into view._ **This tick is 4 passes out of 5 observed, not 5 out of 5.** The earlier `/check verify` run the same day scrolled correctly 3 times and missed once, leaving the control at `top: 1359` in a 953px viewport, and that miss has never been explained or reproduced. Ticked because the step has now passed every time it was retried, but a single future miss is a known possibility rather than a surprise, and `docs/session-notes.md` holds the fuller account.
 - [x] Repeat using the apply button rather than the posting link → focus returns to that card's apply button, not to its posting link → **AC-17** (the key names the control, not just the card)
 - [x] **The counterweight, and the one most worth running.** Before the scores land, put focus in the search box and leave it there → after the re-sort focus is **still in the search box** and was never moved onto the list. Repeat with focus on a header link → **AC-17**, rule 1. A version that always restores passes every step above and fails this one
 - [x] Load a scored search and touch nothing at all until the reveal → focus is not moved onto any card control → **AC-17** (no control was ever focused, so there is nothing to restore, and moving the reader would be the same focus steal rule 1 forbids)
@@ -41,12 +41,12 @@ and up to 20 `ai_scoring` calls._
 - [ ] With a screen reader running, load a scored search → each pending card is announced as busy, and `Results are now ranked by fit.` is announced once when the order changes → **AC-16**
 - [x] On any scored card → the second skill list is headed `Not mentioned in this posting` and carries the caption `This posting only shows part of the description, so this is not a confirmed gap.`; the word "missing" appears nowhere on the page → **AC-5**
 - [x] On any scored card → the matched skills are all skills the caller actually has in `/profile`, spelled the way the caller wrote them → **AC-5**
-- [ ] Find a listing whose visible text states a visa stance → its sponsorship badge renders as its own separate badge beside the band badge, never merged into it → **AC-6**
+- [ ] Find a listing whose visible text states a visa stance → its sponsorship badge renders as its own separate badge beside the band badge, never merged into it → **AC-6**. **Left unticked for want of a listing, not for want of effort.** Across two separate search sessions on 2026-09-07 no listing stated a visa or sponsorship stance anywhere in its visible excerpt. That is a structural consequence of scoring Adzuna's 500 character snippet rather than the full posting (spec 0015's own Decision), so this step may stay unrunnable on ordinary searches. Its counterweight, that a listing saying nothing about visas renders no badge at all, is ticked below and is the half that actually fires on every search.
 - [x] Find a listing whose visible text says nothing about visas → no sponsorship badge renders at all → **AC-6**
 - [x] Sign in as a caller with zero skills and zero work history → search → the plain unscored list renders plus `Add your skills or work experience to your profile…` with `your profile` linking to `/profile`; no band, no pending indicator, no scoring copy anywhere → **AC-7**
 - [x] Add one skill and nothing else to that same profile → search again → every card is scored normally → **AC-7**
 - [x] Visit `/` → the "What's real today" card lists `ranked results with reasoning` under **working**, and `a no sign in demo account` is the only thing left under **planned** → **AC-15**
-- [ ] Read the whole scored page as a reader who has never seen it → no band, badge, or sentence claims the posting requires something the visible excerpt does not actually say → **AC-4**, **AC-12**
+- [x] Read the whole scored page as a reader who has never seen it → no band, badge, or sentence claims the posting requires something the visible excerpt does not actually say → **AC-4**, **AC-12**. _Driven by the engineer on 2026-09-07 against a live `TypeScript` search: 7 scored cards read one at a time against their own visible excerpts. No band, chip or reasoning sentence claimed anything the visible text did not support, and several hedged correctly where the excerpt was too thin ("cannot be verified from the truncated text")._ The same read also settled a suspected defect in the other direction: `notMentionedSkills` is filtered by relevance (`rubric.ts:128-132`), so a Kubernetes focused posting correctly left React and TypeScript out of its not mentioned list rather than flagging them as gaps. That is the schema's `.describe()` instruction working as written, not a filter failing.
 
 ## Commands
 
