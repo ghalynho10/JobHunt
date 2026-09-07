@@ -57,8 +57,42 @@ describe("TIERS (covers AC-1)", () => {
   it("leaves ai_scoring's temperature unset, since it reasons at medium effort", () => {
     expect(TIERS.ai_scoring.temperature).toBeUndefined();
     expect(TIERS.ai_scoring.providerOptions).toEqual({
-      openai: { reasoningEffort: "medium" },
+      openai: { reasoningEffort: "medium", store: false },
     });
+  });
+
+  /**
+   * Spec 0015, Follow-up (resolved 2026-09-06): `ai_scoring` opts out of
+   * OpenAI's 30 day retention of request and response bodies.
+   *
+   * WHY THIS IS ITS OWN TEST RATHER THAN JUST THE `toEqual` ABOVE. That
+   * assertion pins the whole options object, so it would catch this being
+   * removed, but it would report the removal as "the provider options changed"
+   * and the next person would fix it by updating the expected object. This one
+   * names the guarantee, so deleting `store: false` fails a test that says what
+   * was actually lost: a real person's summary, skills and work history sitting
+   * on a vendor's disk for a month.
+   *
+   * IT MUST BE `false`, NOT MERELY ABSENT. The Responses API defaults `store`
+   * to `true` (`node_modules/@ai-sdk/openai/docs/03-openai.mdx:156`), so an
+   * omitted option is the storing behaviour, not the safe one. `toBe(false)`
+   * rather than a falsy check for exactly that reason: `undefined` is the
+   * failure this guards.
+   */
+  it("opts ai_scoring out of OpenAI's 30 day retention with store: false", () => {
+    expect(TIERS.ai_scoring.providerOptions?.["openai"]?.["store"]).toBe(false);
+  });
+
+  /**
+   * THE COUNTERWEIGHT, and it is not symmetry for its own sake. `store` is an
+   * OpenAI Responses API option; Google's provider does not accept it, and
+   * copying it onto `ai_check` would send an unrecognised key to a different
+   * vendor. `ai_check`'s own retention question is Google's to answer and has
+   * not been asked, which is a real open item rather than something this test
+   * settles.
+   */
+  it("sets no provider options at all on ai_check, which is a different vendor", () => {
+    expect(TIERS.ai_check.providerOptions).toBeUndefined();
   });
 
   it("fixes ai_check's temperature at 0, since it does not reason", () => {
