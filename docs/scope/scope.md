@@ -281,16 +281,17 @@ _Owes the privacy notice two things, recorded from spec [0009](../specs/0009-ter
 _Adzuna's search response carries only a 500 character description snippet (verified directly against a recorded fixture, spec [0015](../specs/0015-fit-scoring-with-shown-reasoning/index.md) rationale), never the full posting. Spec 0015 decided to score the snippet honestly rather than fetch the full posting: `notMentionedSkills` replaces "missing skills" and is labeled as unconfirmed, not fetched and verified. The fetch option is parked in Deferred, not closed._
 
 - [x] Design it (spec): [0015](../specs/0015-fit-scoring-with-shown-reasoning/index.md)
-- [ ] Build it: `/develop fit scoring with shown reasoning`
-  - [ ] Rubric, schema and prompt: the five band anchors, `fitScoreSchema`, the post-parse skill name filter, and the prompt builder handling the 500 character truncation caveat and a missing description (AC-1, AC-4, AC-5, AC-6, AC-12, AC-13, the anchor wording AC-2 is later measured against)
-  - [ ] `scoreListing()` and the thin end to end thread: the router call, `score-card.tsx`, and the zero skills and zero work experience gate wired into `/search` behind a Suspense boundary (AC-3, AC-7)
-  - [ ] Concurrent dispatch and ranking: `scoreListings()`, widening the Suspense boundary to all 20 listings, the one time sort by band, the per card failure state, and the page level cap reached notice (AC-8, AC-9, AC-10, AC-11, AC-14, AC-16)
-  - [ ] Tests: the critical test scenarios, the prompt builder's truncation unit test, and the thin profile gate
-  - [ ] Entry page: move `ranked results with reasoning` from `planned` to `working` (AC-15)
+- [x] Build it: `/develop fit scoring with shown reasoning` · code in `src/features/scoring/`, plus `src/features/search/focus-keeper.tsx` and `focus-key.ts` for AC-17's focus restore
+  - [x] Rubric, schema and prompt: the five band anchors, `fitScoreSchema`, the post-parse skill name filter, and the prompt builder handling the 500 character truncation caveat and a missing description (AC-1, AC-4, AC-5, AC-6, AC-12, AC-13, the anchor wording AC-2 is later measured against)
+  - [x] `scoreListing()` and the thin end to end thread: the router call, `score-card.tsx`, and the zero skills and zero work experience gate wired into `/search` behind a Suspense boundary (AC-3, AC-7)
+  - [x] Concurrent dispatch and ranking: `scoreListings()`, widening the Suspense boundary to all 20 listings, the one time sort by band, the per card failure state, and the page level cap reached notice (AC-8, AC-9, AC-10, AC-11, AC-14, AC-16)
+  - [x] Tests: the critical test scenarios, the prompt builder's truncation unit test, and the thin profile gate
+  - [x] Entry page: move `ranked results with reasoning` from `planned` to `working` (AC-15)
+  - [x] Keyboard focus across the reveal: `focus-keeper.tsx`, the `data-focus-key` on both card controls, the list's `tabindex="-1"`, and the browser only steps written into `verify.md` for `/check verify` to run (AC-16's focus half, AC-17). Added 2026-09-06 from spec 0015's amendment, after `/check verify` found the reveal dropping focus to the document body
 - [ ] Verify it: `/check verify fit scoring with shown reasoning`
-- [ ] Test it: `/test fit scoring with shown reasoning`
-- [ ] Review it (fresh model): `/check review fit scoring with shown reasoning`
-- [ ] Document it: `/document fit scoring with shown reasoning`
+- [x] Test it: `/test fit scoring with shown reasoning` · `focus-keeper.dom.test.tsx`, the project's first `jsdom` test (spec 0004's just in time rule), pinning AC-17's capture phase contract and its restore rules
+- [x] Review it (fresh model): `/check review fit scoring with shown reasoning` · `docs/reviews/2026-09-07-feat-fit-scoring-with-shown-reasoning.md`, reviewed on Sonnet, verdict Approve with nits. Its one Major (`scoreListing()` reachable by no unit test) and its one Minor (`Button`'s `focusKey` with nothing proving `data-focus-key` rendered) are both closed by `c0f7d12` (the commit adding `src/features/scoring/score.test.ts` and the three branch assertions in `button.test.ts`), which also took the jsdom nit in `src/components/ui/AGENTS.md`. The findings file itself is left as the point in time record and says nothing about the fixes
+- [x] Document it: `/document fit scoring with shown reasoning` · pull request title and body written 2026-09-07 from the 29 commits and the real diff. As with feature 12's row, this box records the pull request text being written, not the feature being finished: `Verify it` above is still honestly unticked, with 4 of 43 `verify.md` steps open (two need a screen reader, one needs a listing stating a visa stance, one is unrunnable as written), and the body says so rather than implying closure
 
 ### 15. Eval ground truth set · needs a decision
 The authored content the harness needs and does not get for free: several realistic profile archetypes beyond the author's own, matching job postings across a range of fit levels, and a decided expected band for each pair. Real writing work, budgeted as its own line rather than discovered mid build. The bands are fixed from the rubric before any model output is looked at, so the set measures the scorer instead of describing it.

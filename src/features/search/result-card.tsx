@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
@@ -12,6 +14,7 @@ import { recordApplication } from "@/features/applications/actions";
 import { relativePostedAt, salaryText } from "@/lib/listing-format";
 
 import type { Listing } from "./adzuna";
+import { focusKey } from "./focus-key";
 
 /**
  * One search result (spec 0013, AC-6, AC-7, AC-8).
@@ -26,6 +29,7 @@ export function ResultCard({
   listing,
   now,
   alreadyApplied = false,
+  score,
 }: {
   readonly listing: Listing;
   /**
@@ -35,6 +39,19 @@ export function ResultCard({
   readonly now: Date;
   /** Whether the caller already recorded this job (spec 0014, AC-9). */
   readonly alreadyApplied?: boolean;
+  /**
+   * The scoring block (spec 0015), passed in as a node rather than built here.
+   *
+   * A SLOT, SO THIS FEATURE NEVER LEARNS WHAT A SCORE IS. Feature 14 renders
+   * `ScoreCard` from `src/features/scoring/` and hands the result down; this
+   * card places it and nothing more. The dependency runs one way, the same
+   * direction `src/features/applications/AGENTS.md` already fixed for the apply
+   * control: the page composes the two features, neither imports the other.
+   *
+   * Absent on a card that is not scored at all, which is every card on a
+   * `/search` render that failed the AC-7 profile gate.
+   */
+  readonly score?: ReactNode;
 }) {
   const posted = relativePostedAt(listing.postedAt, now);
   const salary = salaryText(listing);
@@ -104,6 +121,16 @@ export function ResultCard({
             {posted}
           </Text>
         )}
+
+        {/*
+         * The score sits below the posting's own facts, not above them (spec
+         * 0015). The reader is deciding about a job, and the job's title,
+         * salary and description are what the judgment is about; putting the
+         * verdict first would ask them to read the conclusion before the
+         * evidence. It also means a card renders identically with and without
+         * scoring, which is what the AC-7 gate depends on.
+         */}
+        {score}
       </Card.Body>
 
       <Card.Footer attribution={<AdzunaAttribution />}>
@@ -117,6 +144,13 @@ export function ResultCard({
           href={listing.url}
           external
           label={`View the posting for ${listing.title} at ${listing.companyName}`}
+          /**
+           * Spec 0015, AC-17: one of the two controls keyboard focus can be
+           * handed back to after `/search` re-sorts the list under the reader.
+           * The key is the listing's own identity, never this card's position,
+           * because position is exactly what the re-sort changes.
+           */
+          focusKey={focusKey(listing, "posting-link")}
         >
           View the posting
         </Button>
@@ -132,6 +166,16 @@ export function ResultCard({
           title={listing.title}
           companyName={listing.companyName}
           alreadyApplied={alreadyApplied}
+          /**
+           * AC-17's second focusable control, and the key is built HERE while
+           * the attribute is rendered THERE. `ApplyControl` owns its own
+           * `<button>`; this card only renders the component, so it cannot put
+           * an attribute on that element. Passing the key keeps the dependency
+           * running one way, `/search` reaching into the applications feature
+           * and never the reverse, which is the rule
+           * `src/features/applications/AGENTS.md` states.
+           */
+          focusKey={focusKey(listing, "apply")}
         />
       </Card.Footer>
     </Card>

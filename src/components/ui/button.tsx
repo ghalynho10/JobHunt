@@ -77,6 +77,19 @@ type ButtonCommon = VariantProps<typeof button> & {
    * where the control goes ("Apply" on a card among twenty cards).
    */
   readonly label?: string;
+  /**
+   * Marks this control as one keyboard focus can be handed back to after the
+   * content around it is replaced, rendering `data-focus-key` (spec 0015,
+   * AC-17). Absent everywhere except the two controls on a `/search` result
+   * card, which survive that page's one time re-sort.
+   *
+   * A NAMED PROP RATHER THAN A PROP SPREAD. This component takes an explicit
+   * prop list on purpose, so a caller cannot smuggle arbitrary attributes onto
+   * the control; opening it up to any `data-*` to serve one caller would give
+   * that up for good. The key's shape belongs to the caller, not here: this
+   * renders whatever string it is handed and knows nothing about listings.
+   */
+  readonly focusKey?: string;
 };
 
 /**
@@ -150,7 +163,7 @@ type ButtonProps = ButtonAsButton | ButtonAsLink;
  * writes in Server Actions. A form submit uses `type="submit"` inside a form.
  */
 export function Button(props: ButtonProps) {
-  const { variant, size, label, className, children } = props;
+  const { variant, size, label, className, children, focusKey } = props;
   const classes = button({ variant, size, className });
 
   const content = (
@@ -173,6 +186,7 @@ export function Button(props: ButtonProps) {
         disabled={props.disabled ?? false}
         aria-label={label}
         className={classes}
+        data-focus-key={focusKey}
       >
         {content}
       </button>
@@ -193,6 +207,7 @@ export function Button(props: ButtonProps) {
         rel="noopener noreferrer"
         aria-label={label}
         className={classes}
+        data-focus-key={focusKey}
       >
         {content}
       </a>
@@ -207,6 +222,7 @@ export function Button(props: ButtonProps) {
       aria-current={current ? "page" : undefined}
       aria-label={label}
       className={classes}
+      data-focus-key={focusKey}
     >
       {content}
     </Link>

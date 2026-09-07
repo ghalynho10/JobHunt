@@ -146,21 +146,25 @@ describe("moving a claim across is a move, not a copy (AC-16)", () => {
     expect(planned()).not.toContain("application tracking");
   });
 
-  it("still lists the two claims whose features have not shipped", () => {
+  it("has moved the ranked results claim to working, now that listings are scored", () => {
+    // covers: AC-16, and spec 0015's own AC-15
+    expect(working()).toContain("ranked results with reasoning");
+    expect(planned()).not.toContain("ranked results with reasoning");
+  });
+
+  it("still lists the one claim whose feature has not shipped", () => {
     /**
      * Named individually so the next feature to ship has to come here and remove
      * its own, rather than the row quietly emptying or growing. Feature 11 did
-     * exactly that on 2026-09-04, taking `filtered search` out of this list, and
-     * feature 12 did it again on 2026-09-05 with `application tracking`.
+     * exactly that on 2026-09-04, taking `filtered search` out of this list,
+     * feature 12 did it again on 2026-09-05 with `application tracking`, and
+     * feature 14 on 2026-09-06 with `ranked results with reasoning`.
      *
      * THIS TEST IS THE REASON THAT CLAUSE KEEPS GETTING HONOURED. Feature 7's
      * equivalent went unmet for two days because nothing failed when it was
      * skipped, and the live homepage told every visitor that nothing worked.
      * Failing here is cheaper than that.
      */
-    expect(planned()).toEqual([
-      "ranked results with reasoning",
-      "a no sign in demo account",
-    ]);
+    expect(planned()).toEqual(["a no sign in demo account"]);
   });
 });

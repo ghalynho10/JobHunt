@@ -174,3 +174,70 @@ describe("Button disabled state", () => {
     expect((el.props as { disabled: boolean }).disabled).toBe(true);
   });
 });
+
+/**
+ * The fix for the one minor finding of the 2026-09-07 fresh model review.
+ *
+ * `focusKey` renders `data-focus-key`, and `FocusRecorder` and `FocusRestorer`
+ * both find their controls with `document.querySelectorAll('[data-focus-key]')`
+ * (spec 0015, AC-17). Nothing proved the attribute actually reaches an element:
+ * `result-card.test.ts` only proves the right string is handed down as a prop,
+ * and `focus-keeper.dom.test.tsx` builds its own anchors by hand rather than
+ * rendering this component.
+ *
+ * ONE ASSERTION PER RENDER BRANCH, because the prop is threaded onto all three
+ * separately. A typo on one branch, or a branch a future caller happens to use
+ * that was never wired at all, would compile, look right in review, and show up
+ * only as the exact silent focus loss AC-17 exists to fix.
+ */
+describe("Button focus key (spec 0015, AC-17)", () => {
+  it("renders the attribute on the plain button", () => {
+    // covers: AC-17
+    const el = Button({ children: "Details", focusKey: "adzuna:111:details" });
+
+    expect((el.props as { "data-focus-key"?: string })["data-focus-key"]).toBe(
+      "adzuna:111:details",
+    );
+  });
+
+  it("renders it on the external link, which is the Apply control", () => {
+    // covers: AC-17
+    const el = Button({
+      children: "Apply",
+      href: "https://x.test",
+      external: true,
+      focusKey: "adzuna:111:apply",
+    });
+
+    expect((el.props as { "data-focus-key"?: string })["data-focus-key"]).toBe(
+      "adzuna:111:apply",
+    );
+  });
+
+  it("renders it on the internal next/link too", () => {
+    // covers: AC-17
+    const el = Button({
+      children: "Home",
+      href: "/",
+      focusKey: "adzuna:111:internal",
+    });
+
+    expect(el.type).toBe(Link);
+    expect((el.props as { "data-focus-key"?: string })["data-focus-key"]).toBe(
+      "adzuna:111:internal",
+    );
+  });
+
+  it("leaves the attribute off entirely when no caller asked for one", () => {
+    /**
+     * The counterweight, and it is not cosmetic. Both focus components select
+     * on `[data-focus-key]`, so an attribute rendered empty on every control in
+     * the app would put every button in the app into that set.
+     */
+    const el = Button({ children: "Save" });
+
+    expect(
+      (el.props as { "data-focus-key"?: string })["data-focus-key"],
+    ).toBeUndefined();
+  });
+});

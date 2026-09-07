@@ -6,5 +6,5 @@
   "testDir": "beside the source for unit (src/**/*.test.ts, test/helpers/**/*.test.ts); test/integration/ for tests that span features",
   "filePattern": "*.test.ts",
   "packageManager": "pnpm",
-  "notes": "Recorded by spec 0004 (accepted). Two Vitest projects: `pnpm test` is unit and needs nothing running, `pnpm test:integration` drives the real local Supabase stack and needs `pnpm db:start`. Playwright is the recorded end to end choice but is deliberately not installed until a feature needs a browser."
+  "notes": "Recorded by spec 0004 (accepted). Two Vitest projects: `pnpm test` is unit and needs nothing running, `pnpm test:integration` drives the real local Supabase stack and needs `pnpm db:start`. The unit project's environment is `node`; jsdom was installed 2026-09-07 for the first test that genuinely needed a DOM (`src/features/search/focus-keeper.dom.test.tsx`) and is opted into per file with a `// @vitest-environment jsdom` docblock, never switched on globally. Playwright is the recorded end to end choice and is still deliberately not installed: the one behaviour that needs it (React swallowing events inside an unresolved Suspense boundary) cannot be tested hermetically, since it needs a running app plus real Adzuna and OpenAI calls, so it stays a browser step in spec 0015's verify.md."
 }

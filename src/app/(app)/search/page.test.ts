@@ -1,8 +1,11 @@
+import { Suspense } from "react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, success } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
 import { ApplyControl } from "@/features/applications/apply-control";
+import { FocusRecorder, FocusRestorer } from "@/features/search/focus-keeper";
 import { SEARCH_COPY } from "@/features/search/copy";
 
 import {
@@ -52,6 +55,23 @@ vi.mock("@/features/search/preferences", () => ({ readSearchPrefill }));
 const readAppliedJobIds = vi.fn(() => Promise.resolve(success(new Set())));
 vi.mock("@/features/applications/queries", () => ({ readAppliedJobIds }));
 
+/**
+ * Added when feature 14 gave `/search` its scoring (spec 0015). Both reach the
+ * database or a real vendor: the gate reads the caller's own profile, and
+ * `scoreListings()` spends twenty `ai_scoring` calls. This file is about what
+ * the page renders and which of the three scoring states it renders, so both
+ * are replaced at the module boundary.
+ *
+ * THE DEFAULT IS `thin`, WHICH IS THE UNSCORED LIST. Every assertion spec 0013
+ * wrote about this page predates scoring and is about the result list itself,
+ * so the default here is the state where that list renders exactly as it did
+ * before. The scoring states each set their own.
+ */
+const readScoringProfile = vi.hoisted(() => vi.fn());
+const scoreListings = vi.hoisted(() => vi.fn());
+vi.mock("@/features/scoring/profile-gate", () => ({ readScoringProfile }));
+vi.mock("@/features/scoring/score-listings", () => ({ scoreListings }));
+
 const { default: SearchPage } = await import("./page");
 
 const listing = {
@@ -81,8 +101,13 @@ async function render(params: Record<string, string | string[] | undefined>) {
      * `ApplyControl` is stopped at rather than invoked: it is a Client
      * Component calling `useActionState`, which has no React runtime in the
      * unit project's `node` environment (spec 0014).
+     *
+     * `FocusRecorder` and `FocusRestorer` are stopped at for the same reason,
+     * one version on: both call `useEffect` (spec 0015, AC-17). Stopping at
+     * them is also what lets the tests below assert WHERE each one sits, since
+     * a stopped element keeps its own identity in the tree.
      */
-    [ApplyControl],
+    [ApplyControl, FocusRecorder, FocusRestorer],
   );
 }
 
@@ -97,6 +122,7 @@ beforeEach(() => {
   readSearchPrefill.mockResolvedValue(
     success({ title: undefined, location: undefined }),
   );
+  readScoringProfile.mockResolvedValue({ kind: "thin" });
 });
 
 describe("a bare visit (AC-9)", () => {
@@ -516,5 +542,563 @@ describe("the applied marker read fails (AC-9, COPY-8)", () => {
     const text = textOf(await render({ q: "engineer" }));
 
     expect(text).not.toContain(SEARCH_COPY.appliedReadFailed);
+  });
+});
+
+/**
+ * Scoring on the results page (spec 0015, AC-7, AC-9, AC-10, AC-11).
+ *
+ * WHAT THIS BLOCK CANNOT SEE. `/search` renders the pending list as a
+ * `<Suspense>` FALLBACK, and a fallback is a prop rather than a child, so the
+ * walker never enters it: every assertion below is about the RESOLVED half of
+ * the boundary. The pending half is proved directly in
+ * `src/features/search/result-list.test.tsx` (the `aria-busy` marker) and in
+ * `src/features/scoring/score-card.test.ts` (`COPY-4`), and whether the reader
+ * actually sees the list before the scores arrive needs a real browser, so it
+ * lives in this spec's `verify.md`.
+ */
+
+const scoreOf = (band: string) =>
+  success({
+    allowed: true,
+    value: {
+      band,
+      matchedSkills: [],
+      notMentionedSkills: [],
+      reasoning: `reasoning for ${band}`,
+      sponsorshipSignal: "not_stated",
+    },
+  });
+
+const twoListings = [
+  { ...listing, sourceJobId: "1", title: "First Job" },
+  { ...listing, sourceJobId: "2", title: "Second Job" },
+];
+
+/** The order the reader actually reads, taken off the rendered list items. */
+function titlesInOrder(tree: unknown) {
+  return flatten(tree as never)
+    .filter((element) => element.type === "li")
+    .map((element) => textOf(element))
+    .map((text) => (text.includes("First Job") ? "First Job" : "Second Job"));
+}
+
+describe("the thin profile gate (AC-7)", () => {
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: [listing] }),
+    );
+    readScoringProfile.mockResolvedValue({ kind: "thin" });
+  });
+
+  it("spends nothing: no listing is scored at all", async () => {
+    /**
+     * THE BUDGET ASSERTION, and the reason it is first, mirroring the bare
+     * visit test at the top of this file. A profile with no skills and no work
+     * history has nothing to score against, so twenty `ai_scoring` calls would
+     * each spend budget to invent a judgment out of an empty profile. Proving
+     * `scoreListings` was never called proves AC-7 at its source.
+     */
+    await render({ q: "engineer" });
+
+    expect(scoreListings).not.toHaveBeenCalled();
+  });
+
+  it("says what to add, and links to the profile (COPY-5)", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(textOf(tree)).toContain("Add your skills or work experience");
+
+    const links = flatten(tree as never).filter(
+      (element) => (element.props as { href?: string }).href === "/profile",
+    );
+    expect(links.length).toBeGreaterThan(0);
+  });
+
+  it("is not a failure, so it raises no alert", async () => {
+    /**
+     * An empty profile is an ordinary starting state, not something that broke.
+     * This is the same convention the empty results state already sets, and the
+     * line that keeps the thin gate visibly different from the profile read
+     * failure below it.
+     */
+    const announced = alerts(await render({ q: "engineer" })).map(textOf);
+
+    expect(
+      announced.some((t) => t.includes("Add your skills or work experience")),
+    ).toBe(false);
+  });
+
+  it("still renders the results, unscored", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain("Software Engineer");
+  });
+});
+
+describe("the profile read failing", () => {
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: [listing] }),
+    );
+    readScoringProfile.mockResolvedValue({ kind: "unavailable" });
+  });
+
+  it("says so out loud, rather than borrowing the thin profile sentence", async () => {
+    /**
+     * THE DEFAULT THAT READS LIKE SUCCESS, and the reason this state exists at
+     * all. Falling back to `COPY-5` would tell somebody with a full profile to
+     * go and fill it in, during a database outage, and the screen would look
+     * completely normal.
+     */
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain("couldn't read your profile");
+    expect(text).not.toContain("Add your skills or work experience");
+  });
+
+  it("raises an alert, because this one really did fail", async () => {
+    const announced = alerts(await render({ q: "engineer" })).map(textOf);
+
+    expect(
+      announced.some((t) => t.includes("couldn't read your profile")),
+    ).toBe(true);
+  });
+
+  it("scores nothing and still renders the results", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(scoreListings).not.toHaveBeenCalled();
+    expect(text).toContain("Software Engineer");
+  });
+});
+
+describe("ranking the resolved outcomes (AC-9)", () => {
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+  });
+
+  it("puts the better band first, whatever order Adzuna returned", async () => {
+    scoreListings.mockResolvedValue([
+      scoreOf("weak_match"),
+      scoreOf("strong_match"),
+    ]);
+
+    expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
+      "Second Job",
+      "First Job",
+    ]);
+  });
+
+  it("keeps Adzuna's own order between two listings in the same band", async () => {
+    /**
+     * THE COUNTERWEIGHT TO THE TEST ABOVE, and the half that would go unnoticed:
+     * a sort that reordered ties would replace Adzuna's own relevance ordering
+     * with an arbitrary one, and every assertion about band ordering would still
+     * pass. `Array.prototype.sort` has been required to be stable since ES2019,
+     * which is what AC-9 leans on rather than a second comparison.
+     */
+    scoreListings.mockResolvedValue([
+      scoreOf("good_match"),
+      scoreOf("good_match"),
+    ]);
+
+    expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
+      "First Job",
+      "Second Job",
+    ]);
+  });
+
+  it("keeps each card's own band and reasoning with its own job after the re-sort", async () => {
+    /**
+     * `verify.md` line 78, and the half the two ordering tests above do NOT
+     * hold. They read titles only, so they prove the LIST moved correctly and
+     * say nothing about whether each card still renders its own outcome. A
+     * pairing that survived the sort as an order while attaching the wrong
+     * band to the wrong job would satisfy both of them.
+     *
+     * ASSERTED PER LIST ITEM, not against the whole page. Checking that the
+     * page text contains "Strong match" somewhere passes no matter which card
+     * it landed on, which is exactly the defect this exists to catch: the
+     * reader is told a specific job is a strong match, and there is no visible
+     * difference between that being true and it belonging to the job below.
+     *
+     * The outcomes are constructed rather than scored, which is legitimate
+     * here: what is under test is the pure pairing and sorting logic in
+     * `ScoredResults`, so real model output would add cost and
+     * nondeterminism while proving nothing extra about it.
+     */
+    scoreListings.mockResolvedValue([
+      scoreOf("weak_match"),
+      scoreOf("strong_match"),
+    ]);
+
+    const cards = flatten((await render({ q: "engineer" })) as never)
+      .filter((element) => element.type === "li")
+      .map((element) => textOf(element));
+
+    expect(cards).toHaveLength(2);
+
+    /** The sort moved Second Job to the top; its own band came with it. */
+    expect(cards[0]).toContain("Second Job");
+    expect(cards[0]).toContain("Strong match");
+    expect(cards[0]).toContain("reasoning for strong_match");
+
+    /** And First Job kept its own, rather than inheriting its neighbour's. */
+    expect(cards[1]).toContain("First Job");
+    expect(cards[1]).toContain("Weak match");
+    expect(cards[1]).toContain("reasoning for weak_match");
+
+    /** Neither card carries any part of the other's outcome. */
+    expect(cards[0]).not.toContain("reasoning for weak_match");
+    expect(cards[1]).not.toContain("reasoning for strong_match");
+  });
+
+  it("announces the one time re-sort (AC-16, COPY-7)", async () => {
+    scoreListings.mockResolvedValue([
+      scoreOf("good_match"),
+      scoreOf("good_match"),
+    ]);
+
+    const tree = await render({ q: "engineer" });
+    const statuses = flatten(tree as never).filter(
+      (element) => (element.props as { role?: string }).role === "status",
+    );
+
+    expect(statuses.map(textOf)).toContain("Results are now ranked by fit.");
+  });
+});
+
+describe("one listing failing while the others do not (AC-10)", () => {
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+    scoreListings.mockResolvedValue([
+      failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "vendor down",
+      }),
+      scoreOf("strong_match"),
+    ]);
+  });
+
+  it("marks that card alone, and leaves its sibling's real band standing", async () => {
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain("Could not score this listing right now.");
+    expect(text).toContain("Strong match");
+  });
+
+  it("sorts the failed card after every scored one", async () => {
+    /**
+     * A failure is not a low score and must never be ranked as one. Sorting it
+     * into the middle of the list would make a broken call read as a considered
+     * judgment about that job.
+     */
+    expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
+      "Second Job",
+      "First Job",
+    ]);
+  });
+
+  it("raises no page level alert, because the page did not fail", async () => {
+    const announced = alerts(await render({ q: "engineer" })).map(textOf);
+
+    expect(
+      announced.some((t) => t.includes("Could not score this listing")),
+    ).toBe(false);
+  });
+});
+
+describe("the usage cap refusing the batch (AC-11)", () => {
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+  });
+
+  it("says it once, at page level, in feature 10's own words", async () => {
+    scoreListings.mockResolvedValue([
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+    ]);
+
+    const text = textOf(await render({ q: "engineer" }));
+    const sentence = SENTENCES["account_week_cap_reached"];
+
+    /** Once, not once per refused card. */
+    expect(text.split(sentence)).toHaveLength(2);
+  });
+
+  it("shows no per card failure note, so a cap never reads as a breakage", async () => {
+    scoreListings.mockResolvedValue([
+      success({ allowed: false, reason: "global_day_cap_reached" }),
+      success({ allowed: false, reason: "global_day_cap_reached" }),
+    ]);
+
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).not.toContain("Could not score this listing right now.");
+  });
+
+  it("uses the first refused call's reason when the batch straddles two caps", async () => {
+    /**
+     * AC-11 names the FIRST refusal in the listing's original order, which is
+     * why the reason has to be read before the sort runs. Two refusals with
+     * different reasons is possible: twenty concurrent calls can cross more
+     * than one cap boundary within one batch.
+     */
+    scoreListings.mockResolvedValue([
+      success({ allowed: false, reason: "global_day_cap_reached" }),
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+    ]);
+
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain(SENTENCES["global_day_cap_reached"]);
+    expect(text).not.toContain(SENTENCES["account_week_cap_reached"]);
+  });
+
+  it("still shows a band on a listing that was scored before the cap hit", async () => {
+    scoreListings.mockResolvedValue([
+      scoreOf("good_match"),
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+    ]);
+
+    const text = textOf(await render({ q: "engineer" }));
+
+    expect(text).toContain("Good match");
+    expect(text).toContain(SENTENCES["account_week_cap_reached"]);
+  });
+});
+
+/**
+ * The re-rank announcement only fires when something was actually ranked
+ * (spec 0015, AC-16, `COPY-7`).
+ *
+ * FOUND BY `/check verify` ON 2026-09-06, against the running app, in two
+ * independent scenarios: a batch where the usage cap refused every call, and a
+ * batch where every vendor call failed. Both rendered "Results are now ranked
+ * by fit." over a list that was in Adzuna's untouched order, because every
+ * outcome tied at the same rank and the sort was a no operation.
+ *
+ * WHY IT MATTERS MORE THAN IT LOOKS. The sentence is not decoration, it is the
+ * page's one claim about what just happened, and `role="status"` reads it out
+ * to somebody who cannot see the list to check. Telling a screen reader user
+ * their results are ranked by fit when nothing was scored is the "default that
+ * reads like success" `AGENTS.md` forbids, and it is worse here than a silent
+ * omission would be: a reader who trusts it stops looking for the cap notice
+ * that explains why there are no bands.
+ *
+ * THE CONDITION IS "AT LEAST ONE CARD SCORED", not "no refusals" and not "no
+ * failures". A partly scored batch genuinely is ranked by fit, so the sentence
+ * is true there and still renders.
+ */
+describe("the re-rank announcement (AC-16, COPY-7)", () => {
+  const statuses = (tree: unknown) =>
+    flatten(tree as never)
+      .filter(
+        (element) => (element.props as { role?: string }).role === "status",
+      )
+      .map((element) => textOf(element));
+
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+  });
+
+  it("announces the ranking when at least one listing was scored", async () => {
+    /**
+     * THE COUNTERWEIGHT, and it comes first so the two below cannot pass by the
+     * announcement simply having been deleted.
+     */
+    scoreListings.mockResolvedValue([
+      scoreOf("good_match"),
+      failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "vendor down",
+      }),
+    ]);
+
+    expect(statuses(await render({ q: "engineer" }))).toContain(
+      "Results are now ranked by fit.",
+    );
+  });
+
+  it("stays silent when the usage cap refused every call", async () => {
+    scoreListings.mockResolvedValue([
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+      success({ allowed: false, reason: "account_week_cap_reached" }),
+    ]);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(statuses(tree)).toEqual([]);
+    /** The cap notice is what the reader needs here, and it still renders. */
+    expect(textOf(tree)).toContain(SENTENCES["account_week_cap_reached"]);
+  });
+
+  it("stays silent when every vendor call failed", async () => {
+    scoreListings.mockResolvedValue([
+      failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "vendor down",
+      }),
+      failure({
+        kind: "response_malformed",
+        severity: "unexpected",
+        message: "bad shape",
+      }),
+    ]);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(statuses(tree)).toEqual([]);
+    /** The per card failure state is what the reader needs here. */
+    expect(textOf(tree)).toContain("Could not score this listing right now.");
+  });
+});
+
+describe("keyboard focus across the reveal (spec 0015, AC-17)", () => {
+  /**
+   * WHERE EACH COMPONENT SITS IS THE WHOLE MECHANISM, which is why it is tested
+   * structurally rather than left to a browser check alone. Both would still
+   * render, still typecheck and still look right in review if they were
+   * swapped, and the only symptom would be that focus is silently never
+   * restored: the recorder torn down by the very reveal it exists to survive,
+   * the restorer mounted before the swap it exists to react to.
+   */
+  /**
+   * A WALKER OF ITS OWN, BECAUSE `flatten` CANNOT SEE A BOUNDARY. That helper
+   * walks THROUGH any element whose type is a symbol and never reports it,
+   * which is right for fragments and wrong here: `Suspense` is a symbol too, so
+   * `flatten` returns the boundary's children while the boundary itself is
+   * invisible. Every assertion below is about which side of it something sits
+   * on, so the boundary has to be a thing this test can hold.
+   */
+  const suspenseBoundaries = (node: unknown): readonly ReactElement[] => {
+    if (Array.isArray(node)) return node.flatMap(suspenseBoundaries);
+    if (typeof node !== "object" || node === null || !("type" in node))
+      return [];
+
+    const element = node as ReactElement;
+    const { children } = element.props as { children?: unknown };
+    const inside = suspenseBoundaries(children);
+
+    return element.type === Suspense ? [element, ...inside] : inside;
+  };
+
+  /**
+   * THE SCORED PATH IS OPTED INTO EXPLICITLY, because the suite's default
+   * profile is thin and a thin profile renders no boundary at all. Without
+   * this, every assertion below would look for a `Suspense` on a page that
+   * correctly has none, and the last test in this block, which asserts exactly
+   * that absence, would be the only one passing for the right reason.
+   */
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+    scoreListings.mockResolvedValue([
+      scoreOf("strong_match"),
+      scoreOf("weak_match"),
+    ]);
+  });
+
+  const boundary = (tree: unknown) => {
+    const found = suspenseBoundaries(tree);
+
+    expect(found).toHaveLength(1);
+
+    return found[0]!;
+  };
+
+  const has = (tree: unknown, type: unknown) =>
+    flatten(tree as never).some((element) => element.type === type);
+
+  it("records outside the boundary, so the reveal never unmounts the listener", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(has(tree, FocusRecorder)).toBe(true);
+    /**
+     * The claim with teeth: it is in the page but NOT among the boundary's
+     * descendants. Inside, it would be destroyed at the exact moment its answer
+     * is needed, and nothing would fail except a reader losing their place.
+     */
+    expect(has(boundary(tree), FocusRecorder)).toBe(false);
+  });
+
+  it("restores inside the resolved content, because mounting is the reveal signal", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(has(boundary(tree), FocusRestorer)).toBe(true);
+  });
+
+  it("renders neither on a list that never re-sorts", async () => {
+    /**
+     * A profile too thin to score renders the plain unscored list with no
+     * boundary and no reveal (AC-7), so there is nothing that can orphan a
+     * reader's focus and nothing here to restore it. Shipping the listener
+     * anyway would put client JavaScript on a page that has no use for it,
+     * against the deliberate minimum spec 0015's Consequences records.
+     */
+    readScoringProfile.mockResolvedValue({ kind: "thin" });
+
+    const tree = await render({ q: "engineer" });
+
+    expect(has(tree, FocusRecorder)).toBe(false);
+    expect(has(tree, FocusRestorer)).toBe(false);
   });
 });
