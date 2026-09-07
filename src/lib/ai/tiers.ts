@@ -49,9 +49,16 @@ interface TierConfig {
    * parameter (`Record<string, JSONObject>` in `@ai-sdk/provider`, not
    * re-exported from the top level `ai` package, so named locally rather
    * than imported).
+   *
+   * THE VALUE TYPE WAS WIDENED FROM `string` TO INCLUDE `boolean` (2026-09-06,
+   * spec 0015's Follow-up). `store` is a boolean provider option and would not
+   * typecheck under the original `Record<string, string>`. It stays a closed
+   * union of JSON primitives rather than becoming `unknown`, so the whole map
+   * is still assignable to `JSONObject` and a caller cannot smuggle a function
+   * or a class instance into a request body.
    */
   readonly providerOptions?: Readonly<
-    Record<string, Readonly<Record<string, string>>>
+    Record<string, Readonly<Record<string, string | number | boolean>>>
   >;
 }
 
@@ -80,6 +87,33 @@ export const TIERS: Readonly<Record<Tier, TierConfig>> = {
    * `maxOutputTokens` is sized up from a plain non-reasoning estimate to
    * leave headroom for this model's own hidden reasoning tokens, which are
    * billed as output and count against this ceiling.
+   *
+   * `store: false` OPTS THIS TIER OUT OF OPENAI'S 30 DAY RETENTION (spec 0015,
+   * Follow-up, resolved 2026-09-06). `openaiProvider(modelId)` resolves to the
+   * Responses API, which is the provider's default since AI SDK 5
+   * (`node_modules/@ai-sdk/openai/docs/03-openai.mdx:43,122`, and the
+   * `"openai.responses"` provider string `tiers.test.ts` already asserts).
+   * That API's `store` option defaults to `true` (same file, line 156), and
+   * OpenAI retains a stored request and response as "Application State" for a
+   * minimum of 30 days (developers.openai.com/api/docs/guides/your-data,
+   * read 2026-09-06). Feature 14 sends a real person's summary, skills and
+   * work history through this tier, so the default meant a month of somebody's
+   * career history sitting on a vendor's disk.
+   *
+   * IT COSTS NOTHING, WHICH IS WHY IT IS SAFE TO SET. Retention buys the
+   * ability to reference a prior response by id, through `previousResponseId`
+   * or an OpenAI conversation. Scoring is stateless per render (spec 0015,
+   * "State transitions": none), makes one single step `generateObject` call
+   * with no tools, and never continues a conversation, so there is nothing to
+   * reference. The one case where `store: false` genuinely costs something,
+   * carrying encrypted reasoning items across a multi step generation, needs
+   * `include: ['reasoning.encrypted_content']` and more than one step; this
+   * tier has neither. Setting this on a tier that later grows multi step tool
+   * use is a decision to re-take, not a line to copy.
+   *
+   * TRAINING WAS NEVER THE EXPOSURE HERE. OpenAI has not trained on API
+   * submitted data since 2023-03-01 unless a customer explicitly opts in, and
+   * nothing in this repo opts in. Retention is the half that needed an action.
    */
   ai_scoring: {
     model: openaiProvider("gpt-5.6-luna"),
@@ -87,7 +121,7 @@ export const TIERS: Readonly<Record<Tier, TierConfig>> = {
     maxOutputTokens: 2048,
     maxRetries: 0,
     timeoutMs: 30_000,
-    providerOptions: { openai: { reasoningEffort: "medium" } },
+    providerOptions: { openai: { reasoningEffort: "medium", store: false } },
   },
   /**
    * Google, Gemini 3.5 Flash-Lite, deterministic at `temperature: 0`: the
