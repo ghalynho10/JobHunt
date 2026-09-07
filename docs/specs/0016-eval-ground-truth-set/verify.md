@@ -1,4 +1,4 @@
-# Verify: eval ground truth set · spec 0016 · updated 2026-09-07
+# Verify: eval ground truth set · spec 0016 · updated 2026-09-07 (AC-4 amended to four preference dimensions, re verified same day)
 
 _Steps derived from spec 0016 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -9,11 +9,11 @@ is where a wrong value would actually show up.
 
 ## Commands
 
-- [x] `pnpm test src/features/scoring/eval` → 21 tests pass: the validator's own per check cases against deliberately malformed fixtures, plus the committed set's assertions → AC-8
+- [x] `pnpm test src/features/scoring/eval` → 23 tests pass: the validator's own per check cases against deliberately malformed fixtures, plus the committed set's assertions → AC-8
 - [x] Delete the `stability-probe-not-truncated` push in `validateGroundTruth()`, run `pnpm test src/features/scoring/eval` → 2 tests fail by name; restore → AC-8
 - [x] Change any pair's `expectedBand` to `"great_match"`, run `pnpm typecheck` → compile error against `Band`; restore → AC-6, AC-7
 - [x] Change any archetype's `profile.skills` to a string rather than an array, run `pnpm typecheck` → compile error against `ScoringProfile`; restore → AC-6, AC-7
-- [x] Print every `PAIRS[].listing.descriptionSnippet.length` → all 15 are at or under 500, and `stability-probe-generic` sits at 495, near the ceiling rather than short → AC-5, AC-6
+- [x] Print every `PAIRS[].listing.descriptionSnippet.length` → all 16 are at or under 500, and `stability-probe-generic` sits at 495, near the ceiling rather than short → AC-5, AC-6
 - [x] Print `new Set(PAIRS.map((p) => p.expectedBand))` → all five of `strong_match`, `good_match`, `possible_match`, `weak_match`, `not_a_match` appear as an exact expectation, not only inside some pair's `acceptableBands` → AC-2
 - [x] Print every pair carrying `acceptableBands` → only `boundary-seniority-gap` and `stability-probe-generic`, each holding at least two bands including its own `expectedBand` → AC-3
 - [x] Print `ARCHETYPES.length` and each `id` → at least four, each a plainly different career shape per its own `description` field → AC-1
@@ -36,14 +36,20 @@ rather than the value.
 - [x] Replace `stability-probe-generic`'s trailing `…` with `...` and call `buildScoringPrompt()` again → output now says `Description (short enough that Adzuna returned all of it)`, the exact failure the `stability-probe-not-truncated` check exists to stop; restore → AC-5
 - [x] Diff `buildScoringPrompt()` output for `preference-match` against `preference-violation` → they differ only in the `Location:` line and the posting's final two sentences. Every skill and experience requirement line is byte identical, so a band that moves between them can only have come from a preference → AC-4
 - [x] In the same two outputs, confirm both carry the archetype's `Desired locations`, `Remote preference` and `Minimum pay` lines under the "context for your reasoning only, never for the band" heading → AC-4
-- [x] Read the `rationale` on each of the 15 pairs → each argues its band from `BAND_ANCHORS`'s own wording, and the two widened pairs say plainly what the anchors cannot settle rather than asserting an answer → AC-2, AC-3
+- [x] Diff `buildScoringPrompt()` output for `preference-match` against `preference-title-conflict` → the two prompts are the same length and differ on exactly one line, `Title:`. Location, remote language, pay and every requirement line are identical, so a band that moves can only have come from the title preference → AC-4
+- [x] In that same output, confirm both `Title: Server Side Engineer` and `- Desired titles: Backend Engineer, AI Engineer, Software Engineer` are present, so the model holds both halves of the comparison the instruction forbids it from making → AC-4
+- [x] Read `direct-fit-control.preferences` against `preference-title-conflict`'s posting → the title is outside `desired_titles` as a string while the location, remote language and pay all still match. The conflict is literal, not semantic → AC-4
+- [x] Set `preference-title-conflict`'s title back to `Backend Engineer`, run `pnpm test src/features/scoring/eval` → the four dimension coverage test and the title isolation test both fail, which is the original gap reproducing; restore → AC-4
+- [x] Move the title conflict onto `preference-violation` instead, run the suite → the title isolation test fails (all four dimensions are still covered, so only this test notices the grouping collapsed); restore → AC-4
+- [x] Append ` Kafka also useful.` to `preference-title-conflict`'s requirements, run the suite → the identical requirements test fails; restore → AC-4
+- [x] Read the `rationale` on each of the 16 pairs → each argues its band from `BAND_ANCHORS`'s own wording, and the two widened pairs say plainly what the anchors cannot settle rather than asserting an answer → AC-2, AC-3
 
 ## Acceptance-criteria coverage
 
 - AC-1 · covered by the archetype count, the career shape read, and the real name grep
 - AC-2 · covered by the exact band coverage print and the rationale read
 - AC-3 · covered by the `acceptableBands` print and `boundary-seniority-gap`'s pass or fail step
-- AC-4 · covered by the two `buildScoringPrompt()` diff steps and the preferences conflict read
+- AC-4 · covered by the three `buildScoringPrompt()` diff steps, the two preferences conflict reads, and the three deliberate breaks (title reverted, grouping collapsed, requirements drifted)
 - AC-5 · covered by the snippet length print and the two truncation branch steps
 - AC-6 · covered by the two typecheck break steps and the snippet length print
 - AC-7 · covered by the two typecheck break steps and the module location check

@@ -301,9 +301,9 @@ The authored content the harness needs and does not get for free: several realis
   - [x] Types and validator: `EvalArchetype`/`GroundTruthPair`/`GroundTruthIssue` in `src/features/scoring/eval/ground-truth.ts`, the pure `validateGroundTruth()` invariant checker, and the one line export of `ADZUNA_SNIPPET_CHARACTERS` from `rubric.ts` it needs (AC-6, AC-7, AC-8)
   - [x] The thin thread: one archetype (`direct-fit-control`, committed on its own first) and its one baseline pair, with `ground-truth.test.ts` green against both the real data and deliberately malformed fixtures (AC-1, AC-2, AC-7, AC-8)
   - [x] The remaining three archetypes and every single band accuracy pair, covering all five bands (AC-1, AC-2)
-  - [x] The boundary pair (`acceptableBands`), the two preference isolation pairs, and the stability probe pair (U+2026 truncation, its own guard check) (AC-3, AC-4, AC-5)
-  - [x] Full coverage guard test across the complete fifteen pair set (AC-8)
-- [x] Verify it: `/check verify eval ground truth set` · PASS 2026-09-07, all 8 acceptance criteria met, 19 of 19 `verify.md` steps run and passed
+  - [x] The boundary pair (`acceptableBands`), the three preference isolation pairs (circumstances grouped, title isolated alone), and the stability probe pair (U+2026 truncation, its own guard check) (AC-3, AC-4, AC-5)
+  - [x] Full coverage guard test across the complete sixteen pair set (AC-8)
+- [x] Verify it: `/check verify eval ground truth set` · PASS 2026-09-07, all 8 acceptance criteria met, 25 of 25 `verify.md` steps run and passed. Re verified the same day after AC-4 was amended to cover all four preference dimensions and `preference-title-conflict` was added
 - [ ] Test it: `/test eval ground truth set`
 
 ### 16. Eval harness runner
