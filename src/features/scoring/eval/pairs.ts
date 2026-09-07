@@ -60,6 +60,28 @@ function posting(
   };
 }
 
+/**
+ * The requirements half of the preference isolation postings (AC-4).
+ *
+ * NAMED ONCE AND SHARED BY ALL THREE PAIRS RATHER THAN TYPED OUT THREE TIMES.
+ * The whole evidential value of these pairs rests on their skill and experience
+ * requirements being identical: if the wording drifts by a word, a band that
+ * moves between them has an innocent explanation and proves nothing about a
+ * preference leaking. Three copies of a long string is exactly the shape that
+ * drifts under a later edit, so there is one copy and the two conflicting
+ * postings vary from it explicitly.
+ */
+const BASELINE_REQUIREMENTS =
+  "Backend Engineer to build and run the Python services behind our reporting platform. You will own ingestion pipelines (Airflow), design and evolve our PostgreSQL schemas, and maintain the REST APIs our web client reads. Everything ships in Docker on AWS. Two to four years of professional backend experience.";
+
+/** What `preference-match` and `preference-title-conflict` both append: every preference met. */
+const MATCHING_CIRCUMSTANCES =
+  " This role is fully remote and you may be based anywhere in the US. The salary range for this position is $130,000 to $150,000.";
+
+/** What `preference-violation` appends instead: all three circumstance preferences contradicted. */
+const CONFLICTING_CIRCUMSTANCES =
+  " This role is on site in our Chicago office five days a week, with no remote option. The salary for this position is $95,000.";
+
 /** The full ground truth set (AC-2). */
 export const PAIRS: readonly GroundTruthPair[] = [
   {
@@ -298,8 +320,7 @@ export const PAIRS: readonly GroundTruthPair[] = [
       title: "Backend Engineer",
       companyName: "Wrenfield Systems",
       location: "Remote",
-      descriptionSnippet:
-        "Backend Engineer to build and run the Python services behind our reporting platform. You will own ingestion pipelines (Airflow), design and evolve our PostgreSQL schemas, and maintain the REST APIs our web client reads. Everything ships in Docker on AWS. Two to four years of professional backend experience. This role is fully remote and you may be based anywhere in the US. The salary range for this position is $130,000 to $150,000.",
+      descriptionSnippet: BASELINE_REQUIREMENTS + MATCHING_CIRCUMSTANCES,
     }),
     expectedBand: "strong_match",
     tags: ["preference-isolation"],
@@ -314,13 +335,52 @@ export const PAIRS: readonly GroundTruthPair[] = [
       title: "Backend Engineer",
       companyName: "Wrenfield Systems",
       location: "Chicago, IL",
-      descriptionSnippet:
-        "Backend Engineer to build and run the Python services behind our reporting platform. You will own ingestion pipelines (Airflow), design and evolve our PostgreSQL schemas, and maintain the REST APIs our web client reads. Everything ships in Docker on AWS. Two to four years of professional backend experience. This role is on site in our Chicago office five days a week, with no remote option. The salary for this position is $95,000.",
+      descriptionSnippet: BASELINE_REQUIREMENTS + CONFLICTING_CIRCUMSTANCES,
     }),
     expectedBand: "strong_match",
     tags: ["preference-isolation"],
     rationale:
       "Word for word the same skill and experience requirements as preference-match, so by the anchors alone this is the same strong_match. All three of the archetype's stated preferences are now contradicted at once: Chicago is not among its desired locations, five days on site contradicts its remote preference, and 95000 is below its stated 120000 minimum. Spec 0015's instruction says none of that may move the band. If a run scores this below preference-match, a preference moved it.",
+  },
+
+  /**
+   * The third isolation pair, and the only one varying a single dimension
+   * (AC-4).
+   *
+   * EVERYTHING EXCEPT THE TITLE MATCHES `preference-match`, including the pay,
+   * the location and the remote language, so this pair holds constant even the
+   * three preferences `preference-violation` contradicts. The posting's own
+   * `title` is the only value that differs from the baseline anywhere.
+   *
+   * THE CONFLICT IS LITERAL, NOT SEMANTIC, AND THAT IS THE POINT. "Server Side
+   * Engineer" plainly describes the same work as "Backend Engineer", and any
+   * sensible reading puts it inside a candidate who wants Backend Engineer, AI
+   * Engineer or Software Engineer roles. It is outside `desired_titles` only as
+   * a string. So a band that drops here cannot mean the model judged the work
+   * differently: it can only mean it matched the posting's title against the
+   * candidate's list and let the miss count.
+   *
+   * TITLE IS ISOLATED ALONE BECAUSE IT IS THE ONE PREFERENCE WITH A SCORED
+   * COUNTERPART. `buildScoringPrompt()` states `Title:` in the posting section
+   * and `- Desired titles:` in the preferences section, so both halves of a
+   * comparison are in front of the model, with only the written instruction
+   * telling it not to make one. A pay figure has no such counterpart, which is
+   * why the other three travel together in one pair.
+   */
+  {
+    id: "preference-title-conflict",
+    archetypeId: "direct-fit-control",
+    listing: posting({
+      sourceJobId: "gt-016",
+      title: "Server Side Engineer",
+      companyName: "Wrenfield Systems",
+      location: "Remote",
+      descriptionSnippet: BASELINE_REQUIREMENTS + MATCHING_CIRCUMSTANCES,
+    }),
+    expectedBand: "strong_match",
+    tags: ["preference-isolation"],
+    rationale:
+      "Byte identical requirements text to preference-match, and the location, remote language and pay all still agree with the archetype's stated preferences. The only difference anywhere in this posting is its title, Server Side Engineer, which is absent from desired_titles as a string while describing exactly the work those titles name. By the anchors alone this is the same strong_match as its baseline. If a run scores it lower, the model read desired_titles as a checklist to match the posting's title against, which spec 0015's instruction forbids, and no other reading of the posting changed to explain it.",
   },
 
   /**

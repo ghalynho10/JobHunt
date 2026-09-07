@@ -289,9 +289,9 @@ describe("the committed ground truth set", () => {
     expect(validateGroundTruth(ARCHETYPES, PAIRS)).toEqual([]);
   });
 
-  it("holds at least the four archetypes and fifteen pairs AC-1 and AC-2 sized", () => {
+  it("holds at least the four archetypes and sixteen pairs AC-1 and AC-2 sized", () => {
     expect(ARCHETYPES.length).toBeGreaterThanOrEqual(4);
-    expect(PAIRS.length).toBeGreaterThanOrEqual(15);
+    expect(PAIRS.length).toBeGreaterThanOrEqual(16);
   });
 
   /**
@@ -326,36 +326,160 @@ describe("the committed ground truth set", () => {
   });
 
   /**
-   * AC-4's own structure, which no invariant in the validator can see. The two
-   * isolation pairs are only evidence if their skill and experience wording is
-   * genuinely identical: if the requirements differ at all, a band that moves
-   * between them has an innocent explanation and proves nothing about
-   * preferences leaking.
+   * AC-4's own structure, which no invariant in the validator can see.
+   *
+   * THE PAIRS ARE ONLY EVIDENCE IF THEIR REQUIREMENTS ARE GENUINELY IDENTICAL.
+   * If the skill and experience wording differs at all, a band that moves
+   * between them has an innocent explanation and proves nothing about a
+   * preference leaking. `pairs.ts` shares one `BASELINE_REQUIREMENTS` constant
+   * to make drift hard; this asserts the outcome from the outside anyway,
+   * because the constant could be reintroduced as three literals by a later
+   * edit and nothing else would notice.
    */
-  it("states identical requirements across the two preference isolation pairs", () => {
+  it("states identical requirements across every preference isolation pair", () => {
     const isolation = PAIRS.filter((pair) =>
       pair.tags.includes("preference-isolation"),
     );
 
-    expect(isolation.length).toBe(2);
+    expect(isolation.length).toBeGreaterThanOrEqual(3);
 
-    const [baseline, violation] = isolation;
-    const requirements = (pair: GroundTruthPair | undefined): string =>
-      pair?.listing.descriptionSnippet?.split(
-        "Two to four years of professional backend experience.",
-      )[0] ?? "";
+    /**
+     * SPLIT AT THE START OF THE CIRCUMSTANCES, NOT AT THE END OF THE
+     * REQUIREMENTS. An earlier version of this test split on the requirements
+     * sentence itself and compared only the text BEFORE it, which left every
+     * word between that sentence and the circumstances unchecked: appending
+     * " Kafka also useful." to one pair's requirements passed it. Splitting at
+     * the circumstances marker means the whole requirements half is compared.
+     */
+    const CIRCUMSTANCES_MARKER = " This role is";
 
-    expect(requirements(baseline)).toBe(requirements(violation));
-    expect(requirements(baseline)).not.toBe("");
+    const requirements = (pair: GroundTruthPair): string =>
+      pair.listing.descriptionSnippet?.split(CIRCUMSTANCES_MARKER)[0] ?? "";
 
-    /** Both must expect the same band, or the pair asserts nothing. */
-    expect(baseline?.expectedBand).toBe(violation?.expectedBand);
+    for (const pair of isolation) {
+      expect(
+        pair.listing.descriptionSnippet ?? "",
+        `${pair.id} carries the circumstances marker this test splits on`,
+      ).toContain(CIRCUMSTANCES_MARKER);
+    }
 
-    /** And the postings must really differ, or nothing is being isolated. */
-    expect(baseline?.listing.descriptionSnippet).not.toBe(
-      violation?.listing.descriptionSnippet,
+    const wordings = new Set(isolation.map(requirements));
+
+    expect(
+      wordings.size,
+      "every isolation pair states the same requirements",
+    ).toBe(1);
+    expect([...wordings][0]).not.toBe("");
+
+    /** All must expect the same band, or the comparison asserts nothing. */
+    expect(new Set(isolation.map((pair) => pair.expectedBand)).size).toBe(1);
+
+    /** All must share one archetype, or the profiles differ too. */
+    expect(new Set(isolation.map((pair) => pair.archetypeId)).size).toBe(1);
+  });
+
+  /**
+   * AC-4's coverage half: all four preference dimensions spec 0015's Follow up
+   * names must actually be contradicted somewhere across the isolation pairs.
+   *
+   * THIS IS THE CHECK THAT WOULD HAVE CAUGHT THE ORIGINAL GAP. The first
+   * version of this set varied location, remote and pay, and left `title`
+   * matching in every pair, so nothing could have caught a title preference
+   * moving a band. Counting pairs would not have noticed; reading each conflict
+   * off the archetype's own `preferences` does.
+   */
+  it("contradicts all four preference dimensions across the isolation pairs", () => {
+    const isolation = PAIRS.filter((pair) =>
+      pair.tags.includes("preference-isolation"),
     );
-    expect(baseline?.listing.location).not.toBe(violation?.listing.location);
+    const archetype = ARCHETYPES.find(
+      (candidate) => candidate.id === isolation[0]?.archetypeId,
+    );
+    const preferences = archetype?.profile.preferences;
+
+    expect(
+      preferences,
+      "the isolation archetype states preferences",
+    ).toBeDefined();
+    if (preferences === undefined) return;
+
+    const conflicts = {
+      title: false,
+      location: false,
+      remote: false,
+      pay: false,
+    };
+
+    for (const pair of isolation) {
+      const { title, location, descriptionSnippet } = pair.listing;
+      const snippet = descriptionSnippet ?? "";
+
+      if (!preferences.desired_titles.includes(title)) conflicts.title = true;
+
+      if (
+        location !== undefined &&
+        !preferences.desired_locations.includes(location)
+      ) {
+        conflicts.location = true;
+      }
+
+      if (
+        preferences.remote_preference === "remote" &&
+        /no remote option|on site/i.test(snippet)
+      ) {
+        conflicts.remote = true;
+      }
+
+      /** Pay is only ever readable from the text: the prompt never sends the salary fields. */
+      const figures = [...snippet.matchAll(/\$([\d,]+)/g)].map((match) =>
+        Number(match[1]?.replace(/,/g, "")),
+      );
+      if (
+        preferences.minimum_pay !== undefined &&
+        figures.some((figure) => figure < preferences.minimum_pay!)
+      ) {
+        conflicts.pay = true;
+      }
+    }
+
+    expect(conflicts).toEqual({
+      title: true,
+      location: true,
+      remote: true,
+      pay: true,
+    });
+  });
+
+  /**
+   * AC-4's grouping decision, asserted rather than left to the prose: exactly
+   * one isolation pair varies the title alone, with every circumstance
+   * preference still matching. If a later edit folded the title conflict into
+   * the circumstance pair, the set would still contradict all four dimensions
+   * and this is the only thing that would notice.
+   */
+  it("isolates the title conflict in a pair whose circumstances all still match", () => {
+    const isolation = PAIRS.filter((pair) =>
+      pair.tags.includes("preference-isolation"),
+    );
+    const preferences = ARCHETYPES.find(
+      (candidate) => candidate.id === isolation[0]?.archetypeId,
+    )?.profile.preferences;
+
+    if (preferences === undefined)
+      throw new Error("no preferences to test against");
+
+    const titleOnly = isolation.filter(
+      (pair) =>
+        !preferences.desired_titles.includes(pair.listing.title) &&
+        pair.listing.location !== undefined &&
+        preferences.desired_locations.includes(pair.listing.location) &&
+        !/no remote option|on site/i.test(
+          pair.listing.descriptionSnippet ?? "",
+        ),
+    );
+
+    expect(titleOnly.length, "exactly one pair varies the title alone").toBe(1);
+    expect(titleOnly[0]?.id).toBe("preference-title-conflict");
   });
 
   /**
