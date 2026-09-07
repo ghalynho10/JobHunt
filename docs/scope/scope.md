@@ -303,7 +303,7 @@ The authored content the harness needs and does not get for free: several realis
   - [x] The remaining three archetypes and every single band accuracy pair, covering all five bands (AC-1, AC-2)
   - [x] The boundary pair (`acceptableBands`), the two preference isolation pairs, and the stability probe pair (U+2026 truncation, its own guard check) (AC-3, AC-4, AC-5)
   - [x] Full coverage guard test across the complete fifteen pair set (AC-8)
-- [ ] Verify it: `/check verify eval ground truth set`
+- [x] Verify it: `/check verify eval ground truth set` · PASS 2026-09-07, all 8 acceptance criteria met, 19 of 19 `verify.md` steps run and passed
 - [ ] Test it: `/test eval ground truth set`
 
 ### 16. Eval harness runner
