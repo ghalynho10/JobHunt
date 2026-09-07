@@ -39,6 +39,7 @@ export function ApplyControl({
   title,
   companyName,
   alreadyApplied,
+  focusKey,
 }: {
   /**
    * The inline `'use server'` closure this card was rendered with, already
@@ -51,6 +52,16 @@ export function ApplyControl({
   readonly companyName: string;
   /** From `readAppliedJobIds` at render time (AC-9). */
   readonly alreadyApplied: boolean;
+  /**
+   * The key keyboard focus is handed back by after `/search` re-sorts its list
+   * (spec 0015, AC-17). Rendered onto this component's own `<button>`, because
+   * that button lives here and `ResultCard` cannot reach it.
+   *
+   * OPTIONAL, BECAUSE THE RESTORE IS `/search`'S CONCERN AND NOT THIS
+   * CONTROL'S. Nothing about applying needs a focus key, and a future caller
+   * outside a re-sorting list should not be made to invent one.
+   */
+  readonly focusKey?: string;
 }) {
   /**
    * AC-21: A DISPATCH THAT NEVER REACHES THE SERVER ACTION IS STILL A FAILURE
@@ -123,6 +134,7 @@ export function ApplyControl({
          */
         disabled={applied || pending}
         label={applied ? undefined : markAppliedLabel(title, companyName)}
+        focusKey={focusKey}
       >
         {applied ? CONTROLS.applied : CONTROLS.markApplied}
       </Button>

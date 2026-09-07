@@ -20,7 +20,24 @@ a "did not move" reading.
 - [ ] Keep watching that same render → the list reorders exactly **once**, when the last outcome lands; it never reorders card by card as scores arrive → **AC-9**
 - [ ] On the reordered list → `Strong match` cards sit above `Good match`, and `Not a match` sits last → **AC-9**
 - [ ] Two cards in the same band → they stay in the relative order Adzuna returned them, not alphabetical and not by company → **AC-9**
-- [ ] Before the scores land, press Tab into a result card's "View the posting" link → when the re-sort happens, focus is still on a real control and has not jumped to the top of the document → **AC-16**
+
+### Keyboard focus across the reveal (AC-16's focus half, AC-17)
+
+_All browser only. The unit project is `node` with no jsdom, no layout and no
+focus, so it can prove the keys are on the right controls and that the restore
+decision is right when handed an active element, and nothing beyond that. Run
+these on one scored search where possible: each reload spends an Adzuna call
+and up to 20 `ai_scoring` calls._
+
+- [ ] Before the scores land, Tab into a card's "View the posting" link and note which job it belongs to → after the re-sort, focus is on **that same link on that same job**, wherever the card has moved to, and not merely on some control → **AC-16**, **AC-17**
+- [ ] Repeat on a card near the bottom of the pending list whose band ranks it near the top → after the reveal the page has scrolled so the restored control is visible on screen, not left off screen above or below the fold → **AC-17** (WCAG 2.2, Focus Not Obscured)
+- [ ] Repeat using the apply button rather than the posting link → focus returns to that card's apply button, not to its posting link → **AC-17** (the key names the control, not just the card)
+- [ ] **The counterweight, and the one most worth running.** Before the scores land, put focus in the search box and leave it there → after the re-sort focus is **still in the search box** and was never moved onto the list. Repeat with focus on a header link → **AC-17**, rule 1. A version that always restores passes every step above and fails this one
+- [ ] Load a scored search and touch nothing at all until the reveal → focus is not moved onto any card control → **AC-17** (no control was ever focused, so there is nothing to restore, and moving the reader would be the same focus steal rule 1 forbids)
+- [ ] **Two searches, one browser tab, no reload between them.** Tab into a card on the first search and let it reveal; then search again for overlapping terms (`engineer` then `senior engineer`, which Adzuna answers with some of the same jobs) and touch nothing during the second scoring → after the second reveal focus is **not** pulled onto any card → **AC-17**, rule 3. Failing this means a key survived its own use and matched a listing the reader never touched on this page
+- [ ] On any restored control → the focus ring is visible on it, drawn the same as any other focused control on the page → `AGENTS.md`'s WCAG 2.2 AA bar
+- [ ] With a screen reader running on a render that both ranks and restores → note which of the two is actually spoken, the `Results are now ranked by fit.` announcement or the restored control. **Either is an acceptable result**; spec 0015's Consequences records that the pairing decides this and that the spec deliberately does not sequence them. Record what this pairing does rather than treating one outcome as a failure → **AC-16**
+
 - [ ] With a screen reader running, load a scored search → each pending card is announced as busy, and `Results are now ranked by fit.` is announced once when the order changes → **AC-16**
 - [ ] On any scored card → the second skill list is headed `Not mentioned in this posting` and carries the caption `This posting only shows part of the description, so this is not a confirmed gap.`; the word "missing" appears nowhere on the page → **AC-5**
 - [ ] On any scored card → the matched skills are all skills the caller actually has in `/profile`, spelled the way the caller wrote them → **AC-5**
@@ -42,6 +59,8 @@ a "did not move" reading.
 - [ ] Zero the `ai_scoring` `usage_cap` row for a test account, then search → one page level sentence from `SENTENCES` appears above the list, no card shows `Could not score this listing right now.`, and no band renders → **AC-11**
 - [ ] With the cap zeroed, confirm `usage_gate_counter` did not rise → a refused call never reaches the vendor → **AC-11**
 - [ ] Point `OPENAI_API_KEY` at an invalid value and search → every card shows `Could not score this listing right now.`, the page shows no cap notice, and the failure sentence is visibly different from the refusal sentence above → **AC-10**
+- [ ] `pnpm test -t "keyboard focus across the reveal"` → the two placement tests pass → `FocusRecorder` is rendered outside the `<Suspense>` boundary and `FocusRestorer` inside it. **This is the half of AC-17 a test here can hold**: swapping the two would still render, still typecheck and still look right in review, and the only symptom would be that focus is silently never restored
+- [ ] `pnpm test src/features/search/focus-key.test.ts src/features/search/focus-keeper.test.ts` → the key follows the listing rather than its position in the list, and the restore declines to act while a live element holds focus → **AC-17**, rules 1 and 2
 - [ ] `pnpm test -t "30 day retention"` → `src/lib/ai/tiers.test.ts` asserts `ai_scoring` carries `store: false` → the retention opt out is in the tier config
 - [ ] **The step above proves the config, not the wire.** After a real scored search (or a `TEST_LIVE_MODEL_CALLS_ENABLED` run), open the OpenAI dashboard's Logs view for the same period → the scoring requests do **not** appear there with a stored request and response body. A stored generation is exactly what shows up in that view, so its absence is the observable form of `store: false` actually reaching OpenAI rather than being dropped between `tiers.ts` and the request. This is the only check that would catch the provider silently not forwarding the option.
 
@@ -76,10 +95,12 @@ _One step per row of spec 0015's Value sourcing table, so each value's SOURCE is
 - AC-13 · covered by the unit suite and the over sized profile step
 - AC-14 · covered by the Sentry span step
 - AC-15 · covered by the entry page step
-- AC-16 · covered by the focus step and the screen reader step, both browser only
+- AC-16 · the announcement half is covered by the page tests and the screen reader step; the focus half is covered by the browser only focus block above, since no test here can reach it
+- AC-17 · covered by the eight browser only steps in the focus block and by the two command steps. The unit suite proves the key attributes are on the right controls, that the key is the listing's identity rather than its position, that the restore declines while a live element holds focus, and that the recorder and restorer sit on the correct sides of the boundary. **Whether a reader actually ends up back where they were is browser only** and the focus block is the only thing that proves it
 
 ## Known gaps this list cannot close
 
-- **AC-16's focus clause is not proved by any test in this repo, and may not hold.** `/search` reveals the ranked list by replacing a `<Suspense>` fallback, which is new DOM: a browser moves focus to `<body>` when the element it was on is removed. The focus step above is the only thing that will tell us. If it fails, the fix is a spec level decision (a client component that restores focus, against this page's deliberate minimum of client JavaScript), not a patch.
+- **~~AC-16's focus clause is not proved by any test in this repo, and may not hold.~~ The prediction was right, and it was fixed.** `/check verify` drove the running app on 2026-09-06 and found the reveal dropping focus to `<body>`, exactly as this gap said it might. The spec level decision it called for was taken the same day (spec 0015's second Decision, AC-17): a small client module records the focused control by a stable key and gives focus back to it after the reveal. **The gap that remains is narrower and still real**: no test in this repo proves a reader ends up back on their control, only that the pieces are wired the way AC-17 says. The focus block above is the whole proof, and it is manual.
+- **`document.activeElement === body` is a proxy for "the reveal orphaned this reader", not a measurement of it.** A reader who clicks blank page space moments before the reveal reads identically to one the reveal orphaned. Spec 0015's Consequences accepts this as narrow rather than engineering around it, so it is a known behaviour rather than a step that can fail. The "touch nothing at all" step above is the closest thing to a bound on it: with no control ever focused there is no key, so nothing moves.
 - **`SCORING_COPY.profileReadFailed` is not in spec 0015's copy table.** It was added during the build for the state the spec left with no sentence, the same way `COPY-6` of spec 0013 and `COPY-8` of spec 0014 were. It needs ratifying into the spec's copy table.
 - **~~Spec 0015's first Follow-up item is a release blocker.~~ Closed 2026-09-06**, before this feature reached a pull request, by `fix(ai): opt ai_scoring out of OpenAI's 30 day retention with store: false` (pull request 104). Training was already safe with no action, so the privacy notice's "not used to train models" claim stands unchanged; retention needed `store: false` on the `ai_scoring` tier and now has it. See spec 0015's Follow-up for the full record. Nothing here blocks a release any more, but the two steps below are what actually prove it against a running app.

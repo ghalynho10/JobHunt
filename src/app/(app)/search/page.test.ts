@@ -1,8 +1,11 @@
+import { Suspense } from "react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, success } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
 import { ApplyControl } from "@/features/applications/apply-control";
+import { FocusRecorder, FocusRestorer } from "@/features/search/focus-keeper";
 import { SEARCH_COPY } from "@/features/search/copy";
 
 import {
@@ -98,8 +101,13 @@ async function render(params: Record<string, string | string[] | undefined>) {
      * `ApplyControl` is stopped at rather than invoked: it is a Client
      * Component calling `useActionState`, which has no React runtime in the
      * unit project's `node` environment (spec 0014).
+     *
+     * `FocusRecorder` and `FocusRestorer` are stopped at for the same reason,
+     * one version on: both call `useEffect` (spec 0015, AC-17). Stopping at
+     * them is also what lets the tests below assert WHERE each one sits, since
+     * a stopped element keeps its own identity in the tree.
      */
-    [ApplyControl],
+    [ApplyControl, FocusRecorder, FocusRestorer],
   );
 }
 
@@ -946,5 +954,106 @@ describe("the re-rank announcement (AC-16, COPY-7)", () => {
     expect(statuses(tree)).toEqual([]);
     /** The per card failure state is what the reader needs here. */
     expect(textOf(tree)).toContain("Could not score this listing right now.");
+  });
+});
+
+describe("keyboard focus across the reveal (spec 0015, AC-17)", () => {
+  /**
+   * WHERE EACH COMPONENT SITS IS THE WHOLE MECHANISM, which is why it is tested
+   * structurally rather than left to a browser check alone. Both would still
+   * render, still typecheck and still look right in review if they were
+   * swapped, and the only symptom would be that focus is silently never
+   * restored: the recorder torn down by the very reveal it exists to survive,
+   * the restorer mounted before the swap it exists to react to.
+   */
+  /**
+   * A WALKER OF ITS OWN, BECAUSE `flatten` CANNOT SEE A BOUNDARY. That helper
+   * walks THROUGH any element whose type is a symbol and never reports it,
+   * which is right for fragments and wrong here: `Suspense` is a symbol too, so
+   * `flatten` returns the boundary's children while the boundary itself is
+   * invisible. Every assertion below is about which side of it something sits
+   * on, so the boundary has to be a thing this test can hold.
+   */
+  const suspenseBoundaries = (node: unknown): readonly ReactElement[] => {
+    if (Array.isArray(node)) return node.flatMap(suspenseBoundaries);
+    if (typeof node !== "object" || node === null || !("type" in node))
+      return [];
+
+    const element = node as ReactElement;
+    const { children } = element.props as { children?: unknown };
+    const inside = suspenseBoundaries(children);
+
+    return element.type === Suspense ? [element, ...inside] : inside;
+  };
+
+  /**
+   * THE SCORED PATH IS OPTED INTO EXPLICITLY, because the suite's default
+   * profile is thin and a thin profile renders no boundary at all. Without
+   * this, every assertion below would look for a `Suspense` on a page that
+   * correctly has none, and the last test in this block, which asserts exactly
+   * that absence, would be the only one passing for the right reason.
+   */
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: twoListings }),
+    );
+    readScoringProfile.mockResolvedValue({
+      kind: "score",
+      profile: {
+        summary: undefined,
+        skills: [],
+        experience: [],
+        preferences: undefined,
+      },
+    });
+    scoreListings.mockResolvedValue([
+      scoreOf("strong_match"),
+      scoreOf("weak_match"),
+    ]);
+  });
+
+  const boundary = (tree: unknown) => {
+    const found = suspenseBoundaries(tree);
+
+    expect(found).toHaveLength(1);
+
+    return found[0]!;
+  };
+
+  const has = (tree: unknown, type: unknown) =>
+    flatten(tree as never).some((element) => element.type === type);
+
+  it("records outside the boundary, so the reveal never unmounts the listener", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(has(tree, FocusRecorder)).toBe(true);
+    /**
+     * The claim with teeth: it is in the page but NOT among the boundary's
+     * descendants. Inside, it would be destroyed at the exact moment its answer
+     * is needed, and nothing would fail except a reader losing their place.
+     */
+    expect(has(boundary(tree), FocusRecorder)).toBe(false);
+  });
+
+  it("restores inside the resolved content, because mounting is the reveal signal", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(has(boundary(tree), FocusRestorer)).toBe(true);
+  });
+
+  it("renders neither on a list that never re-sorts", async () => {
+    /**
+     * A profile too thin to score renders the plain unscored list with no
+     * boundary and no reveal (AC-7), so there is nothing that can orphan a
+     * reader's focus and nothing here to restore it. Shipping the listener
+     * anyway would put client JavaScript on a page that has no use for it,
+     * against the deliberate minimum spec 0015's Consequences records.
+     */
+    readScoringProfile.mockResolvedValue({ kind: "thin" });
+
+    const tree = await render({ q: "engineer" });
+
+    expect(has(tree, FocusRecorder)).toBe(false);
+    expect(has(tree, FocusRestorer)).toBe(false);
   });
 });

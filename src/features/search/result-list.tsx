@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 import type { Listing } from "./adzuna";
+import { SEARCH_COPY } from "./copy";
+import { RESULTS_LIST_ATTRIBUTE } from "./focus-key";
 import { ResultCard } from "./result-card";
 
 /**
@@ -48,7 +50,28 @@ export function ResultList({
   readonly appliedIds: ReadonlySet<string> | undefined;
 }) {
   return (
-    <ul className="space-y-4">
+    <ul
+      className="space-y-4"
+      /**
+       * Spec 0015, AC-17: the fallback focus target. When the reveal orphans a
+       * reader and the control they were on cannot be found in the ranked list,
+       * focus lands here rather than on the document body. `-1` keeps it out of
+       * the tab order, so it is reachable by script and by nobody's Tab key.
+       *
+       * NAMED, BECAUSE AN UNNAMED LIST ANNOUNCES AS NOTHING. A screen reader
+       * landing here would otherwise say only "list", which tells a reader who
+       * just lost their place nothing about where they now are.
+       */
+      tabIndex={-1}
+      aria-label={SEARCH_COPY.resultsListLabel}
+      /**
+       * SPREAD SO THE ATTRIBUTE NAME HAS ONE DEFINITION. `focus-keeper.tsx`
+       * queries for this exact string, and the failure mode of a typo is
+       * silence: the restorer would find nothing and leave the reader on the
+       * body, which is the very case this attribute exists to catch.
+       */
+      {...{ [RESULTS_LIST_ATTRIBUTE]: true }}
+    >
       {rows.map(({ listing, score, busy }) => (
         <li
           key={`${listing.source}:${listing.sourceJobId}`}

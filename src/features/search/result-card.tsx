@@ -14,6 +14,7 @@ import { recordApplication } from "@/features/applications/actions";
 import { relativePostedAt, salaryText } from "@/lib/listing-format";
 
 import type { Listing } from "./adzuna";
+import { focusKey } from "./focus-key";
 
 /**
  * One search result (spec 0013, AC-6, AC-7, AC-8).
@@ -143,6 +144,13 @@ export function ResultCard({
           href={listing.url}
           external
           label={`View the posting for ${listing.title} at ${listing.companyName}`}
+          /**
+           * Spec 0015, AC-17: one of the two controls keyboard focus can be
+           * handed back to after `/search` re-sorts the list under the reader.
+           * The key is the listing's own identity, never this card's position,
+           * because position is exactly what the re-sort changes.
+           */
+          focusKey={focusKey(listing, "posting-link")}
         >
           View the posting
         </Button>
@@ -158,6 +166,16 @@ export function ResultCard({
           title={listing.title}
           companyName={listing.companyName}
           alreadyApplied={alreadyApplied}
+          /**
+           * AC-17's second focusable control, and the key is built HERE while
+           * the attribute is rendered THERE. `ApplyControl` owns its own
+           * `<button>`; this card only renders the component, so it cannot put
+           * an attribute on that element. Passing the key keeps the dependency
+           * running one way, `/search` reaching into the applications feature
+           * and never the reverse, which is the rule
+           * `src/features/applications/AGENTS.md` states.
+           */
+          focusKey={focusKey(listing, "apply")}
         />
       </Card.Footer>
     </Card>

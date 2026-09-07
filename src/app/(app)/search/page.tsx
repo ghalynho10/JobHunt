@@ -16,6 +16,7 @@ import { scoreListings } from "@/features/scoring/score-listings";
 import type { Listing } from "@/features/search/adzuna";
 import { searchListings } from "@/features/search/adzuna";
 import { SEARCH_COPY } from "@/features/search/copy";
+import { FocusRecorder, FocusRestorer } from "@/features/search/focus-keeper";
 import { readSearchPrefill } from "@/features/search/preferences";
 import { ResultList } from "@/features/search/result-list";
 import { SearchForm } from "@/features/search/search-form";
@@ -285,37 +286,52 @@ async function SearchOutcome({
       ) : undefined}
 
       {scoring.kind === "score" ? (
-        /**
-         * AC-9: THE LIST RENDERS IMMEDIATELY AND THE PAGE IS NEVER BLOCKED ON
-         * SCORING. The fallback is the whole result list in Adzuna's own order,
-         * every card complete and clickable, each carrying its pending
-         * indicator. Twenty concurrent model calls at a 30 second per call
-         * timeout sit inside this boundary; nothing above or below it waits.
-         *
-         * This is the Strategic Suspense Boundaries pattern named in spec
-         * 0015's Decision: the boundary is drawn around exactly the slow thing
-         * and no more.
-         */
-        <Suspense
-          fallback={
-            <ResultList
-              rows={listings.map((listing) => ({
-                listing,
-                score: <ScoreCard outcome="pending" />,
-                busy: true,
-              }))}
+        <>
+          {/*
+           * Spec 0015, AC-17. IT SITS OUTSIDE THE BOUNDARY BELOW, DELIBERATELY.
+           * The reveal unmounts everything inside the boundary, and this is the
+           * one thing that has to survive it: it is listening for which card
+           * control the reader was on at the moment the swap happens. Inside,
+           * it would be torn down exactly when its answer is needed.
+           *
+           * It is rendered ONLY on the scored path, because it is only that
+           * path that reveals anything. An unscored list never re-sorts, so
+           * nothing there can orphan a reader's focus.
+           */}
+          <FocusRecorder />
+
+          {/*
+           * AC-9: THE LIST RENDERS IMMEDIATELY AND THE PAGE IS NEVER BLOCKED ON
+           * SCORING. The fallback is the whole result list in Adzuna's own order,
+           * every card complete and clickable, each carrying its pending
+           * indicator. Twenty concurrent model calls at a 30 second per call
+           * timeout sit inside this boundary; nothing above or below it waits.
+           *
+           * This is the Strategic Suspense Boundaries pattern named in spec
+           * 0015's Decision: the boundary is drawn around exactly the slow
+           * thing and no more.
+           */}
+          <Suspense
+            fallback={
+              <ResultList
+                rows={listings.map((listing) => ({
+                  listing,
+                  score: <ScoreCard outcome="pending" />,
+                  busy: true,
+                }))}
+                now={now}
+                appliedIds={appliedIds}
+              />
+            }
+          >
+            <ScoredResults
+              profile={scoring.profile}
+              listings={listings}
               now={now}
               appliedIds={appliedIds}
             />
-          }
-        >
-          <ScoredResults
-            profile={scoring.profile}
-            listings={listings}
-            now={now}
-            appliedIds={appliedIds}
-          />
-        </Suspense>
+          </Suspense>
+        </>
       ) : (
         <ResultList
           rows={listings.map((listing) => ({ listing }))}
@@ -433,6 +449,19 @@ async function ScoredResults({
 
   return (
     <>
+      {/*
+       * Spec 0015, AC-17: the reveal has happened, so focus goes back to the
+       * control the reader was on. IT SITS INSIDE THE RESOLVED CONTENT ON
+       * PURPOSE, because mounting IS the reveal signal: there is no event a
+       * component outside the boundary could listen for that says the swap is
+       * done and the ranked DOM is in place.
+       *
+       * It renders nothing, and it moves focus only when the reveal actually
+       * orphaned somebody. Every rule that decides that lives in
+       * `focus-keeper.tsx`, not here.
+       */}
+      <FocusRestorer />
+
       {refusedReason === undefined ? undefined : (
         <div role="alert" className="mb-6">
           <Text className="text-secondary">{SENTENCES[refusedReason]}</Text>

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { flatten, renderDeep } from "../../../test/helpers/react-element";
 
 import type { Listing } from "./adzuna";
+import { SEARCH_COPY } from "./copy";
+import { RESULTS_LIST_ATTRIBUTE } from "./focus-key";
 import { ResultCard } from "./result-card";
 import { ResultList } from "./result-list";
 
@@ -153,5 +155,55 @@ describe("the applied markers (spec 0014, AC-9)", () => {
     expect(
       (cards[0]?.props as { alreadyApplied?: boolean }).alreadyApplied,
     ).toBe(false);
+  });
+});
+
+describe("the list as a focus target (spec 0015, AC-17)", () => {
+  const list = () => {
+    const tree = render(
+      <ResultList
+        rows={[{ listing: listing("1") }]}
+        now={now}
+        appliedIds={undefined}
+      />,
+    );
+
+    return flatten(tree as never).find((element) => element.type === "ul")!;
+  };
+
+  it("can be focused by script without entering anybody's Tab order", () => {
+    /**
+     * `-1` IS THE WHOLE VALUE OF THIS ASSERTION, not merely that a tabIndex is
+     * present. `0` would also let the restorer focus this list, and would also
+     * add a stop to every keyboard reader's Tab path through twenty cards,
+     * every render, to serve a defensive path that is not expected to run.
+     */
+    expect((list().props as { tabIndex?: number }).tabIndex).toBe(-1);
+  });
+
+  it("announces as something rather than as an unnamed list", () => {
+    expect((list().props as { "aria-label"?: string })["aria-label"]).toBe(
+      SEARCH_COPY.resultsListLabel,
+    );
+  });
+
+  it("does not claim to be ranked, since it is read aloud when ranking failed", () => {
+    /**
+     * `COPY-8` is deliberately "Search results". The one time it is spoken is
+     * the fallback path, where the recorded control could NOT be found in the
+     * ranked list, so a name promising a ranking would be least trustworthy
+     * exactly when a reader hears it.
+     */
+    expect(SEARCH_COPY.resultsListLabel.toLowerCase()).not.toContain("rank");
+  });
+
+  it("carries the attribute the restorer looks for", () => {
+    /**
+     * ASSERTED THROUGH THE SHARED CONSTANT, so this cannot pass while
+     * `focus-keeper.tsx` queries a different string. The failure mode of that
+     * drift is silence: the restorer finds nothing and leaves the reader on the
+     * document body, which is the exact case this attribute exists to catch.
+     */
+    expect(list().props).toHaveProperty(RESULTS_LIST_ATTRIBUTE, true);
   });
 });

@@ -203,4 +203,56 @@ describe("an absent field is omitted, never faked (invariant 7)", () => {
   it("shows no date row when the posting has no date", () => {
     expect(textOf(render({ postedAt: undefined }))).not.toContain("posted");
   });
+
+  describe("the focus keys keyboard focus is restored by (spec 0015, AC-17)", () => {
+    it("tags the posting link with this listing's own key", () => {
+      const link = flatten(render()).find((element) => element.type === Button);
+
+      expect((link!.props as { focusKey?: string }).focusKey).toBe(
+        "adzuna:111:posting-link",
+      );
+    });
+
+    it("hands the apply control its own key rather than tagging it here", () => {
+      /**
+       * THE KEY IS BUILT HERE AND THE ATTRIBUTE IS RENDERED THERE, and that
+       * split is the point of this test. `ApplyControl` owns its own
+       * `<button>`, so this card cannot put an attribute on it; passing the key
+       * down keeps `/search` reaching into the applications feature and never
+       * the reverse, which is the rule
+       * `src/features/applications/AGENTS.md` states.
+       */
+      const control = flatten(render()).find(
+        (element) => element.type === ApplyControl,
+      );
+
+      expect((control!.props as { focusKey?: string }).focusKey).toBe(
+        "adzuna:111:apply",
+      );
+    });
+
+    it("gives the two controls on one card different keys", () => {
+      /**
+       * THE COUNTERWEIGHT. Both controls carrying the same key would restore
+       * focus to whichever the DOM happened to reach first, which is a defect
+       * no assertion above would catch: each one is individually correct.
+       */
+      const tree = flatten(render());
+      const link = tree.find((element) => element.type === Button);
+      const apply = tree.find((element) => element.type === ApplyControl);
+
+      expect((link!.props as { focusKey?: string }).focusKey).not.toBe(
+        (apply!.props as { focusKey?: string }).focusKey,
+      );
+    });
+
+    it("changes both keys when the listing changes", () => {
+      const other = flatten(render({ sourceJobId: "222" }));
+      const link = other.find((element) => element.type === Button);
+
+      expect((link!.props as { focusKey?: string }).focusKey).toBe(
+        "adzuna:222:posting-link",
+      );
+    });
+  });
 });

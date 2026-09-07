@@ -66,4 +66,23 @@ export const SEARCH_COPY = {
    */
   appliedReadFailed:
     "We couldn't check which jobs you've already applied to, so none are marked below.",
+  /**
+   * `COPY-8` of spec 0015. The results list's own accessible name, so AC-17's
+   * fallback focus target announces as something rather than as an unnamed
+   * list.
+   *
+   * IT LIVES HERE RATHER THAN IN `SCORING_COPY`, even though spec 0015 owns the
+   * criterion, for the same reason `appliedReadFailed` directly above lives
+   * here while spec 0014 owns it: the string belongs to whichever component
+   * renders it, and `ResultList` is this feature's. That component deliberately
+   * knows nothing about bands or outcomes, and importing the scoring feature's
+   * copy into it to name a list would be the first thread of exactly the
+   * dependency its own header rules out.
+   *
+   * IT DELIBERATELY DOES NOT SAY "RANKED". The one time it is read aloud is the
+   * defensive path where the ranking could not be matched back to a control, so
+   * a name claiming the list is ranked would be least trustworthy exactly when
+   * it is heard.
+   */
+  resultsListLabel: "Search results",
 } as const;
