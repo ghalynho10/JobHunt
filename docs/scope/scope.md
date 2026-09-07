@@ -289,7 +289,7 @@ _Adzuna's search response carries only a 500 character description snippet (veri
   - [x] Entry page: move `ranked results with reasoning` from `planned` to `working` (AC-15)
   - [x] Keyboard focus across the reveal: `focus-keeper.tsx`, the `data-focus-key` on both card controls, the list's `tabindex="-1"`, and the browser only steps written into `verify.md` for `/check verify` to run (AC-16's focus half, AC-17). Added 2026-09-06 from spec 0015's amendment, after `/check verify` found the reveal dropping focus to the document body
 - [ ] Verify it: `/check verify fit scoring with shown reasoning`
-- [ ] Test it: `/test fit scoring with shown reasoning`
+- [x] Test it: `/test fit scoring with shown reasoning` · `focus-keeper.dom.test.tsx`, the project's first `jsdom` test (spec 0004's just in time rule), pinning AC-17's capture phase contract and its restore rules
 - [ ] Review it (fresh model): `/check review fit scoring with shown reasoning`
 - [ ] Document it: `/document fit scoring with shown reasoning`
 

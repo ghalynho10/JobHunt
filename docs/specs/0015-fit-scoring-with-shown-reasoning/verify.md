@@ -16,9 +16,9 @@ a "did not move" reading.
 
 ## UI / manual
 
-- [ ] Sign in with a profile that has at least one skill or one work history entry → search `/search?q=engineer` → the result list appears in Adzuna's original order with every card showing `Checking fit against your profile…`, before any band appears → **AC-9**
-- [ ] Keep watching that same render → the list reorders exactly **once**, when the last outcome lands; it never reorders card by card as scores arrive → **AC-9**
-- [ ] On the reordered list → `Strong match` cards sit above `Good match`, and `Not a match` sits last → **AC-9**
+- [x] Sign in with a profile that has at least one skill or one work history entry → search `/search?q=engineer` → the result list appears in Adzuna's original order with every card showing `Checking fit against your profile…`, before any band appears → **AC-9**
+- [x] Keep watching that same render → the list reorders exactly **once**, when the last outcome lands; it never reorders card by card as scores arrive → **AC-9**
+- [x] On the reordered list → `Strong match` cards sit above `Good match`, and `Not a match` sits last → **AC-9**
 - [ ] Two cards in the same band → they stay in the relative order Adzuna returned them, not alphabetical and not by company → **AC-9**
 
 ### Keyboard focus across the reveal (AC-16's focus half, AC-17)
@@ -29,39 +29,39 @@ decision is right when handed an active element, and nothing beyond that. Run
 these on one scored search where possible: each reload spends an Adzuna call
 and up to 20 `ai_scoring` calls._
 
-- [ ] Before the scores land, Tab into a card's "View the posting" link and note which job it belongs to → after the re-sort, focus is on **that same link on that same job**, wherever the card has moved to, and not merely on some control → **AC-16**, **AC-17**
+- [x] Before the scores land, Tab into a card's "View the posting" link and note which job it belongs to → after the re-sort, focus is on **that same link on that same job**, wherever the card has moved to, and not merely on some control → **AC-16**, **AC-17**
 - [ ] Repeat on a card near the bottom of the pending list whose band ranks it near the top → after the reveal the page has scrolled so the restored control is visible on screen, not left off screen above or below the fold → **AC-17** (WCAG 2.2, Focus Not Obscured)
-- [ ] Repeat using the apply button rather than the posting link → focus returns to that card's apply button, not to its posting link → **AC-17** (the key names the control, not just the card)
-- [ ] **The counterweight, and the one most worth running.** Before the scores land, put focus in the search box and leave it there → after the re-sort focus is **still in the search box** and was never moved onto the list. Repeat with focus on a header link → **AC-17**, rule 1. A version that always restores passes every step above and fails this one
-- [ ] Load a scored search and touch nothing at all until the reveal → focus is not moved onto any card control → **AC-17** (no control was ever focused, so there is nothing to restore, and moving the reader would be the same focus steal rule 1 forbids)
+- [x] Repeat using the apply button rather than the posting link → focus returns to that card's apply button, not to its posting link → **AC-17** (the key names the control, not just the card)
+- [x] **The counterweight, and the one most worth running.** Before the scores land, put focus in the search box and leave it there → after the re-sort focus is **still in the search box** and was never moved onto the list. Repeat with focus on a header link → **AC-17**, rule 1. A version that always restores passes every step above and fails this one
+- [x] Load a scored search and touch nothing at all until the reveal → focus is not moved onto any card control → **AC-17** (no control was ever focused, so there is nothing to restore, and moving the reader would be the same focus steal rule 1 forbids)
 - [ ] **Two searches, one browser tab, no reload between them.** Tab into a card on the first search and let it reveal; then search again for overlapping terms (`engineer` then `senior engineer`, which Adzuna answers with some of the same jobs) and touch nothing during the second scoring → after the second reveal focus is **not** pulled onto any card → **AC-17**, rule 3. Failing this means a key survived its own use and matched a listing the reader never touched on this page
-- [ ] On any restored control → the focus ring is visible on it, drawn the same as any other focused control on the page → `AGENTS.md`'s WCAG 2.2 AA bar
+- [x] On any restored control → the focus ring is visible on it, drawn the same as any other focused control on the page → `AGENTS.md`'s WCAG 2.2 AA bar
 - [ ] With a screen reader running on a render that both ranks and restores → note which of the two is actually spoken, the `Results are now ranked by fit.` announcement or the restored control. **Either is an acceptable result**; spec 0015's Consequences records that the pairing decides this and that the spec deliberately does not sequence them. Record what this pairing does rather than treating one outcome as a failure → **AC-16**
 
 - [ ] With a screen reader running, load a scored search → each pending card is announced as busy, and `Results are now ranked by fit.` is announced once when the order changes → **AC-16**
-- [ ] On any scored card → the second skill list is headed `Not mentioned in this posting` and carries the caption `This posting only shows part of the description, so this is not a confirmed gap.`; the word "missing" appears nowhere on the page → **AC-5**
-- [ ] On any scored card → the matched skills are all skills the caller actually has in `/profile`, spelled the way the caller wrote them → **AC-5**
+- [x] On any scored card → the second skill list is headed `Not mentioned in this posting` and carries the caption `This posting only shows part of the description, so this is not a confirmed gap.`; the word "missing" appears nowhere on the page → **AC-5**
+- [x] On any scored card → the matched skills are all skills the caller actually has in `/profile`, spelled the way the caller wrote them → **AC-5**
 - [ ] Find a listing whose visible text states a visa stance → its sponsorship badge renders as its own separate badge beside the band badge, never merged into it → **AC-6**
-- [ ] Find a listing whose visible text says nothing about visas → no sponsorship badge renders at all → **AC-6**
-- [ ] Sign in as a caller with zero skills and zero work history → search → the plain unscored list renders plus `Add your skills or work experience to your profile…` with `your profile` linking to `/profile`; no band, no pending indicator, no scoring copy anywhere → **AC-7**
-- [ ] Add one skill and nothing else to that same profile → search again → every card is scored normally → **AC-7**
-- [ ] Visit `/` → the "What's real today" card lists `ranked results with reasoning` under **working**, and `a no sign in demo account` is the only thing left under **planned** → **AC-15**
+- [x] Find a listing whose visible text says nothing about visas → no sponsorship badge renders at all → **AC-6**
+- [x] Sign in as a caller with zero skills and zero work history → search → the plain unscored list renders plus `Add your skills or work experience to your profile…` with `your profile` linking to `/profile`; no band, no pending indicator, no scoring copy anywhere → **AC-7**
+- [x] Add one skill and nothing else to that same profile → search again → every card is scored normally → **AC-7**
+- [x] Visit `/` → the "What's real today" card lists `ranked results with reasoning` under **working**, and `a no sign in demo account` is the only thing left under **planned** → **AC-15**
 - [ ] Read the whole scored page as a reader who has never seen it → no band, badge, or sentence claims the posting requires something the visible excerpt does not actually say → **AC-4**, **AC-12**
 
 ## Commands
 
-- [ ] `pnpm test` → the unit suite passes, including `src/features/scoring/rubric.test.ts` (the anchors, the truncation caveat, the untrusted text instructions, the post-parse filter) → **AC-1**, **AC-4**, **AC-5**, **AC-12**, **AC-13**
+- [x] `pnpm test` → the unit suite passes, including `src/features/scoring/rubric.test.ts` (the anchors, the truncation caveat, the untrusted text instructions, the post-parse filter) → **AC-1**, **AC-4**, **AC-5**, **AC-12**, **AC-13**
 - [ ] `TEST_LIVE_MODEL_CALLS_ENABLED=true pnpm test:integration -t "real vendor"` → `test/integration/fit-scoring-live.test.ts` passes against OpenAI, proving the wire schema is one the vendor's structured output mode actually accepts and that the band comes back as one of the five → **AC-1**, **AC-3**
-- [ ] Read `usage_gate_counter` for `ai_scoring` through `test/helpers/database.ts` immediately before and after a search made by a caller with zero skills and zero work history → the count is unchanged → **AC-7**
-- [ ] Read the same counter before and after a scored search of 20 listings → it rose by exactly 20, never by 1 and never by more → **AC-3**, **AC-8**
+- [x] Read `usage_gate_counter` for `ai_scoring` through `test/helpers/database.ts` immediately before and after a search made by a caller with zero skills and zero work history → the count is unchanged → **AC-7**
+- [x] Read the same counter before and after a scored search of 20 listings → it rose by exactly 20, never by 1 and never by more → **AC-3**, **AC-8**
 - [ ] In Sentry, open one `/search` transaction for a scored render → exactly one `scoring.score_listings` span, carrying `listings`, `scored`, `refused` and `failed`, with `scored + refused + failed` equal to `listings` → **AC-14**
 - [ ] In that same transaction → the `ai.call_tier` spans overlap in time rather than running end to end in sequence → **AC-8**
-- [ ] Zero the `ai_scoring` `usage_cap` row for a test account, then search → one page level sentence from `SENTENCES` appears above the list, no card shows `Could not score this listing right now.`, and no band renders → **AC-11**
-- [ ] With the cap zeroed, confirm `usage_gate_counter` did not rise → a refused call never reaches the vendor → **AC-11**
-- [ ] Point `OPENAI_API_KEY` at an invalid value and search → every card shows `Could not score this listing right now.`, the page shows no cap notice, and the failure sentence is visibly different from the refusal sentence above → **AC-10**
-- [ ] `pnpm test -t "keyboard focus across the reveal"` → the two placement tests pass → `FocusRecorder` is rendered outside the `<Suspense>` boundary and `FocusRestorer` inside it. **This is the half of AC-17 a test here can hold**: swapping the two would still render, still typecheck and still look right in review, and the only symptom would be that focus is silently never restored
-- [ ] `pnpm test src/features/search/focus-key.test.ts src/features/search/focus-keeper.test.ts` → the key follows the listing rather than its position in the list, and the restore declines to act while a live element holds focus → **AC-17**, rules 1 and 2
-- [ ] `pnpm test -t "30 day retention"` → `src/lib/ai/tiers.test.ts` asserts `ai_scoring` carries `store: false` → the retention opt out is in the tier config
+- [x] Zero the `ai_scoring` `usage_cap` row for a test account, then search → one page level sentence from `SENTENCES` appears above the list, no card shows `Could not score this listing right now.`, and no band renders → **AC-11**
+- [x] With the cap zeroed, confirm `usage_gate_counter` did not rise → a refused call never reaches the vendor → **AC-11**
+- [x] Point `OPENAI_API_KEY` at an invalid value and search → every card shows `Could not score this listing right now.`, the page shows no cap notice, and the failure sentence is visibly different from the refusal sentence above → **AC-10**
+- [x] `pnpm test -t "keyboard focus across the reveal"` → the two placement tests pass → `FocusRecorder` is rendered outside the `<Suspense>` boundary and `FocusRestorer` inside it. **This is the half of AC-17 a test here can hold**: swapping the two would still render, still typecheck and still look right in review, and the only symptom would be that focus is silently never restored
+- [x] `pnpm test src/features/search/focus-key.test.ts src/features/search/focus-keeper.test.ts` → the key follows the listing rather than its position in the list, and the restore declines to act while a live element holds focus → **AC-17**, rules 1 and 2
+- [x] `pnpm test -t "30 day retention"` → `src/lib/ai/tiers.test.ts` asserts `ai_scoring` carries `store: false` → the retention opt out is in the tier config
 - [ ] **The step above proves the config, not the wire.** After a real scored search (or a `TEST_LIVE_MODEL_CALLS_ENABLED` run), open the OpenAI dashboard's Logs view for the same period → the scoring requests do **not** appear there with a stored request and response body. A stored generation is exactly what shows up in that view, so its absence is the observable form of `store: false` actually reaching OpenAI rather than being dropped between `tiers.ts` and the request. This is the only check that would catch the provider silently not forwarding the option.
 
 ## Value sourcing
@@ -71,12 +71,12 @@ _One step per row of spec 0015's Value sourcing table, so each value's SOURCE is
 - [ ] Score the same listing against two different profiles → the band, the matched skills and the reasoning all change → the score comes from the caller's own profile, not from the listing alone
 - [ ] Sign in as user A, search, note a band; sign in as user B with a different profile and search the same terms → B never sees A's score → the profile scored is always the caller's own, through `readOwnProfile()`
 - [ ] Add a skill to `/profile` that no posting mentions, then search → it can appear under "Not mentioned in this posting" but never under "Matched in this posting" on a card whose text does not contain it
-- [ ] Rename a skill in `/profile` (delete plus re-add with different capitalisation) → the card renders the NEW spelling, proving the displayed name comes from the caller's row rather than from the model's echo
+- [x] Rename a skill in `/profile` (delete plus re-add with different capitalisation) → the card renders the NEW spelling, proving the displayed name comes from the caller's row rather than from the model's echo
 - [ ] Give a profile more than 50 skills and more than 5 work history entries → the scoring still succeeds and the reasoning references only recent roles → the prompt is bounded by `boundProfile()`, not by the row count
 - [ ] Set a `minimum_pay` well above every listing's salary, and `remote_preference` to `remote`, then search on site listings → bands still reflect skills and experience; a preference mismatch alone never pushes a listing down a band → the band's source is skills and experience only
 - [ ] Break the profile read (stop the database mid render, or point at a bad key) → the page shows `We couldn't read your profile just now…` rather than the "add your skills" sentence, and still renders the results → a failed read never borrows the thin profile's meaning
 - [ ] After the one time re-sort, confirm each card's band, skills and reasoning still belong to the job title above them → outcomes are paired by `sourceJobId`, never by array position
-- [ ] Reload a scored `/search` twice → the counter rises by 20 each time → scores are never cached, which is the cost spec 0015's Consequences records
+- [x] Reload a scored `/search` twice → the counter rises by 20 each time → scores are never cached, which is the cost spec 0015's Consequences records
 
 ## Acceptance-criteria coverage
 
