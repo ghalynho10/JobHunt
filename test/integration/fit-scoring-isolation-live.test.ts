@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   BANDS,
@@ -199,9 +199,47 @@ const clashingProfile: ScoringProfile = {
   },
 };
 
+/**
+ * The same posting judged by somebody it does not suit at all.
+ *
+ * NO SKILL IN COMMON WITH `baseProfile`, on purpose: the two answers then have
+ * to be reached from the profiles rather than from any overlap between them.
+ */
+const frontendProfile: ScoringProfile = {
+  summary: "Front end engineer, eight years, design systems and accessibility.",
+  skills: ["React", "CSS", "Figma", "Accessibility", "Storybook"],
+  experience: [
+    {
+      title: "Senior Front End Engineer",
+      company: "Contoso Design",
+      startedOn: "2018-01-01",
+      endedOn: undefined,
+      description:
+        "Owned the design system: React components, CSS architecture, WCAG audits.",
+    },
+  ],
+  preferences: undefined,
+};
+
 describe.skipIf(!liveModelCallsEnabled())(
   "stated preferences never move the band (spec 0015, key invariant)",
   () => {
+    /**
+     * ONE ACCOUNT FOR THE TWO TESTS BELOW THAT SHARE IT. `scoreListing()`
+     * needs a real session for the usage gate whichever profile it is handed,
+     * and these profiles are passed as plain objects rather than read from the
+     * database, so nothing here writes rows one test could leak to another.
+     * Minting once keeps the fixture user count down and the gate's own
+     * counters readable.
+     */
+    let sharedJar: CookieJar;
+
+    beforeAll(async () => {
+      const user = await mintFixtureUser("scoring-live-shared");
+      mintedUserIds.push(user.id);
+      sharedJar = (await mintSession(user.email)).jar;
+    });
+
     it("bands the same posting no lower for a profile whose preferences it fails", async () => {
       /**
        * `verify.md` line 76, and the pair `rubric.ts` says does not exist yet.
@@ -265,6 +303,99 @@ describe.skipIf(!liveModelCallsEnabled())(
        * and that is directional.
        */
       expect(bandRank(clashingBand)).toBeLessThanOrEqual(bandRank(neutralBand));
+    });
+
+    it("bands the same posting differently for two genuinely different people", async () => {
+      /**
+       * `verify.md` line 71: the score comes from the caller's own profile, not
+       * from the listing alone.
+       *
+       * THE BAND IS THE ASSERTION, AND `matchedSkills` DELIBERATELY IS NOT.
+       * Comparing the two `matchedSkills` lists looks like the obvious check
+       * and proves nothing: `normalizeFitScore()` filters each answer to that
+       * caller's own skill names, so two profiles with no skills in common
+       * come back with disjoint lists whatever the model said, or even if it
+       * said nothing at all. The band is the only field here that the profile
+       * can move and the filter cannot fake.
+       *
+       * ASSERTED AS A DIRECTION, NOT A PAIR OF VALUES. Pinning "backend gets
+       * strong_match" would be an eval written as a unit test, flaky and
+       * evidence for nothing. That a backend heavy posting bands a backend
+       * profile ABOVE a pure frontend one is the claim worth holding, and it
+       * fails loudly if scoring ever stops reading the profile.
+       */
+      const [backend, frontend] = await Promise.all([
+        scoreListing(baseProfile, listing, sharedJar),
+        scoreListing(frontendProfile, listing, sharedJar),
+      ]);
+
+      if (isFailure(backend) || isFailure(frontend)) {
+        throw new Error("Expected two decisions, got a failure.");
+      }
+
+      if (!backend.value.allowed || !frontend.value.allowed) {
+        throw new Error("Expected both calls to be allowed by the gate.");
+      }
+
+      const backendBand = backend.value.value.band;
+      const frontendBand = frontend.value.value.band;
+
+      /** Lower is better, so the backend profile must rank strictly higher. */
+      expect(bandRank(backendBand)).toBeLessThan(bandRank(frontendBand));
+
+      /** And each answer only ever names skills its own caller actually has. */
+      for (const name of backend.value.value.matchedSkills) {
+        expect(baseProfile.skills).toContain(name);
+      }
+      for (const name of frontend.value.value.matchedSkills) {
+        expect(frontendProfile.skills).toContain(name);
+      }
+    });
+
+    it("never matches a skill the posting's visible text does not contain (AC-5)", async () => {
+      /**
+       * `verify.md` line 73. `Terraform` is on the profile and appears nowhere
+       * in this listing's title or description, which is checked below rather
+       * than asserted from memory, so the fixture cannot drift out from under
+       * the test.
+       *
+       * ONLY THE "NEVER MATCHED" HALF IS ASSERTED, because only that half is a
+       * rule. `verify.md` says the skill "can appear" under not mentioned, and
+       * that list is filtered by relevance on purpose, so a posting that would
+       * not value it legitimately omits it (confirmed by the engineer on
+       * 2026-09-07 against a Kubernetes posting that correctly left React
+       * out). Asserting its presence would make the test fail on correct
+       * behaviour.
+       *
+       * THE GENERALISATION IS THE STRONGER GUARD. Every matched name is
+       * required to actually occur in the text the model was shown, which is
+       * what AC-5 claims and what a reader believes when they see the chip.
+       */
+      const absent = "Terraform";
+      const visibleText =
+        `${listing.title} ${listing.descriptionSnippet ?? ""}`.toLowerCase();
+
+      expect(baseProfile.skills).toContain(absent);
+      expect(visibleText).not.toContain(absent.toLowerCase());
+
+      const result = await scoreListing(baseProfile, listing, sharedJar);
+
+      if (isFailure(result) || !result.value.allowed) {
+        throw new Error("Expected an allowed score.");
+      }
+
+      const { matchedSkills, notMentionedSkills } = result.value.value;
+
+      expect(matchedSkills).not.toContain(absent);
+
+      for (const name of matchedSkills) {
+        expect(visibleText).toContain(name.toLowerCase());
+      }
+
+      /** Whichever list it landed in, it is still one of the caller's own. */
+      for (const name of [...matchedSkills, ...notMentionedSkills]) {
+        expect(baseProfile.skills).toContain(name);
+      }
     });
   },
 );

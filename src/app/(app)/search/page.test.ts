@@ -720,6 +720,51 @@ describe("ranking the resolved outcomes (AC-9)", () => {
     ]);
   });
 
+  it("keeps each card's own band and reasoning with its own job after the re-sort", async () => {
+    /**
+     * `verify.md` line 78, and the half the two ordering tests above do NOT
+     * hold. They read titles only, so they prove the LIST moved correctly and
+     * say nothing about whether each card still renders its own outcome. A
+     * pairing that survived the sort as an order while attaching the wrong
+     * band to the wrong job would satisfy both of them.
+     *
+     * ASSERTED PER LIST ITEM, not against the whole page. Checking that the
+     * page text contains "Strong match" somewhere passes no matter which card
+     * it landed on, which is exactly the defect this exists to catch: the
+     * reader is told a specific job is a strong match, and there is no visible
+     * difference between that being true and it belonging to the job below.
+     *
+     * The outcomes are constructed rather than scored, which is legitimate
+     * here: what is under test is the pure pairing and sorting logic in
+     * `ScoredResults`, so real model output would add cost and
+     * nondeterminism while proving nothing extra about it.
+     */
+    scoreListings.mockResolvedValue([
+      scoreOf("weak_match"),
+      scoreOf("strong_match"),
+    ]);
+
+    const cards = flatten((await render({ q: "engineer" })) as never)
+      .filter((element) => element.type === "li")
+      .map((element) => textOf(element));
+
+    expect(cards).toHaveLength(2);
+
+    /** The sort moved Second Job to the top; its own band came with it. */
+    expect(cards[0]).toContain("Second Job");
+    expect(cards[0]).toContain("Strong match");
+    expect(cards[0]).toContain("reasoning for strong_match");
+
+    /** And First Job kept its own, rather than inheriting its neighbour's. */
+    expect(cards[1]).toContain("First Job");
+    expect(cards[1]).toContain("Weak match");
+    expect(cards[1]).toContain("reasoning for weak_match");
+
+    /** Neither card carries any part of the other's outcome. */
+    expect(cards[0]).not.toContain("reasoning for weak_match");
+    expect(cards[1]).not.toContain("reasoning for strong_match");
+  });
+
   it("announces the one time re-sort (AC-16, COPY-7)", async () => {
     scoreListings.mockResolvedValue([
       scoreOf("good_match"),
