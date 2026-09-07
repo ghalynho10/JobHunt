@@ -60,6 +60,52 @@ The remaining design choices in this spec (five bands, the profile input bounds,
 
 One of those, the sort once behavior, has a real alternative worth naming here since it was weighed against a materially different design, not just a variant of the same one: per card streaming, where each card renders its own band the moment its own `ai_scoring` call resolves, with no shared barrier and no single visible reorder. That alternative removes the up to 30 second worst case wait Consequences names, at the cost of the list visibly shuffling under the reader as different cards resolve out of order, and it does not deliver a genuinely ranked view, since most cards would still be unscored at first paint. The engineer chose the one time reorder specifically because scope.md's own Done-when clause and the entry page's "ranked results with reasoning" claim (spec 0006, AC-8, moved to working by AC-15) call for a real ranked list, not a list that merely acquires badges over time.
 
+## How the ranked list reveals without losing keyboard focus
+
+_Added 2026-09-06, after `/check verify` drove the running app and found AC-16's focus clause failing. This is a second decision inside the same spec, not a revision of the one above: the ranking design is unchanged, only how it arrives._
+
+**The evidence, first, because it is what makes this a decision rather than a preference.** A focus probe in a real browser tabbed into a "View the posting" link while all twenty cards were still pending (`aria-busy="true"`), then waited out the reveal. Afterwards the probed element was gone from the document and `document.activeElement` was `<body>`. The list first paints at roughly 1.8 seconds and the ranking arrives at roughly 14, so the window in which a reader can be holding a control that is about to be destroyed is about twelve seconds long, on every scored search. Nothing in the code was trying to prevent this; the original AC simply assumed a reveal could keep focus.
+
+**Option A: restore focus with a small client component. CHOSEN.**
+
+**Pros**:
+- The DOM ends up in genuinely ranked order, so the visual order, the reading order, and the tab order all agree. Every other option breaks at least one of those three.
+- Keyboard and screen reader readers end up on the control they were already using, which is the outcome AC-16 was always trying to describe.
+- The mechanism is small and has one job: it reads the active element, and calls `.focus()` at most once per reveal.
+
+**Cons**:
+- Adds the second client component to `/search`, and unlike the first it is not forced by a budget cost (see Consequences).
+- Focus is restored rather than preserved, so there is a real, brief moment on the body between the two.
+- Focus during the pre hydration window is not recorded, so that reader lands on the fallback target instead of their exact control.
+
+**Option B: reorder visually with CSS `order`, never removing a node.**
+
+**Pros**:
+- Zero client JavaScript, and focus survives with no mechanism at all, because nothing is ever removed.
+- Simplest possible implementation once the ranks are known.
+
+**Cons**:
+- CSS `order` changes paint order only. The DOM order, and therefore the screen reader reading order and the tab order, stay in Adzuna's sequence. A sighted reader sees a ranked list; a screen reader user is read an unranked one, and a keyboard user tabs through it in the unranked order while looking at the ranked one.
+- That is a WCAG 2.2 failure on Meaningful Sequence and Focus Order, and it recreates the exact defect this session had just finished fixing elsewhere in this feature: the page asserting an order it does not actually have. Trading a keyboard defect for a screen reader defect is not a fix.
+
+**Option C: drop the re-sort, show bands in Adzuna's order.**
+
+**Pros**:
+- No focus problem, because nothing reorders. No new client code. The written reasoning and the bands are still shown.
+
+**Cons**:
+- Gives up the feature's headline. `scope.md`'s own Done-when calls for results that "spread across bands", spec 0006's entry page card now claims `ranked results with reasoning` under **working** (AC-15, moved on 2026-09-06), and AC-9 specifies the ranking directly. Removing it is a product decision far larger than the accessibility defect that prompted it.
+
+**Why A wins.** B and C each solve the focus defect by giving up something the feature already promised, and B gives it up specifically for the readers this criterion exists to protect. A is the only option that keeps the ranking real for everyone, and its cost is a property this page has already formally spent: spec 0013's Decision carries a **No longer true** amendment recording that `/search` no longer ships zero client JavaScript, and spec 0014's Consequences states that "the property is gone rather than reduced" (both read on 2026-09-06 while making this decision). The honest framing is that A grows a boundary that was already conceded, for an accessibility defect that is reproducible on every scored search, rather than breaking an intact guarantee for a nicety.
+
+**Why module level state rather than a React Context ref.** The recorder and the restorer do share an ancestor (the page renders both), so a Context holding a mutable ref would work and would reset naturally if that component ever remounted. Module state was picked because the value is written on every `focusin` and read once, and nothing should re render when it changes; a Context adds a provider and a boundary for a value no component ever renders. The cost of that choice is real and is what the 2026-09-06 cross check caught: module state outlives a client side navigation, so a key from one search can survive into the next. That is why AC-17 requires the restorer to consume and clear the key on every mount rather than leaving it to be overwritten. With that rule the two designs behave the same; without it, Context would have been the safer default.
+
+**What the AC-17 rules are actually protecting against**, since each came from asking how the mechanism could itself become the bug:
+- _Only when orphaned_: a restore that fires unconditionally would yank focus away from a reader who had moved to the search box during the wait. That is a worse defect than the one being fixed, and it is the classic way focus management goes wrong.
+- _Keyed, not positional_: the whole event is a reorder, so any position based target restores the reader to a different job than the one they were reading.
+- _A named fallback rather than the body_: the ranked list holds the same `sourceJobId` set as the pending list, so a missing key should be impossible; specifying the fallback anyway means an impossible case degrades to "you are at the top of the results" instead of silently to nothing.
+- _Brought into view_: a card can move from last to first, so restoring focus without scrolling would leave the focus ring off screen, which WCAG 2.2 added a criterion for.
+
 ## References
 
 **Project sources**:

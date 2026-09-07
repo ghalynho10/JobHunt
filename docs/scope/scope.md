@@ -281,12 +281,13 @@ _Owes the privacy notice two things, recorded from spec [0009](../specs/0009-ter
 _Adzuna's search response carries only a 500 character description snippet (verified directly against a recorded fixture, spec [0015](../specs/0015-fit-scoring-with-shown-reasoning/index.md) rationale), never the full posting. Spec 0015 decided to score the snippet honestly rather than fetch the full posting: `notMentionedSkills` replaces "missing skills" and is labeled as unconfirmed, not fetched and verified. The fetch option is parked in Deferred, not closed._
 
 - [x] Design it (spec): [0015](../specs/0015-fit-scoring-with-shown-reasoning/index.md)
-- [x] Build it: `/develop fit scoring with shown reasoning` · code in `src/features/scoring/`
+- [ ] Build it: `/develop fit scoring with shown reasoning` · code in `src/features/scoring/`
   - [x] Rubric, schema and prompt: the five band anchors, `fitScoreSchema`, the post-parse skill name filter, and the prompt builder handling the 500 character truncation caveat and a missing description (AC-1, AC-4, AC-5, AC-6, AC-12, AC-13, the anchor wording AC-2 is later measured against)
   - [x] `scoreListing()` and the thin end to end thread: the router call, `score-card.tsx`, and the zero skills and zero work experience gate wired into `/search` behind a Suspense boundary (AC-3, AC-7)
   - [x] Concurrent dispatch and ranking: `scoreListings()`, widening the Suspense boundary to all 20 listings, the one time sort by band, the per card failure state, and the page level cap reached notice (AC-8, AC-9, AC-10, AC-11, AC-14, AC-16)
   - [x] Tests: the critical test scenarios, the prompt builder's truncation unit test, and the thin profile gate
   - [x] Entry page: move `ranked results with reasoning` from `planned` to `working` (AC-15)
+  - [ ] Keyboard focus across the reveal: `focus-keeper.tsx`, the `data-focus-key` on both card controls, the list's `tabindex="-1"`, and the browser only proof (AC-16's focus half, AC-17). Added 2026-09-06 from spec 0015's amendment, after `/check verify` found the reveal dropping focus to the document body
 - [ ] Verify it: `/check verify fit scoring with shown reasoning`
 - [ ] Test it: `/test fit scoring with shown reasoning`
 - [ ] Review it (fresh model): `/check review fit scoring with shown reasoning`
