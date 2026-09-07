@@ -1,7 +1,7 @@
 # 0015. Fit scoring with shown reasoning
 
 **Date**: 2026-09-06
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
