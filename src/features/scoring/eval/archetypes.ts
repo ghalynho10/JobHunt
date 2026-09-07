@@ -90,4 +90,101 @@ export const ARCHETYPES: readonly EvalArchetype[] = [
       },
     },
   },
+  {
+    id: "severe-experience-gap",
+    label: "Very early career engineer, under a year",
+    description:
+      "Departs from the control on seniority alone. The named skills genuinely overlap a backend posting, but there is almost no ownership history behind any of them. This is the archetype the boundary pair runs against, because it isolates the one question the anchors never answer: how a severe experience shortfall should weigh against a real, named skill overlap.",
+    profile: {
+      summary:
+        "Recent computer science graduate, eight months into my first engineering job. I write Python for internal tooling, read and write basic SQL against our reporting database, and have deployed a couple of small services onto EC2 and S3 with a lot of guidance. I have not owned a service or a schema on my own yet.",
+      skills: ["Python", "Git", "AWS", "SQL"],
+      experience: [
+        {
+          title: "Associate Software Engineer",
+          company: "Cedarline Devices",
+          startedOn: "2026-01-05",
+          endedOn: undefined,
+          description:
+            "Write Python scripts that pull device telemetry into our reporting database and tidy it for the analytics team. Fixed bugs across the internal tools codebase. Deployed two small internal services to EC2 and S3, following runbooks a senior engineer wrote.",
+        },
+      ],
+      preferences: undefined,
+    },
+  },
+  {
+    id: "right-level-wrong-domain",
+    label: "Product analyst, four years",
+    description:
+      "Departs from the control on domain alone, at the same career stage. Because the seniority matches an ordinary mid level posting, a low band against a backend role here can only have come from skills and work history, never from level. That is what makes this archetype useful across four different bands.",
+    profile: {
+      summary:
+        "Product analyst with four years turning retail and marketplace data into decisions. I live in SQL and Tableau, design and read out A/B tests, and work directly with product managers and designers on what to measure. I sketch in Figma and run user research sessions when the numbers stop explaining a behaviour.",
+      skills: [
+        "SQL",
+        "Tableau",
+        "A/B testing",
+        "Product analytics",
+        "Figma",
+        "User research",
+      ],
+      experience: [
+        {
+          title: "Senior Product Analyst",
+          company: "Hollowmere Retail",
+          startedOn: "2024-06-01",
+          endedOn: undefined,
+          description:
+            "Own analytics for the checkout and returns experience. Design the A/B tests, write the SQL behind them, and present the readouts to product and merchandising. Built the Tableau dashboards the weekly trading meeting now runs from.",
+        },
+        {
+          title: "Product Analyst",
+          company: "Fennimore Group",
+          startedOn: "2022-05-01",
+          endedOn: "2024-05-01",
+          description:
+            "Reporting and experiment analysis for a marketplace product. Wrote the SQL for most of the team's recurring reports, ran moderated user research sessions, and worked in Figma with designers on what a redesign would need to prove.",
+        },
+      ],
+      preferences: undefined,
+    },
+  },
+  {
+    id: "adjacent-insufficient-depth",
+    label: "Frontend engineer, three years",
+    description:
+      "Departs from the control on depth rather than on domain or level. This is a real software engineer at the control's own career stage, so a small part of any backend posting genuinely carries over, which is exactly the shape weak_match's own wording describes and the reason this archetype exists.",
+    profile: {
+      summary:
+        "Frontend engineer, three years, building component libraries and product interfaces in React and TypeScript. I care a lot about accessibility and have led two audits to WCAG AA. I write Node scripts for build tooling, but I have never built or run a backend service and have not worked with a database directly.",
+      skills: [
+        "React",
+        "TypeScript",
+        "CSS",
+        "Accessibility",
+        "Component design",
+        "Node.js",
+        "Git",
+      ],
+      experience: [
+        {
+          title: "Frontend Engineer",
+          company: "Millhaven Studio",
+          startedOn: "2024-02-01",
+          endedOn: undefined,
+          description:
+            "Own the shared component library the product teams build from: React and TypeScript, documented states, and the accessibility work that took it to WCAG AA. Write the Node scripts that build and publish it.",
+        },
+        {
+          title: "Junior Frontend Engineer",
+          company: "Aldergate Interactive",
+          startedOn: "2023-01-09",
+          endedOn: "2024-01-31",
+          description:
+            "Built marketing and product pages in React, converted designs into reusable components, and fixed the keyboard and screen reader defects our first accessibility audit found.",
+        },
+      ],
+      preferences: undefined,
+    },
+  },
 ];
