@@ -238,4 +238,123 @@ export const PAIRS: readonly GroundTruthPair[] = [
     rationale:
       "React, TypeScript, CSS, component design, accessibility to WCAG AA and Node build tooling are every named ask in the visible posting, and all six are the archetype's own work at the two to four years stated. Nothing here is a stretch, which is strong_match.",
   },
+
+  /**
+   * The one pair the anchor text cannot settle on its own (AC-3).
+   *
+   * `BAND_ANCHORS` NAMES A SENIORITY EXPECTATION ONLY INSIDE `strong_match`.
+   * It says nothing anywhere about how a severe experience shortfall should
+   * weigh against a genuinely overlapping named skill, which is exactly the
+   * question this pair asks. `weak_match` ("only a small part carries over")
+   * and `not_a_match` ("do not carry over in any substantial way") are both
+   * defensible readings of the same text, so the pair carries a real range
+   * rather than asserting one invented answer. Spec 0016's Follow up hands the
+   * gap to spec 0015 to close on purpose.
+   */
+  {
+    id: "boundary-seniority-gap",
+    archetypeId: "severe-experience-gap",
+    listing: posting({
+      sourceJobId: "gt-012",
+      title: "Staff Backend Engineer",
+      companyName: "Ellery Grid",
+      location: "Remote",
+      descriptionSnippet:
+        "Staff Backend Engineer to set technical direction across our billing platform. Our stack is Python, Go and PostgreSQL. You will own the architecture of systems several teams depend on, lead multi quarter migrations, mentor senior engineers, and be the person accountable when a design decision proves wrong two years later. Eight or more years of professional experience, with deep systems ownership and a track record of technical leadership, is required for this role.",
+    }),
+    expectedBand: "not_a_match",
+    acceptableBands: ["weak_match", "not_a_match"],
+    tags: ["boundary"],
+    rationale:
+      "Python is genuinely named in the visible posting and is genuinely one of the archetype's skills, so the overlap is real rather than nominal. Everything else the posting asks for, architecture ownership, leading migrations, mentoring senior engineers, eight or more years, is absent from a history of eight months and no independent ownership. BAND_ANCHORS states no seniority rule outside strong_match, so it cannot say whether one real skill against that shortfall is weak_match's small part carrying over or not_a_match's no substantial carry over. Both readings are honest, so both are accepted and not_a_match is recorded as the better one. This is a gap in the anchors, handed to spec 0015 in spec 0016's Follow up, not a settled fact.",
+  },
+
+  /**
+   * The preference isolation pair (AC-4).
+   *
+   * THE TWO POSTINGS BELOW STATE THEIR SKILL AND EXPERIENCE REQUIREMENTS IN
+   * IDENTICAL WORDS, on purpose. Everything that could move a band under spec
+   * 0015's own instruction is held constant; the only differences are the
+   * location, the on site or remote language, and the pay figure, and each of
+   * those three contradicts one of `direct-fit-control`'s three stated
+   * preferences. Both pairs therefore carry the same `expectedBand`.
+   *
+   * A HARNESS RUN SCORING THEM DIFFERENTLY IS THE EVIDENCE, and it is the only
+   * structural evidence available. Spec 0015 excludes preferences from the band
+   * by written instruction alone; nothing in the schema enforces it, and
+   * `rubric.ts` says so itself. This pair is what spec 0015's own Follow up
+   * asked feature 15 for.
+   *
+   * THE PAY CONFLICT LIVES IN THE DESCRIPTION TEXT, NEVER IN `salaryMin`.
+   * `buildScoringPrompt()` sends four listing fields and the salary fields are
+   * not among them, so a figure written into `salaryMin` would be invisible to
+   * the model and the pair would test nothing.
+   */
+  {
+    id: "preference-match",
+    archetypeId: "direct-fit-control",
+    listing: posting({
+      sourceJobId: "gt-013",
+      title: "Backend Engineer",
+      companyName: "Wrenfield Systems",
+      location: "Remote",
+      descriptionSnippet:
+        "Backend Engineer to build and run the Python services behind our reporting platform. You will own ingestion pipelines (Airflow), design and evolve our PostgreSQL schemas, and maintain the REST APIs our web client reads. Everything ships in Docker on AWS. Two to four years of professional backend experience. This role is fully remote and you may be based anywhere in the US. The salary range for this position is $130,000 to $150,000.",
+    }),
+    expectedBand: "strong_match",
+    tags: ["preference-isolation"],
+    rationale:
+      "The baseline half of the isolation pair. The skills and work history cover essentially everything the visible posting asks for at the stated seniority, which is strong_match. The posting also happens to agree with all three of the archetype's stated preferences: remote, based anywhere, and pay above its stated minimum of 120000 USD.",
+  },
+  {
+    id: "preference-violation",
+    archetypeId: "direct-fit-control",
+    listing: posting({
+      sourceJobId: "gt-014",
+      title: "Backend Engineer",
+      companyName: "Wrenfield Systems",
+      location: "Chicago, IL",
+      descriptionSnippet:
+        "Backend Engineer to build and run the Python services behind our reporting platform. You will own ingestion pipelines (Airflow), design and evolve our PostgreSQL schemas, and maintain the REST APIs our web client reads. Everything ships in Docker on AWS. Two to four years of professional backend experience. This role is on site in our Chicago office five days a week, with no remote option. The salary for this position is $95,000.",
+    }),
+    expectedBand: "strong_match",
+    tags: ["preference-isolation"],
+    rationale:
+      "Word for word the same skill and experience requirements as preference-match, so by the anchors alone this is the same strong_match. All three of the archetype's stated preferences are now contradicted at once: Chicago is not among its desired locations, five days on site contradicts its remote preference, and 95000 is below its stated 120000 minimum. Spec 0015's instruction says none of that may move the band. If a run scores this below preference-match, a preference moved it.",
+  },
+
+  /**
+   * The stability probe (AC-5).
+   *
+   * THIS PAIR DOES NOT ASSERT A CONFIDENT BAND, AND THAT IS ITS POINT. Spec
+   * 0015's Follow up recorded this exact input shape, a real Adzuna excerpt at
+   * the length ceiling naming no concrete requirement, scoring strong_match
+   * three times and possible_match six times inside a single render on
+   * 2026-09-06. The pair exists so feature 16 can watch how far this shape
+   * moves across repeated runs, not so a single run can be marked right.
+   *
+   * THE LENGTH MATTERS AS MUCH AS THE ELLIPSIS. Written near the 500 character
+   * ceiling rather than as a short snippet with a decorative ellipsis stuck on,
+   * so `buildScoringPrompt()`'s own claim to the model, "this is the first 500
+   * characters of a longer description", is actually true of this fixture. A
+   * short snippet ending in U+2026 would reach the same branch while making the
+   * prompt say something false about the text beneath it.
+   */
+  {
+    id: "stability-probe-generic",
+    archetypeId: "direct-fit-control",
+    listing: posting({
+      sourceJobId: "gt-015",
+      title: "Software Engineer",
+      companyName: "Perrimore Group",
+      location: "Remote",
+      descriptionSnippet:
+        "At Perrimore Group we believe the best products come from people who are trusted to do their best work. Over the last decade we have built a culture we are proud of: we move quickly, we care about the people we serve, and we look after each other through every stage of growth. We offer a generous benefits package, a real commitment to balance outside work, and colleagues who make a hard week lighter. If this sounds like the kind of place you have been looking for, join our growing team and…",
+    }),
+    expectedBand: "possible_match",
+    acceptableBands: ["strong_match", "possible_match"],
+    tags: ["stability-probe"],
+    rationale:
+      "There is no concrete skill, technology, or seniority requirement anywhere in the visible text, so no anchor can be applied to it honestly. The two accepted bands are not a reading of BAND_ANCHORS at all: they are the two bands this exact input shape was actually observed producing on 2026-09-06, recorded in spec 0015's Follow up. Feature 16 should treat this pair as a variance measurement across reruns rather than as an ordinary accuracy check, which spec 0016 leaves to feature 16's own spec to decide.",
+  },
 ];

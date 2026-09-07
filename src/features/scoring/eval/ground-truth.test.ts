@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { Listing } from "@/features/search/adzuna";
+import { ADZUNA_SNIPPET_CHARACTERS, BANDS } from "../rubric";
 
+import { ARCHETYPES } from "./archetypes";
 import {
   validateGroundTruth,
   type EvalArchetype,
   type GroundTruthIssue,
   type GroundTruthPair,
 } from "./ground-truth";
+import { PAIRS } from "./pairs";
 
 /**
  * The ground truth set's guard test (spec 0016, AC-8).
@@ -264,5 +267,161 @@ describe("validateGroundTruth", () => {
     );
 
     expect(kinds(issues)).toEqual(["stability-probe-not-truncated"]);
+  });
+});
+
+/**
+ * The committed set itself (AC-1, AC-2, AC-8).
+ *
+ * THIS BLOCK IS THE WEAKER HALF ON PURPOSE, and it only means anything because
+ * the block above proves the checks fire. On its own, "the real data returns no
+ * issues" would pass against a validator that had quietly stopped checking
+ * anything at all.
+ *
+ * WHAT IT ADDS THAT THE VALIDATOR CANNOT. `validateGroundTruth()` checks
+ * invariants a harness run depends on; the counts and the AC-1 privacy rule
+ * below are authoring commitments no pure function can read off the data. An
+ * edit that dropped an archetype or narrowed the set would leave every
+ * invariant intact and still break what the spec promised.
+ */
+describe("the committed ground truth set", () => {
+  it("has no issues", () => {
+    expect(validateGroundTruth(ARCHETYPES, PAIRS)).toEqual([]);
+  });
+
+  it("holds at least the four archetypes and fifteen pairs AC-1 and AC-2 sized", () => {
+    expect(ARCHETYPES.length).toBeGreaterThanOrEqual(4);
+    expect(PAIRS.length).toBeGreaterThanOrEqual(15);
+  });
+
+  /**
+   * Spec 0015's AC-7 gate. An archetype with neither a skill nor a work history
+   * entry is refused before scoring, so it could never produce a usable pair
+   * and would sit in the set looking fine.
+   */
+  it("gives every archetype at least one skill or one work history entry", () => {
+    for (const archetype of ARCHETYPES) {
+      expect(
+        archetype.profile.skills.length + archetype.profile.experience.length,
+        `${archetype.id} clears spec 0015's AC-7 scoring gate`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * AC-2's stronger half, which `validateGroundTruth()`'s coverage check
+   * deliberately does not assert: every band must be reachable by at least one
+   * pair whose expectation is exact. A set where a band existed only inside
+   * some other pair's widened tolerance would pass the validator while never
+   * measuring that band against a confident answer.
+   */
+  it("covers every band with at least one exact expectation", () => {
+    const exact = new Set(PAIRS.map((pair) => pair.expectedBand));
+
+    for (const band of BANDS) {
+      expect(exact, `${band} has a pair that expects it exactly`).toContain(
+        band,
+      );
+    }
+  });
+
+  /**
+   * AC-4's own structure, which no invariant in the validator can see. The two
+   * isolation pairs are only evidence if their skill and experience wording is
+   * genuinely identical: if the requirements differ at all, a band that moves
+   * between them has an innocent explanation and proves nothing about
+   * preferences leaking.
+   */
+  it("states identical requirements across the two preference isolation pairs", () => {
+    const isolation = PAIRS.filter((pair) =>
+      pair.tags.includes("preference-isolation"),
+    );
+
+    expect(isolation.length).toBe(2);
+
+    const [baseline, violation] = isolation;
+    const requirements = (pair: GroundTruthPair | undefined): string =>
+      pair?.listing.descriptionSnippet?.split(
+        "Two to four years of professional backend experience.",
+      )[0] ?? "";
+
+    expect(requirements(baseline)).toBe(requirements(violation));
+    expect(requirements(baseline)).not.toBe("");
+
+    /** Both must expect the same band, or the pair asserts nothing. */
+    expect(baseline?.expectedBand).toBe(violation?.expectedBand);
+
+    /** And the postings must really differ, or nothing is being isolated. */
+    expect(baseline?.listing.descriptionSnippet).not.toBe(
+      violation?.listing.descriptionSnippet,
+    );
+    expect(baseline?.listing.location).not.toBe(violation?.listing.location);
+  });
+
+  /**
+   * AC-5's length half. The ellipsis alone is checked by the validator; the
+   * near full length is what makes `buildScoringPrompt()`'s own claim to the
+   * model, "this is the first 500 characters of a longer description", true of
+   * this fixture rather than a short snippet wearing a decorative ellipsis.
+   */
+  it("writes the stability probe close to the Adzuna length ceiling", () => {
+    const probes = PAIRS.filter((pair) =>
+      pair.tags.includes("stability-probe"),
+    );
+
+    expect(probes.length).toBeGreaterThan(0);
+
+    for (const probe of probes) {
+      const length = probe.listing.descriptionSnippet?.length ?? 0;
+
+      expect(
+        length,
+        `${probe.id} is authored near the ${ADZUNA_SNIPPET_CHARACTERS} character ceiling`,
+      ).toBeGreaterThan(ADZUNA_SNIPPET_CHARACTERS - 50);
+      expect(length).toBeLessThanOrEqual(ADZUNA_SNIPPET_CHARACTERS);
+    }
+  });
+
+  /**
+   * AC-5's other half: a probe whose text named a concrete requirement would
+   * stop being a probe of the "no requirement stated" shape spec 0015 observed
+   * scoring inconsistently, and would quietly become an ordinary accuracy pair.
+   */
+  it("names no concrete requirement anywhere in the stability probe", () => {
+    const concrete =
+      /\b(python|java|typescript|react|sql|aws|kubernetes|docker|postgres|airflow|years|experience required|degree|certification)\b/i;
+
+    for (const probe of PAIRS.filter((pair) =>
+      pair.tags.includes("stability-probe"),
+    )) {
+      expect(
+        probe.listing.descriptionSnippet ?? "",
+        `${probe.id} states no concrete skill, technology or seniority requirement`,
+      ).not.toMatch(concrete);
+    }
+  });
+
+  /**
+   * AC-1's privacy rule, as far as a test can reach it. It cannot prove text is
+   * invented, but it can prove the one real name that would most plausibly slip
+   * in is absent: this repository's own author, whose real profile is the thing
+   * every archetype was written to avoid being. Everything here reaches OpenAI
+   * on every harness run, from a public repository.
+   */
+  it("carries no real employer or person this project could have leaked", () => {
+    const authored = JSON.stringify(ARCHETYPES).toLowerCase();
+
+    for (const name of [
+      "ghaly",
+      "jobhunt",
+      "adzuna",
+      "supabase",
+      "anthropic",
+    ]) {
+      expect(
+        authored,
+        `no real name "${name}" reached an archetype`,
+      ).not.toContain(name);
+    }
   });
 });
