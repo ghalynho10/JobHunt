@@ -329,8 +329,14 @@ export function boundProfile(
  * recorded fixture on 2026-09-06). Named here because the prompt states the
  * number out loud (AC-4) and a number written into prose drifts from the one
  * the truncation check uses.
+ *
+ * EXPORTED FOR SPEC 0016's `validateGroundTruth()` (AC-6), the truncation check
+ * this comment already anticipated. The eval set authors every
+ * `descriptionSnippet` by hand rather than fetching one, so nothing else stops
+ * a fixture claiming to be an Adzuna excerpt while running longer than Adzuna
+ * would ever return. That check has to read this number, not restate it.
  */
-const ADZUNA_SNIPPET_CHARACTERS = 500;
+export const ADZUNA_SNIPPET_CHARACTERS = 500;
 
 /**
  * The system instructions, identical for every listing (AC-1, AC-12).
