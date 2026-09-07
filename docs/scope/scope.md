@@ -290,7 +290,7 @@ _Adzuna's search response carries only a 500 character description snippet (veri
   - [x] Keyboard focus across the reveal: `focus-keeper.tsx`, the `data-focus-key` on both card controls, the list's `tabindex="-1"`, and the browser only steps written into `verify.md` for `/check verify` to run (AC-16's focus half, AC-17). Added 2026-09-06 from spec 0015's amendment, after `/check verify` found the reveal dropping focus to the document body
 - [ ] Verify it: `/check verify fit scoring with shown reasoning`
 - [x] Test it: `/test fit scoring with shown reasoning` · `focus-keeper.dom.test.tsx`, the project's first `jsdom` test (spec 0004's just in time rule), pinning AC-17's capture phase contract and its restore rules
-- [ ] Review it (fresh model): `/check review fit scoring with shown reasoning`
+- [x] Review it (fresh model): `/check review fit scoring with shown reasoning` · `docs/reviews/2026-09-07-feat-fit-scoring-with-shown-reasoning.md`, reviewed on Sonnet, verdict Approve with nits. Its one Major (`scoreListing()` reachable by no unit test) and its one Minor (`Button`'s `focusKey` with nothing proving `data-focus-key` rendered) are both closed by `c0f7d12` (the commit adding `src/features/scoring/score.test.ts` and the three branch assertions in `button.test.ts`), which also took the jsdom nit in `src/components/ui/AGENTS.md`. The findings file itself is left as the point in time record and says nothing about the fixes
 - [ ] Document it: `/document fit scoring with shown reasoning`
 
 ### 15. Eval ground truth set · needs a decision
