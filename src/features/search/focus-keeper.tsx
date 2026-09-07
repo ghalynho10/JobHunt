@@ -113,6 +113,22 @@ export function FocusRecorder(): undefined {
      * `focusin` RATHER THAN `focus`, because `focus` does not bubble and this
      * has to hear about controls that do not exist yet when the listener is
      * added.
+     *
+     * AND IT LISTENS IN THE CAPTURE PHASE, WHICH IS THE WHOLE REASON THIS
+     * WORKS AT ALL. React's selective hydration stops the propagation of an
+     * event whose target sits inside a Suspense boundary that has not resolved
+     * yet: it swallows the event and queues it to replay once that boundary
+     * hydrates. Every focus this component exists to record happens in exactly
+     * that state, inside the pending result list, so a bubble phase listener
+     * hears nothing at all and the reader's place is lost.
+     *
+     * MEASURED, NOT REASONED. On 2026-09-07, tabbing through a pending
+     * `/search`, a capture phase listener on `document` saw all nine focus
+     * events while a bubble phase listener on the same node saw only the first
+     * seven: the two that landed inside the pending list were missing, and a
+     * listener on the list itself saw nothing. The first version of this file
+     * listened in the bubble phase and recorded a key only after the reveal,
+     * which is the one moment it is no longer needed.
      */
     const record = (event: FocusEvent): void => {
       const target = event.target;
@@ -135,10 +151,15 @@ export function FocusRecorder(): undefined {
       memory.remember(key);
     };
 
-    document.addEventListener("focusin", record);
+    document.addEventListener("focusin", record, true);
 
     return () => {
-      document.removeEventListener("focusin", record);
+      /**
+       * THE `true` HAS TO MATCH THE ONE ABOVE. `removeEventListener` treats
+       * the capture flag as part of the listener's identity, so dropping it
+       * here would leave the listener attached for the life of the page.
+       */
+      document.removeEventListener("focusin", record, true);
     };
   }, []);
 
