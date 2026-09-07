@@ -53,3 +53,6 @@ next-env.d.ts
 # skills-lock.json, which stays tracked so the set is still recorded.
 /.agents/
 /.claude/
+
+# editor config, personal to a checkout rather than part of the product
+.vscode/
