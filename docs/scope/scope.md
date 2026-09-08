@@ -304,7 +304,7 @@ The authored content the harness needs and does not get for free: several realis
   - [x] The boundary pair (`acceptableBands`), the three preference isolation pairs (circumstances grouped, title isolated alone), and the stability probe pair (U+2026 truncation, its own guard check) (AC-3, AC-4, AC-5)
   - [x] Full coverage guard test across the complete sixteen pair set (AC-8)
 - [x] Verify it: `/check verify eval ground truth set` · PASS 2026-09-07, all 8 acceptance criteria met, 25 of 25 `verify.md` steps run and passed. Re verified the same day after AC-4 was amended to cover all four preference dimensions and `preference-title-conflict` was added
-- [ ] Test it: `/test eval ground truth set`
+- [x] Test it: `/test eval ground truth set` · `src/features/scoring/eval/prompt.test.ts`, 21 tests driving the real `buildScoringPrompt()` against the committed set, closing the gap that every AC-4 and AC-5 claim about the rendered prompt was proved by hand and locked by nothing. Each of the four behaviours broken on purpose after the commit hooks ran
 
 ### 16. Eval harness runner
 Run every ground truth pair against the current scoring configuration and report which fell outside their expected band. Run it whenever the scoring prompt or the model changes, so a swap is checked rather than hoped about.
