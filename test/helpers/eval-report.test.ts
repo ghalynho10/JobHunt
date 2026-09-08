@@ -3,6 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  buildEvalReport,
   formatReportTable,
   writeEvalReport,
   type EvalReport,
@@ -301,6 +302,149 @@ describe("formatReportTable, the preference leak line (covers AC-5)", () => {
     expect(table).toContain(
       "preference leak check: skipped, preference-match did not run.",
     );
+  });
+});
+
+/**
+ * The run's own assembly (spec 0017, AC-3, AC-8, AC-9).
+ *
+ * WHY THESE EXIST AT ALL. This logic used to sit inline in the `afterAll` of
+ * `test/eval/harness.test.ts`, which is the paid project: proving anything
+ * about it meant spending 80 vendor calls, so in practice nothing ever did, and
+ * the review on 2026-09-08 found a real defect living in exactly that gap.
+ * Pulled into `buildEvalReport()`, every branch is now free to drive, including
+ * the one no successful run ever reaches.
+ */
+function buildWith(
+  overrides: Partial<Parameters<typeof buildEvalReport>[0]> = {},
+): EvalReport {
+  return buildEvalReport({
+    startedAt: "2026-09-08T10:00:00.000Z",
+    finishedAt: "2026-09-08T10:02:03.456Z",
+    filter: null,
+    pairIds: ["control-direct-match", "control-one-gap"],
+    attempted: new Set<string>(),
+    verdicts: new Map(),
+    model: "some-model-id",
+    bandAnchorsHash: "abc123def456",
+    abortReason: undefined,
+    setupFailure: undefined,
+    preferenceLeak: { kind: "consistent", band: "strong_match" },
+    ...overrides,
+  });
+}
+
+describe("buildEvalReport, a setup that never finished (covers AC-9)", () => {
+  /**
+   * THE REGRESSION THIS FILE EXISTS FOR, found in review on 2026-09-08.
+   *
+   * Vitest runs `afterAll` even when `beforeAll` threw. Confirmed against the
+   * installed 4.1.11 with a scratch probe: the hook ran with nothing attempted
+   * while the runner reported every test skipped. The harness then wrote a
+   * report from its untouched defaults, `status: "completed"` with `filter:
+   * null` and all sixteen pairs listed `skipped`, which is a run that never
+   * started described as a full run that scored nothing. The terminal was
+   * honest (the exit code was non zero) while the file on disk, the artifact
+   * spec 0017 says people compare weeks later, was not.
+   */
+  it("never describes a run that never started as a completed one", () => {
+    const report = buildWith({
+      setupFailure: "The local Supabase stack is not running.",
+    });
+
+    expect(report.status).toBe("not-started");
+    expect(formatReportTable(report)).not.toContain("run completed");
+  });
+
+  /**
+   * `skipped` MEANS "THE FILTER EXCLUDED THIS PAIR" AND NOTHING ELSE. Listing
+   * every pair there on a run that never started says a full set was considered
+   * and filtered away, which is the same collapse of two different facts that
+   * `incomplete` was split out from `skipped` to prevent.
+   */
+  it("lists no pair as skipped, because none was ever considered", () => {
+    const report = buildWith({ setupFailure: "The mint failed." });
+
+    expect(report.skipped).toEqual([]);
+    expect(report.incomplete).toEqual([]);
+    expect(report.pairs).toEqual([]);
+  });
+
+  it("carries the reason setup failed, so the file says why", () => {
+    const report = buildWith({
+      setupFailure: "The committed ground truth set is invalid.",
+    });
+
+    expect(report.notStarted).toBe(
+      "The committed ground truth set is invalid.",
+    );
+  });
+
+  it("says the run never started, naming the cause, where it would say completed", () => {
+    const table = formatReportTable(
+      buildWith({ setupFailure: "The mint failed." }),
+    );
+
+    expect(table).toContain("RUN NOT STARTED: The mint failed.");
+    expect(table).not.toContain("inconclusive");
+  });
+
+  /**
+   * A setup failure outranks every other signal. Without this the two could
+   * disagree, and an abort reason left over from a previous concern would
+   * decide the status of a run that never began.
+   */
+  it("outranks an abort reason when both are somehow present", () => {
+    const report = buildWith({
+      setupFailure: "The mint failed.",
+      abortReason: "global_day_cap_reached",
+    });
+
+    expect(report.status).toBe("not-started");
+    expect(report.aborted).toBeUndefined();
+  });
+});
+
+describe("buildEvalReport, a run that did start (covers AC-3, AC-8)", () => {
+  it("marks a clean run completed, with no not-started reason on it", () => {
+    const report = buildWith({
+      attempted: new Set(["control-direct-match", "control-one-gap"]),
+      verdicts: new Map([
+        ["control-direct-match", passingVerdict],
+        ["control-one-gap", inconclusiveVerdict],
+      ]),
+    });
+
+    expect(report.status).toBe("completed");
+    expect(report.notStarted).toBeUndefined();
+    expect(report.pairs).toEqual([passingVerdict, inconclusiveVerdict]);
+  });
+
+  it("counts a pair the filter never reached as skipped", () => {
+    const report = buildWith({
+      attempted: new Set(["control-direct-match"]),
+      verdicts: new Map([["control-direct-match", passingVerdict]]),
+    });
+
+    expect(report.skipped).toEqual(["control-one-gap"]);
+    expect(report.incomplete).toEqual([]);
+  });
+
+  /**
+   * AC-3: a pair that started and produced no verdict was cut off, which is a
+   * different fact from one the filter excluded, and the two must never merge.
+   */
+  it("counts a pair that started without finishing as incomplete, not skipped", () => {
+    const report = buildWith({
+      attempted: new Set(["control-direct-match", "control-one-gap"]),
+      verdicts: new Map([["control-direct-match", passingVerdict]]),
+      abortReason: "kill_switch_engaged",
+    });
+
+    expect(report.incomplete).toEqual(["control-one-gap"]);
+    expect(report.skipped).toEqual([]);
+    expect(report.status).toBe("aborted");
+    expect(report.aborted).toBe("kill_switch_engaged");
   });
 });
 

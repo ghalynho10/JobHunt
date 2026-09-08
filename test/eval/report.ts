@@ -51,15 +51,97 @@ export interface EvalReport {
   readonly model: string;
   /** `bandAnchorsHash(BAND_ANCHORS)`, the same function the AC-10 test uses. */
   readonly bandAnchorsHash: string;
-  readonly status: "completed" | "aborted";
+  /**
+   * What became of the run as a whole.
+   *
+   * `not-started` EXISTS BECAUSE `afterAll` RUNS EVEN WHEN `beforeAll` THREW.
+   * Verified against the installed Vitest 4.1.11 with a scratch probe on
+   * 2026-09-08: the hook ran with nothing attempted while the runner reported
+   * every test skipped. Without this third value the untouched defaults wrote
+   * `completed` with all sixteen pairs listed `skipped`, describing a run that
+   * never started as a full run that scored nothing. That is the "default that
+   * reads like success" this project's no silent failures rule forbids, and it
+   * is the same distinction `skipped` and `incomplete` are kept apart for.
+   */
+  readonly status: "completed" | "aborted" | "not-started";
   /** Present only when `status` is `aborted` (AC-3). */
   readonly aborted?: UsageGateReason;
+  /** Present only when `status` is `not-started`: why setup never finished. */
+  readonly notStarted?: string;
   readonly pairs: readonly PairVerdict[];
   readonly preferenceLeak: PreferenceLeakOutcome;
 }
 
 /** Where reports land. Gitignored: these are local measurements, not source. */
 const OUTPUT_DIRECTORY = fileURLToPath(new URL("./.output/", import.meta.url));
+
+/**
+ * Assembles the run's report from what the harness observed (AC-3, AC-8, AC-9).
+ *
+ * IT IS A PURE FUNCTION AND NOT INLINE IN THE `afterAll` FOR ONE REASON: the
+ * paid project cannot be run to test it. Everything under `test/eval/` costs 80
+ * vendor calls, so orchestration written inline there is provable only by
+ * spending money, which means in practice it was never proved at all. Here the
+ * free suite drives every branch, including the one below that no passing run
+ * ever reaches.
+ *
+ * @param input What the run observed. `setupFailure` set means `beforeAll`
+ *   never finished, which outranks every other signal.
+ * @returns The report, ready to write and to print.
+ */
+export function buildEvalReport(input: {
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly filter: string | null;
+  readonly pairIds: readonly string[];
+  readonly attempted: ReadonlySet<string>;
+  readonly verdicts: ReadonlyMap<string, PairVerdict>;
+  readonly model: string;
+  readonly bandAnchorsHash: string;
+  readonly abortReason: UsageGateReason | undefined;
+  readonly setupFailure: string | undefined;
+  readonly preferenceLeak: PreferenceLeakOutcome;
+}): EvalReport {
+  const base = {
+    startedAt: input.startedAt,
+    finishedAt: input.finishedAt,
+    filter: input.filter,
+    model: input.model,
+    bandAnchorsHash: input.bandAnchorsHash,
+    preferenceLeak: input.preferenceLeak,
+  };
+
+  /**
+   * SETUP FAILED, SO NO PAIR WAS EVER ELIGIBLE TO RUN. `skipped` stays empty on
+   * purpose: it means "the filter excluded this pair", and listing all sixteen
+   * there would say a full set was considered and filtered away when in truth
+   * nothing was ever considered. The reason field carries the actual cause.
+   */
+  if (input.setupFailure !== undefined) {
+    return {
+      ...base,
+      skipped: [],
+      incomplete: [],
+      status: "not-started",
+      notStarted: input.setupFailure,
+      pairs: [],
+    };
+  }
+
+  return {
+    ...base,
+    skipped: input.pairIds.filter((pairId) => !input.attempted.has(pairId)),
+    incomplete: [...input.attempted].filter(
+      (pairId) => !input.verdicts.has(pairId),
+    ),
+    status: input.abortReason === undefined ? "completed" : "aborted",
+    ...(input.abortReason === undefined ? {} : { aborted: input.abortReason }),
+    pairs: input.pairIds.flatMap((pairId) => {
+      const verdict = input.verdicts.get(pairId);
+      return verdict === undefined ? [] : [verdict];
+    }),
+  };
+}
 
 /**
  * Renders the per pair table AC-1 asks the command to print.
@@ -118,11 +200,27 @@ export function formatReportTable(report: EvalReport): string {
     ...lines,
     "",
     `  preference leak check: ${describeLeak(report.preferenceLeak)}`,
-    report.status === "aborted"
-      ? `  RUN ABORTED: ${report.aborted ?? "unknown reason"}`
-      : "  run completed",
+    describeOutcome(report),
     "",
   ].join("\n");
+}
+
+/**
+ * The run's last line, the one a reader takes the whole run's word from.
+ *
+ * EACH STATUS GETS ITS OWN SENTENCE, and `not-started` is never allowed to fall
+ * through to `run completed`. A run whose setup threw prints why it never
+ * began, so the file on disk and the terminal say the same thing.
+ */
+function describeOutcome(report: EvalReport): string {
+  switch (report.status) {
+    case "aborted":
+      return `  RUN ABORTED: ${report.aborted ?? "unknown reason"}`;
+    case "not-started":
+      return `  RUN NOT STARTED: ${report.notStarted ?? "unknown reason"}. Nothing was scored.`;
+    case "completed":
+      return "  run completed";
+  }
 }
 
 /** One readable line for each of the leak check's four outcomes (AC-5). */

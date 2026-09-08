@@ -16,10 +16,16 @@ import {
   preferenceLeakCheck,
   PREFERENCE_BASELINE_ID,
   type PairVerdict,
+  type PreferenceLeakOutcome,
   type RerunOutcome,
 } from "../helpers/eval-verdict";
 import { mintSession, type MintedSession } from "../helpers/session";
-import { formatReportTable, writeEvalReport, type EvalReport } from "./report";
+import {
+  buildEvalReport,
+  formatReportTable,
+  writeEvalReport,
+  type EvalReport,
+} from "./report";
 
 /**
  * The eval harness (spec 0017, AC-1, AC-2, AC-7, AC-8, AC-9, AC-11).
@@ -72,6 +78,22 @@ const attempted = new Set<string>();
  */
 let abortReason: UsageGateReason | undefined;
 
+/**
+ * Why the setup did not finish, cleared only once it has (AC-9).
+ *
+ * IT STARTS SET, AND ONLY A COMPLETED `beforeAll` CLEARS IT. Vitest runs
+ * `afterAll` even when `beforeAll` threw, verified against the installed 4.1.11
+ * with a scratch probe on 2026-09-08: the hook ran with `attempted=0` while the
+ * runner reported `2 skipped`. With the defaults left untouched the report then
+ * read `status: "completed"`, `filter: null` and all sixteen pairs `skipped`,
+ * which describes a run that never started as a full run that scored nothing,
+ * the "default that reads like success" this project's no silent failures rule
+ * forbids. Defaulting to a failure means any path that forgets to clear it errs
+ * towards saying so rather than towards claiming a run happened.
+ */
+let setupFailure: string | undefined =
+  "The harness setup did not run, so nothing was scored.";
+
 /** Throws with the refusal's own reason if the run has already been aborted. */
 function refuseIfAborted(pairId: string): void {
   if (abortReason === undefined) return;
@@ -92,22 +114,36 @@ describe("eval harness", () => {
    * the whole thing.
    */
   beforeAll(async () => {
-    const issues = validateGroundTruth(ARCHETYPES, PAIRS);
+    try {
+      const issues = validateGroundTruth(ARCHETYPES, PAIRS);
 
-    if (issues.length > 0) {
-      throw new Error(
-        [
-          `The committed ground truth set is invalid, so nothing was scored and no vendor call was made. ${issues.length} issue(s):`,
-          ...issues.map(
-            (issue) => `  ${issue.kind} [${issue.subject}]: ${issue.message}`,
-          ),
-        ].join("\n"),
-      );
+      if (issues.length > 0) {
+        throw new Error(
+          [
+            `The committed ground truth set is invalid, so nothing was scored and no vendor call was made. ${issues.length} issue(s):`,
+            ...issues.map(
+              (issue) => `  ${issue.kind} [${issue.subject}]: ${issue.message}`,
+            ),
+          ].join("\n"),
+        );
+      }
+
+      const user = await mintFixtureUser("eval-harness");
+      fixtureUserId = user.id;
+      session = await mintSession(user.email);
+
+      /** Last statement on purpose: only a whole setup counts as one. */
+      setupFailure = undefined;
+    } catch (error) {
+      /**
+       * RECORDED, THEN RETHROWN UNCHANGED. The rethrow is what makes the
+       * runner fail the file; the record is what stops the `afterAll` writing
+       * a report that claims the run completed. The mint can fail after the
+       * user exists, which is why the cleanup in `afterAll` still runs.
+       */
+      setupFailure = error instanceof Error ? error.message : String(error);
+      throw error;
     }
-
-    const user = await mintFixtureUser("eval-harness");
-    fixtureUserId = user.id;
-    session = await mintSession(user.email);
   });
 
   /**
@@ -118,39 +154,51 @@ describe("eval harness", () => {
    * leak throw comes last so it can never pre-empt either.
    */
   afterAll(async () => {
-    const baselinePair = PAIRS.find(
-      (pair) => pair.id === PREFERENCE_BASELINE_ID,
-    );
+    /**
+     * Declared out here so the AC-7 leak throw can still read it after the
+     * cleanup has run, which is the ordering the doc comment above describes.
+     */
+    let preferenceLeak: PreferenceLeakOutcome | undefined;
 
-    const preferenceLeak =
-      baselinePair === undefined
-        ? ({
-            kind: "leak-check-skipped",
-            detail: `${PREFERENCE_BASELINE_ID} is not in the committed set.`,
-          } as const)
-        : preferenceLeakCheck(verdicts, baselinePair.expectedBand);
-
-    const report: EvalReport = {
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      filter: inject("evalTestNamePattern") ?? null,
-      skipped: PAIRS.filter((pair) => !attempted.has(pair.id)).map(
-        (pair) => pair.id,
-      ),
-      incomplete: [...attempted].filter((pairId) => !verdicts.has(pairId)),
-      /** AC-11: read off the resolved tier config, never a name typed here. */
-      model: resolvedModel(TIERS.ai_scoring.model).modelId,
-      bandAnchorsHash: bandAnchorsHash(BAND_ANCHORS),
-      status: abortReason === undefined ? "completed" : "aborted",
-      ...(abortReason === undefined ? {} : { aborted: abortReason }),
-      pairs: PAIRS.flatMap((pair) => {
-        const verdict = verdicts.get(pair.id);
-        return verdict === undefined ? [] : [verdict];
-      }),
-      preferenceLeak,
-    };
-
+    /**
+     * EVERYTHING IS INSIDE THE `try`, THE REPORT'S OWN ASSEMBLY INCLUDED.
+     * `resolvedModel()` and `preferenceLeakCheck()` can both throw, and when
+     * the assembly sat outside this block a throw there skipped the `finally`
+     * and left the minted fixture user behind (found in review 2026-09-08).
+     */
     try {
+      const baselinePair = PAIRS.find(
+        (pair) => pair.id === PREFERENCE_BASELINE_ID,
+      );
+
+      preferenceLeak =
+        setupFailure !== undefined
+          ? ({
+              kind: "leak-check-skipped",
+              detail: "The run never started, so no pair was scored.",
+            } as const)
+          : baselinePair === undefined
+            ? ({
+                kind: "leak-check-skipped",
+                detail: `${PREFERENCE_BASELINE_ID} is not in the committed set.`,
+              } as const)
+            : preferenceLeakCheck(verdicts, baselinePair.expectedBand);
+
+      const report: EvalReport = buildEvalReport({
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        filter: inject("evalTestNamePattern") ?? null,
+        pairIds: PAIRS.map((pair) => pair.id),
+        attempted,
+        verdicts,
+        /** AC-11: read off the resolved tier config, never a name typed here. */
+        model: resolvedModel(TIERS.ai_scoring.model).modelId,
+        bandAnchorsHash: bandAnchorsHash(BAND_ANCHORS),
+        abortReason,
+        setupFailure,
+        preferenceLeak,
+      });
+
       const path = await writeEvalReport(report);
 
       /**
@@ -179,7 +227,7 @@ describe("eval harness", () => {
      * the exit code on it would make AC-7 quietly wrong the day a pair gains a
      * widened tolerance.
      */
-    if (preferenceLeak.kind === "preference-leak-suspected") {
+    if (preferenceLeak?.kind === "preference-leak-suspected") {
       throw new Error(
         `Preference leak suspected. ${describeDivergence(preferenceLeak.baselineBand, preferenceLeak.divergent)}`,
       );
