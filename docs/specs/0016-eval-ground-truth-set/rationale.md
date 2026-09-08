@@ -38,7 +38,7 @@ Expand to four archetypes, all fictional, drop the seniority cap framing entirel
 - A dedicated fourth archetype gives `weak_match` a clean, unambiguous example instead of leaning on the same case that is already carrying the seniority ambiguity.
 
 **Cons**:
-- More archetypes and pairs to author than the original three (four archetypes, fifteen pairs instead of ten).
+- More archetypes and pairs to author than the original three (four archetypes, sixteen pairs instead of ten).
 - Does not resolve the anchor ambiguity itself, only surfaces it honestly; the "does a severe experience gap cap the band" question stays genuinely open until spec 0015 is revisited.
 
 ### Option 3: Defer this spec until spec 0015's anchors are amended first

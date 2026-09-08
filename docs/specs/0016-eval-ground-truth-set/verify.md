@@ -9,7 +9,7 @@ is where a wrong value would actually show up.
 
 ## Commands
 
-- [x] `pnpm test src/features/scoring/eval` → 23 tests pass: the validator's own per check cases against deliberately malformed fixtures, plus the committed set's assertions → AC-8
+- [x] `pnpm test src/features/scoring/eval` → 24 tests pass: the validator's own per check cases against deliberately malformed fixtures, plus the committed set's assertions → AC-8
 - [x] Delete the `stability-probe-not-truncated` push in `validateGroundTruth()`, run `pnpm test src/features/scoring/eval` → 2 tests fail by name; restore → AC-8
 - [x] Change any pair's `expectedBand` to `"great_match"`, run `pnpm typecheck` → compile error against `Band`; restore → AC-6, AC-7
 - [x] Change any archetype's `profile.skills` to a string rather than an array, run `pnpm typecheck` → compile error against `ScoringProfile`; restore → AC-6, AC-7
