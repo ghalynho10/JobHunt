@@ -1,0 +1,53 @@
+# Review, feat/eval-ground-truth-set (round 2, prompt.test.ts), 2026-09-07
+
+**Reviewed by**: Claude Sonnet 5 (author on unspecified/unstated model)
+**Scope**: 5 files, branch vs main (merge base `ef930cc`), focused on the 21 tests added since the previous review's commit (`d11c680..HEAD`)
+**Verdict**: Changes requested
+
+## Summary
+
+This round adds `src/features/scoring/eval/prompt.test.ts` (21 tests driving the real, committed ground truth pairs through the real `buildScoringPrompt()`), fixes the `acceptableBands` distinct-count bug the previous review found, and corrects the pair-count documentation drift. All of that lands cleanly: the distinct-band fix is correct and tested, the doc corrections are all accurate (verified against the diff), and the `gt-015`/`gt-016` id swap is resolved. The primary question for this round — can any of the 21 tests be satisfied while the thing it claims to protect is broken — surfaced two real, demonstrated holes, both verified by actually breaking `buildScoringPrompt()` in a scratch edit and re-running the suite (then reverting; the tree is clean). Eighteen of the 21 tests held up against a genuine attempt to defeat them.
+
+## Major
+
+### 🟠 The 16 salary-omission tests can't detect a reformatted leak, `src/features/scoring/eval/prompt.test.ts:203-225`
+
+**Problem**: `expect(prompt).not.toContain(String(PROBE_SALARY_MIN))` checks for the exact digit string `"191919"`. I added one line to `buildScoringPrompt()` (`rubric.ts`, right after the `Location:` push) that renders `` `Salary: ${listing.salaryMin.toLocaleString("en-US")}+` `` whenever `salaryMin` is defined — i.e. a genuine salary leak, comma-formatted (`"191,919"`). Ran `pnpm test src/features/scoring/eval`: all 45 tests still passed, all 16 of these tests included, because `"191,919".includes("191919")` is `false` — the comma breaks the substring match. I reverted the edit immediately after confirming (`git status` clean, `git diff` empty).
+
+**Why it matters**: This is exactly the invariant the test file's own comment calls "the whole point of this test," and it underwrites AC-4's central claim: the preference-violation pair's pay conflict has to be readable only through `descriptionSnippet` prose, because a structured salary field would let the model see the conflict twice and would silently invalidate what the isolation pairs are supposed to prove. `toLocaleString()` on a salary figure is not a contrived edge case — it is the first thing a developer reaches for when actually building a salary display, which is a plausible near-future change to this same file (spec 0016's own Consequences section already flags that a future "fetch the full posting" feature will touch this prompt). The current check would wave that change through with all green.
+
+**Suggested fix**: Assert on the underlying quantity rather than one exact string encoding, e.g. strip non-digit characters from the prompt and check the number doesn't appear (`prompt.replace(/[^\d]/g, "").includes(String(PROBE_SALARY_MIN))` — still not bulletproof, but closes the thousands-separator gap), or check for the presence of the field-ish token (`"salary" `/`"Salary:"`) case-insensitively as a second, independent guard, or, more robustly, assert that the *set of numbers* appearing anywhere in the prompt is unaffected by injecting the probe salary (compare `prompt.match(/\d+/g)` between a with-salary and without-salary render of the same pair).
+
+### 🟠 The stability-probe truncation test can't detect an unconditional truncation branch, `src/features/scoring/eval/prompt.test.ts:172-181`
+
+**Problem**: The test only exercises `stability-probe-generic`, whose `descriptionSnippet` genuinely ends in `…`, so it is supposed to land in the cut-off branch under correct behavior too. I changed `rubric.ts`'s `const truncated = listing.descriptionSnippet.trimEnd().endsWith("…");` to `const truncated = true;` (i.e., every listing is now told it was cut off, including ones whose full description was returned intact) and re-ran `pnpm test src/features/scoring/eval`: all 45 tests passed. Reverted immediately after (`git status` clean).
+
+**Why it matters**: `buildScoringPrompt`'s own comment calls this caveat load bearing ("the model is not left inferring... whether it is looking at a whole posting or a cut off one"), and AC-5 is specifically about locking in the mechanism that decides which of the two mutually exclusive branches fires. None of the file's other 20 tests exercise the untruncated branch either: tests 1 and 2 compare two prompts whose descriptions are *both* full (unbroken) text, so an "always truncated" bug changes both sides identically and produces no new diff, and the salary tests never touch this text at all. So a regression that always shows "(CUT OFF...)" — a real defect, since it would tell the model every complete posting was truncated — passes the entire file.
+
+**Suggested fix**: Add a positive-branch test using one of the already-committed non-probe pairs (e.g. `control-direct-match`, whose `descriptionSnippet` does not end in `…`) asserting the prompt contains `"Description (short enough that Adzuna returned all of it):"` and not the CUT OFF header. That gives the two branches one test each, closing the gap symmetrically.
+
+## The other 19 tests: could not defeat them
+
+Worked through each; no other tests yielded a concrete, demonstrable break within the scope of what they each claim to test (the file's own header states it only proves what the committed pairs render to, not `buildScoringPrompt()`'s general correctness for arbitrary profiles — that is a different file's job).
+
+- **Title isolation** (`renders preference-match and preference-title-conflict differing on the Title line alone`): asserts `differences.length === 1` over the *entire* rendered string (both candidate and posting sections), plus the exact left/right line content. Any edit that reorders fields, adds a line, or changes wording anywhere in either prompt changes the count or the exact string and fails loudly. Tried to think of an edit to `pairs.ts` that would leave a second real difference while still reporting one — not possible without the array-length assertion catching it.
+- **Circumstance isolation** (`differing only in Location and the circumstance sentences`): splits on `" This role is"` and checks the requirements half is identical and non-empty, plus substring checks for `"fully remote"` / `"no remote option"`. Tried breaking the shared marker text so the split point diverges between the two sides — this makes `requirements(left) !== requirements(right)`, which the test explicitly checks, so it fails rather than passing. The two circumstance substrings are checked directly against real content, not vacuously.
+- **Shared candidate section** (`renders the same candidate section for all three isolation pairs`): its own comment scopes this to "a difference here would mean they had drifted onto different archetypes" — a data-integrity guard, not a content-correctness assertion. It is true that this test can't distinguish "correct candidate rendering" from "the same wrong candidate rendering repeated three times," but that is outside what the test (or this file) claims to check; `pairs.ts` cannot currently point two of these three pairs at genuinely different archetypes without the pointed-to archetype existing and producing distinguishable output — not a realistic hole given the committed data.
+- **16 salary tests, the counterweight** (`leaves salaryMin and salaryMax unset on every committed pair`): a direct read of `pairs.ts`'s own data; there's no way to make it pass while a committed pair actually sets a salary, since it reads the field being asserted, not a derived value.
+
+## Secondary checks (per the round's brief)
+
+- **`acceptableBands` distinct-band fix** (`ground-truth.ts:221-229`, test at `ground-truth.test.ts:211-224`): correct. Switched from array length to `new Set(pair.acceptableBands).size < 2`, and the new test drives `["good_match", "good_match"]` through it and asserts the issue fires with `"1 distinct band"` in the message. Confirmed by reading both files in full.
+- **Doc count corrections**: verified via `git diff d11c680..HEAD` on `index.md`, `rationale.md`, `scope.md`. All three counts the previous review flagged now read "sixteen" correctly, and the Build plan's "remaining fifteen pairs" (`index.md:113`) is arithmetically correct as written — 16 total minus the one pair (`control-direct-match`) already authored by the end of step 3 — not stale, and better than the previous review's own suggested "fourteen," which would have been off by one. `scope.md`'s "Test it" row for feature 16's data slice is now checked off with an accurate description of this round's 21 tests.
+- **`gt-015`/`gt-016` sourceJobId swap**: confirmed via diff; `preference-title-conflict` now carries `gt-015` and `stability-probe-generic` carries `gt-016`, matching their order in the file. No array reordering occurred, only the id values swapped.
+- **`weak-match-shallow-overlap`'s extended rationale**: confirmed via diff; the addition restates the closed decision from the previous round (not_a_match's anchor turning on "a different kind of work" vs. layer-of-the-same-work) accurately and does not introduce any new claim. No new argument to reopen the closed item.
+
+## Strengths
+
+- Both real holes found in this round required an actual source edit to `rubric.ts`, not just a hypothetical — the review verified each by breaking the code, running the real suite, watching it stay green, and reverting. Eighteen of 21 tests survived the same treatment.
+- The exact-diff technique (`differingLines`, `Math.max` of both lengths, index-by-index comparison) used by the isolation tests is genuinely tight: it can't be defeated by a trailing-line or reordering trick, and the substring assertions on the circumstance test check real content rather than presence-only.
+- The file's own header comment is honest about its scope (rendered prompts against the committed data, not a general `buildScoringPrompt()` correctness suite), which is why most of the theoretical "holes" one could imagine (e.g. the shared-candidate-section test not proving content correctness) turn out not to be real gaps once measured against what the test actually claims.
+
+## Test coverage
+
+`pnpm test src/features/scoring/eval` passes 45/45 on the clean tree (21 in `prompt.test.ts`, 24 in `ground-truth.test.ts`). The two Major findings above are gaps in what the new tests can detect, not missing coverage in the "no test exists" sense — coverage exists, the assertion technique underneath it has a hole. Both are fixable without adding new test files.
