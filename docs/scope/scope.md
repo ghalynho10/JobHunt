@@ -28,7 +28,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 13 | Model client router | Slice 2 | done |
 | 14 | Fit scoring with shown reasoning | Slice 2 | done |
 | 15 | Eval ground truth set | Slice 2 | done |
-| 16 | Eval harness runner | Slice 2 | planned |
+| 16 | Eval harness runner | Slice 2 | in-progress |
 | 17 | Cross vendor self check | Slice 2 | planned |
 | 18 | Structured search filters | Slice 3 | planned |
 | 19 | Listing data quality | Slice 3 | planned |
@@ -311,7 +311,15 @@ _This tier carries no `Review it` box, so two fresh model rounds ran on Sonnet w
 ### 16. Eval harness runner
 Run every ground truth pair against the current scoring configuration and report which fell outside their expected band. Run it whenever the scoring prompt or the model changes, so a swap is checked rather than hoped about.
 **Done when:** one command runs the whole set and prints a per pair pass or fail with the actual score, a regression on any pair is visible in the output, and the run works against a changed model with no code edit.
+_spec [0017](../specs/0017-eval-harness-runner/index.md)_
+- [x] Design it (spec): `/architect eval harness runner` · written 2026-09-08, 11 acceptance criteria. Settles the three decisions spec 0016's Follow up handed over (rerun count, the stability probe pass rule, what `tags`/`acceptableBands` mean to pass or fail), plus two load bearing constraints found during design rather than named up front: the harness has to live under `test/` (not beside feature 15's data in `src/`) since the real scoring path needs the fixture session minting that root `AGENTS.md` forbids an application module from importing, and a usage gate refusal is a third outcome of a real scoring call that needed its own handling. A cross check on a different model found real gaps in the first draft, most load bearing a majority vote with no tie break rule and a preference leak check that could never fire on the real committed data; both were rewritten and verified against the repo before this was accepted
 - [ ] Build it: `/develop eval harness runner`
+  - [ ] Project scaffolding: the `eval` Vitest project (`extends: true`, its own timeouts and `maxConcurrency`, `fileParallelism: false`), the `pnpm eval` script, and the shared `resolvedModel()`/`bandAnchorsHash()` helpers, satisfies AC-1, AC-2, AC-9, AC-11
+  - [ ] Verdict logic: the pure rerun outcome classification, majority vote with its no majority and `acceptableBands` exception, the `stability-probe` rule, and the `preference-isolation` baseline comparison, each proved against constructed fixtures with no vendor call, satisfies AC-3, AC-4, AC-5, AC-6
+  - [ ] The harness itself: the thin thread against one real pair, then the full sixteen with bounded concurrency and the run's own aggregate exit code, satisfies AC-1, AC-2, AC-7, AC-8, AC-9
+  - [ ] The drift guard: the committed `BAND_ANCHORS` snapshot test under the free unit suite, and the gitignored output directory, satisfies AC-10
+- [ ] Verify it: `/check verify eval harness runner`
+- [ ] Test it: `/test eval harness runner`
 
 ### 17. Cross vendor self check · needs a decision · GA
 A genuine verification pass, not a bigger prompt: does the stated reasoning actually cite skills present in both the listing and the profile. It runs on a different vendor than the bulk scoring pass, because checking a model's work with the same model defeats the point of having a check. The same principle as cross model code review, applied one layer down inside the pipeline.
