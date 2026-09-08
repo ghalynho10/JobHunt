@@ -107,6 +107,17 @@ export interface PairVerdict {
   readonly denominator: number;
   readonly failures: number;
   readonly refusals: number;
+  /**
+   * Every distinct vendor failure this pair hit, with how many times.
+   *
+   * WITHOUT THIS THE REPORT NAMES A NUMBER AND NOTHING ELSE. The first real run
+   * of this harness (2026-09-08) came back "0 of 5 succeeded" with no way to
+   * tell a vendor timeout from a misconfigured gate from a bad key, which is
+   * exactly the silent failure this project's own rules forbid. Deduplicated
+   * with counts, so five identical timeouts read as one cause seen five times
+   * rather than five separate mysteries.
+   */
+  readonly failureDetails: Readonly<Record<string, number>>;
   /** AC-6: the printable line. Never a band on its own, always its denominator. */
   readonly summary: string;
 }
@@ -203,6 +214,13 @@ export function pairVerdict(input: VerdictInput): PairVerdict {
   const distribution = countBands(scored);
   const accepted = input.acceptableBands ?? [input.expectedBand];
 
+  const failureDetails: Record<string, number> = {};
+
+  for (const outcome of input.outcomes) {
+    if (outcome.kind !== "failed") continue;
+    failureDetails[outcome.detail] = (failureDetails[outcome.detail] ?? 0) + 1;
+  }
+
   const verdict = (
     status: VerdictStatus,
     band?: Band,
@@ -217,6 +235,7 @@ export function pairVerdict(input: VerdictInput): PairVerdict {
     denominator,
     failures,
     refusals,
+    failureDetails,
     summary: buildSummary(distribution, band, successes, denominator, refusals),
   });
 
