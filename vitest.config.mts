@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
- * Vitest, as three projects (spec 0004, AC-5 and AC-12; the third added spec
- * 0011, 2026-09-03).
+ * Vitest, as four projects (spec 0004, AC-5 and AC-12; the third added spec
+ * 0011, 2026-09-03; the fourth added spec 0017, 2026-09-08).
  *
  * `pnpm test` runs the unit project and needs nothing running.
  * `pnpm test:integration` runs BOTH integration projects against the real
@@ -12,6 +12,9 @@ import { defineConfig } from "vitest/config";
  * ordinary one, files run in parallel by Vitest's own default) and
  * `integration-serial` (`test/integration-serial/`, `sequence.groupOrder: 1`,
  * so it starts only once every `integration` file has finished).
+ * `pnpm eval` runs the fourth, `eval`, and NOTHING ELSE RUNS IT: it spends
+ * real vendor money on every run (spec 0017, 80 calls for the full set), so it
+ * is reachable only by naming `--project eval`, which that one script wraps.
  *
  * WHY A SECOND INTEGRATION PROJECT EXISTS. `app_settings.kill_switch_enabled`
  * is a single global row (spec 0002), and `checkUsageGate()` reads it on
@@ -177,6 +180,80 @@ export default defineConfig({
            * above: there it would serialise dozens of files for no benefit,
            * which is why `groupOrder` exists as the cheaper isolation
            * between the two projects in the first place.
+           */
+          fileParallelism: false,
+        },
+      },
+      {
+        /**
+         * `extends: true` IS LOAD BEARING, NOT BOILERPLATE (spec 0017, build
+         * plan step 1). It pulls in the root `resolve.tsconfigPaths` and the
+         * `server-only` alias above. `scoreListing()` imports `server-only` at
+         * the top of its own module, which throws outside a React Server
+         * Component without that alias, so a project written without this line
+         * fails on import before a single vendor call is made.
+         */
+        extends: true,
+        test: {
+          name: "eval",
+          /**
+           * `node` for the same reason `integration` gives above:
+           * `@t3-oss/env-nextjs` withholds a server variable when it believes
+           * it is on the client, and the fixture session mint needs
+           * `env.SUPABASE_SECRET_KEY`.
+           */
+          environment: "node",
+          include: ["test/eval/**/*.test.ts"],
+          setupFiles,
+          /**
+           * Two, and the second is this project's alone. `require-stack` is
+           * the same one the integration projects use: the harness needs the
+           * local stack for its one minted session. `eval-filter` hands the
+           * run's own `-t` pattern to the test file, which AC-8 requires every
+           * report to record.
+           */
+          globalSetup: [
+            "./test/setup/require-stack.ts",
+            "./test/setup/eval-filter.ts",
+          ],
+          /**
+           * FIVE MINUTES, AND IT IS DERIVED RATHER THAN PICKED. One pair's
+           * test body awaits five `ai_scoring` calls ONE AFTER ANOTHER (spec
+           * 0017, AC-2: they measure how much the same input moves between
+           * separate calls, so firing them together would measure nothing).
+           * `ai_scoring`'s own ceiling is 30 seconds per call
+           * (`TIERS.ai_scoring.timeoutMs`), so a pair cannot finish faster
+           * than its slowest rerun and five of those is 150 seconds at worst.
+           * The rest is headroom for a reasoning model that is slow but not
+           * yet timed out.
+           */
+          testTimeout: 300_000,
+          /**
+           * The `beforeAll` mints a fixture user against a possibly cold
+           * stack, the same slow start `integration` sizes its own hooks for,
+           * with more room because this hook also runs `validateGroundTruth()`.
+           */
+          hookTimeout: 60_000,
+          /**
+           * HOW MANY PAIRS' TEST BODIES RUN AT ONCE, set explicitly rather
+           * than left at whatever the installed Vitest currently defaults to
+           * (spec 0017, build plan step 1). It bounds pairs, NOT vendor calls:
+           * a pair mid way through its own five reruns holds its slot until
+           * all five finish, so simultaneous calls can briefly exceed four.
+           * That is accepted (spec 0017, Consequences) because the binding
+           * ceiling is the shared `ai_scoring` global day cap of 1320, which
+           * has wide headroom against this feature's whole spend.
+           */
+          maxConcurrency: 4,
+          /**
+           * THE SAME MECHANICAL BACKSTOP `integration-serial` CARRIES, for a
+           * different invariant. This project is written to hold exactly one
+           * file, which mints one session and owns one report writer. Vitest
+           * schedules a project's files in parallel by default, so a second
+           * file dropped in here would run in its own worker, mint a second
+           * session, and race the first on the same report filename. This
+           * makes that second file correct by construction instead of leaving
+           * the rule to a comment somebody has to read first.
            */
           fileParallelism: false,
         },

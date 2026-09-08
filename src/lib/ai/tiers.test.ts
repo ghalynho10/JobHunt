@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { TIERS } from "./tiers";
+import { TIERS, resolvedModel } from "./tiers";
 
 /**
  * Spec 0012, AC-1: the two tiers resolve to two different vendor packages,
@@ -15,20 +15,12 @@ import { TIERS } from "./tiers";
  * `tiers.ts` actually built, not restated by hand here.
  */
 /**
- * `TIERS[tier].model` types as the AI SDK's own `LanguageModel` union, which
- * also permits a plain gateway model id string. `tiers.ts` never constructs
- * that form (both entries call a provider factory directly), so this guard
- * narrows what the test actually built rather than casting past the type.
+ * The guard this test used to define itself now lives in `tiers.ts` and is
+ * imported above. Spec 0017's eval harness needs the same narrowing to report
+ * which model answered, and two copies that agree today are exactly what that
+ * spec's AC-9 refuses ("so that is true by construction rather than by two
+ * separate implementations agreeing").
  */
-function resolvedModel(model: (typeof TIERS)[keyof typeof TIERS]["model"]) {
-  if (typeof model === "string") {
-    throw new Error(
-      "Expected tiers.ts to construct a real provider model instance, got a plain model id string instead.",
-    );
-  }
-  return model;
-}
-
 describe("TIERS (covers AC-1)", () => {
   it("maps ai_scoring and ai_check to two different vendors", () => {
     const scoringVendor = resolvedModel(TIERS.ai_scoring.model).provider.split(
@@ -107,6 +99,36 @@ describe("TIERS (covers AC-1)", () => {
   it("fixes maxRetries at 0 for both tiers", () => {
     expect(TIERS.ai_scoring.maxRetries).toBe(0);
     expect(TIERS.ai_check.maxRetries).toBe(0);
+  });
+});
+
+/**
+ * Spec 0017, AC-9 and AC-11. `resolvedModel()` moved out of this file and into
+ * `tiers.ts` so the eval harness could report which model answered without
+ * typing a model name of its own. Its happy path is exercised by every
+ * assertion above; its refusal never was, which is the half that matters if
+ * `tiers.ts` ever grows an entry built from a plain gateway id string.
+ */
+describe("resolvedModel (covers spec 0017 AC-9, AC-11)", () => {
+  it("returns the provider instance each tier was built from", () => {
+    expect(resolvedModel(TIERS.ai_scoring.model).modelId).toBe("gpt-5.6-luna");
+    expect(resolvedModel(TIERS.ai_check.model).modelId).toBe(
+      "gemini-3.5-flash-lite",
+    );
+  });
+
+  /**
+   * IT THROWS RATHER THAN NARROWING SILENTLY. `LanguageModel` is a union that
+   * also permits a bare gateway model id string, which `tiers.ts` never
+   * constructs today. If it ever did, a cast would hand the eval report a
+   * `.modelId` that does not exist at runtime and the report would record
+   * `undefined` as the model it measured against. This is where that surfaces
+   * instead.
+   */
+  it("refuses a bare model id string rather than pretending it resolved", () => {
+    expect(() => resolvedModel("openai/gpt-5.6-luna")).toThrow(
+      /real provider model instance/,
+    );
   });
 });
 

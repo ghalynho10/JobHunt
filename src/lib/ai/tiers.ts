@@ -137,3 +137,37 @@ export const TIERS: Readonly<Record<Tier, TierConfig>> = {
     timeoutMs: 30_000,
   },
 };
+
+/**
+ * Narrows a tier's `model` to the real provider instance this file built
+ * (spec 0017, AC-9 and AC-11).
+ *
+ * WHY A GUARD AND NOT A CAST. `LanguageModel` is the AI SDK's own union and it
+ * also permits a plain gateway model id string. Neither entry in `TIERS` ever
+ * constructs that form (both call a provider factory directly), so this reads
+ * what the map really holds rather than asserting past the type. A cast would
+ * hand a caller a `.modelId` that did not exist at runtime.
+ *
+ * IT LIVES HERE RATHER THAN IN A TEST because two callers now need it: the
+ * spec 0012 guard in `tiers.test.ts` (which owned the original copy) and spec
+ * 0017's eval harness, which reports the model id every run. The harness must
+ * never type a model name of its own (AC-11), so it reads the answer off this
+ * same resolved config, and both callers read one function rather than two
+ * copies that agree today.
+ *
+ * Throws rather than returning a failure value: a `TIERS` entry holding a bare
+ * string would be a programmer error in this file, not an expected failure.
+ *
+ * @param model One tier's configured model, e.g. `TIERS.ai_scoring.model`.
+ * @returns The same model, narrowed past the string form.
+ */
+export function resolvedModel(
+  model: LanguageModel,
+): Exclude<LanguageModel, string> {
+  if (typeof model === "string") {
+    throw new Error(
+      "Expected tiers.ts to construct a real provider model instance, got a plain model id string instead.",
+    );
+  }
+  return model;
+}
