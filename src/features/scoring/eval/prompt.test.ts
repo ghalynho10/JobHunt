@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Listing } from "@/features/search/adzuna";
 
-import { buildScoringPrompt } from "../rubric";
+import { buildScoringPrompt, type ScoringProfile } from "../rubric";
 import { ARCHETYPES } from "./archetypes";
 import type { GroundTruthPair } from "./ground-truth";
 import { PAIRS } from "./pairs";
@@ -40,8 +40,8 @@ function pairById(id: string): GroundTruthPair {
   return pair;
 }
 
-/** What the model is actually sent for one pair: its archetype's profile and its posting. */
-function renderPrompt(id: string): string {
+/** The profile this pair's archetype actually sends, or a failure naming the pair. */
+function profileFor(id: string): ScoringProfile {
   const pair = pairById(id);
   const archetype = ARCHETYPES.find(
     (candidate) => candidate.id === pair.archetypeId,
@@ -53,7 +53,12 @@ function renderPrompt(id: string): string {
     );
   }
 
-  return buildScoringPrompt(archetype.profile, pair.listing);
+  return archetype.profile;
+}
+
+/** What the model is actually sent for one pair: its archetype's profile and its posting. */
+function renderPrompt(id: string): string {
+  return buildScoringPrompt(profileFor(id), pairById(id).listing);
 }
 
 /** Every line index where two rendered prompts disagree. */
@@ -179,6 +184,27 @@ describe("the stability probe, rendered (AC-5)", () => {
       "Description (short enough that Adzuna returned all of it)",
     );
   });
+
+  /**
+   * covers: AC-5. THE OTHER BRANCH, so the pair above cannot pass by accident.
+   *
+   * The probe's own test asserts it lands in the cut off branch, which it would
+   * also do under a `buildScoringPrompt()` that put EVERY listing there. A
+   * fresh model review on 2026-09-07 found exactly that: hardcoding
+   * `truncated = true` left all of this file green. The full suite did catch it
+   * (`rubric.test.ts`, "does not claim a short description was cut off"), so
+   * the regression could not have shipped, but nothing in this file could tell
+   * the two situations apart. This closes that symmetry cheaply, using a
+   * committed pair whose description Adzuna really did return whole.
+   */
+  it("leaves a pair whose description was returned whole out of the cut off branch", () => {
+    const prompt = renderPrompt("control-direct-match");
+
+    expect(prompt).toContain(
+      "Description (short enough that Adzuna returned all of it):",
+    );
+    expect(prompt).not.toContain("CUT OFF");
+  });
 });
 
 describe("salary never reaches the model (AC-4)", () => {
@@ -200,27 +226,45 @@ describe("salary never reaches the model (AC-4)", () => {
   const PROBE_SALARY_MIN = 191_919;
   const PROBE_SALARY_MAX = 828_282;
 
+  /**
+   * covers: AC-4. TWO RENDERS COMPARED WHOLE, NOT A SEARCH FOR THE DIGITS.
+   *
+   * An earlier version of this test injected the probe salary and asserted the
+   * prompt did not contain `String(PROBE_SALARY_MIN)`. That was defeated by a
+   * real regression: a `buildScoringPrompt()` pushing
+   * `salaryMin.toLocaleString("en-US")` renders `191,919`, which does not
+   * contain the substring `191919`, so all sixteen cases stayed green while a
+   * pay figure reached the model as a structured field. Confirmed against the
+   * full suite on 2026-09-07, 1107 passing, and raised by a fresh model review
+   * the same day.
+   *
+   * COMPARING THE WHOLE PROMPT REMOVES THE FORMAT QUESTION ENTIRELY. The two
+   * renders differ only in the salary fields on the listing, so if the output
+   * is identical then those fields contributed nothing, in any encoding, in any
+   * position. There is no formatting a future edit could choose that would slip
+   * past this, which is the property a substring check can never have.
+   *
+   * AC-4 RESTS ON IT. The preference violation pair's pay conflict has to reach
+   * the model through description prose and nowhere else. If salary became a
+   * structured field, that pair would conflict on pay twice and the text under
+   * test would stop being the thing being tested.
+   */
   it.each(PAIRS.map((pair) => pair.id))(
-    "omits an injected salary from %s's rendered prompt",
+    "renders %s identically with and without a salary on its listing",
     (id) => {
-      const pair = pairById(id);
-      const archetype = ARCHETYPES.find(
-        (candidate) => candidate.id === pair.archetypeId,
-      );
-
-      if (archetype === undefined) throw new Error(`No archetype for "${id}".`);
+      const profile = profileFor(id);
+      const listing = pairById(id).listing;
 
       const withSalary: Listing = {
-        ...pair.listing,
+        ...listing,
         salaryMin: PROBE_SALARY_MIN,
         salaryMax: PROBE_SALARY_MAX,
         salaryCurrency: "USD",
       };
 
-      const prompt = buildScoringPrompt(archetype.profile, withSalary);
-
-      expect(prompt).not.toContain(String(PROBE_SALARY_MIN));
-      expect(prompt).not.toContain(String(PROBE_SALARY_MAX));
+      expect(buildScoringPrompt(profile, withSalary)).toBe(
+        buildScoringPrompt(profile, listing),
+      );
     },
   );
 
