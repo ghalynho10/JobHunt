@@ -103,6 +103,36 @@ describe("TIERS (covers AC-1)", () => {
 });
 
 /**
+ * Spec 0017, AC-9 and AC-11. `resolvedModel()` moved out of this file and into
+ * `tiers.ts` so the eval harness could report which model answered without
+ * typing a model name of its own. Its happy path is exercised by every
+ * assertion above; its refusal never was, which is the half that matters if
+ * `tiers.ts` ever grows an entry built from a plain gateway id string.
+ */
+describe("resolvedModel (covers spec 0017 AC-9, AC-11)", () => {
+  it("returns the provider instance each tier was built from", () => {
+    expect(resolvedModel(TIERS.ai_scoring.model).modelId).toBe("gpt-5.6-luna");
+    expect(resolvedModel(TIERS.ai_check.model).modelId).toBe(
+      "gemini-3.5-flash-lite",
+    );
+  });
+
+  /**
+   * IT THROWS RATHER THAN NARROWING SILENTLY. `LanguageModel` is a union that
+   * also permits a bare gateway model id string, which `tiers.ts` never
+   * constructs today. If it ever did, a cast would hand the eval report a
+   * `.modelId` that does not exist at runtime and the report would record
+   * `undefined` as the model it measured against. This is where that surfaces
+   * instead.
+   */
+  it("refuses a bare model id string rather than pretending it resolved", () => {
+    expect(() => resolvedModel("openai/gpt-5.6-luna")).toThrow(
+      /real provider model instance/,
+    );
+  });
+});
+
+/**
  * Spec 0012, AC-3: a caller never supplies a vendor name, a model id, or a
  * generation parameter. Proven here by the same source-tree walk
  * `no-tracking.test.ts` uses: no file under `src/` other than this feature's
