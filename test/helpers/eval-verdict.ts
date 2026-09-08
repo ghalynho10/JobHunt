@@ -265,10 +265,20 @@ export function pairVerdict(input: VerdictInput): PairVerdict {
    * conditional on the field being PRESENT; falling back to `[expectedBand]`
    * here would be incoherent anyway, since a single band can never produce a no
    * majority split.
+   *
+   * BOUND TO A LOCAL SO THE PRESENCE CHECK IS ENFORCED BY THE COMPILER. Written
+   * as `input.acceptableBands?.includes(...)` inside the `every`, the optional
+   * chaining quietly did the presence check by itself and the explicit guard
+   * beside it stopped being able to change any behaviour: deleting the guard
+   * changed nothing and no test could tell (verified 2026-09-08, all 25 passed
+   * with it removed). Against the local, deleting it is a type error instead,
+   * which no amount of test coverage has to notice.
    */
+  const widened = input.acceptableBands;
+
   if (
-    input.acceptableBands !== undefined &&
-    scored.every((outcome) => input.acceptableBands?.includes(outcome.band))
+    widened !== undefined &&
+    scored.every((outcome) => widened.includes(outcome.band))
   ) {
     return verdict("pass");
   }
