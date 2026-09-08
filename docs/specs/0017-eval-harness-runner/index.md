@@ -1,7 +1,7 @@
 # 0017. Eval harness runner
 
 **Date**: 2026-09-08
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

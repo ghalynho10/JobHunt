@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { TIERS } from "./tiers";
+import { TIERS, resolvedModel } from "./tiers";
 
 /**
  * Spec 0012, AC-1: the two tiers resolve to two different vendor packages,
@@ -15,20 +15,12 @@ import { TIERS } from "./tiers";
  * `tiers.ts` actually built, not restated by hand here.
  */
 /**
- * `TIERS[tier].model` types as the AI SDK's own `LanguageModel` union, which
- * also permits a plain gateway model id string. `tiers.ts` never constructs
- * that form (both entries call a provider factory directly), so this guard
- * narrows what the test actually built rather than casting past the type.
+ * The guard this test used to define itself now lives in `tiers.ts` and is
+ * imported above. Spec 0017's eval harness needs the same narrowing to report
+ * which model answered, and two copies that agree today are exactly what that
+ * spec's AC-9 refuses ("so that is true by construction rather than by two
+ * separate implementations agreeing").
  */
-function resolvedModel(model: (typeof TIERS)[keyof typeof TIERS]["model"]) {
-  if (typeof model === "string") {
-    throw new Error(
-      "Expected tiers.ts to construct a real provider model instance, got a plain model id string instead.",
-    );
-  }
-  return model;
-}
-
 describe("TIERS (covers AC-1)", () => {
   it("maps ai_scoring and ai_check to two different vendors", () => {
     const scoringVendor = resolvedModel(TIERS.ai_scoring.model).provider.split(

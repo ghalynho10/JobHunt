@@ -22,6 +22,10 @@
 # production
 /build
 
+# The eval harness writes one JSON report per run (spec 0017, AC-9). They are
+# local measurements of a paid run, not a tracked artifact.
+/test/eval/.output/
+
 # misc
 .DS_Store
 *.pem
