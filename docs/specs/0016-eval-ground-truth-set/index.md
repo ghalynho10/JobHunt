@@ -1,7 +1,7 @@
 # 0016. Eval ground truth set
 
 **Date**: 2026-09-07
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

@@ -27,7 +27,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 12 | Apply redirect & application record | Slice 1 | done |
 | 13 | Model client router | Slice 2 | done |
 | 14 | Fit scoring with shown reasoning | Slice 2 | done |
-| 15 | Eval ground truth set | Slice 2 | in-progress |
+| 15 | Eval ground truth set | Slice 2 | done |
 | 16 | Eval harness runner | Slice 2 | planned |
 | 17 | Cross vendor self check | Slice 2 | planned |
 | 18 | Structured search filters | Slice 3 | planned |
@@ -293,7 +293,7 @@ _Adzuna's search response carries only a 500 character description snippet (veri
 - [x] Review it (fresh model): `/check review fit scoring with shown reasoning` · `docs/reviews/2026-09-07-feat-fit-scoring-with-shown-reasoning.md`, reviewed on Sonnet, verdict Approve with nits. Its one Major (`scoreListing()` reachable by no unit test) and its one Minor (`Button`'s `focusKey` with nothing proving `data-focus-key` rendered) are both closed by `c0f7d12` (the commit adding `src/features/scoring/score.test.ts` and the three branch assertions in `button.test.ts`), which also took the jsdom nit in `src/components/ui/AGENTS.md`. The findings file itself is left as the point in time record and says nothing about the fixes
 - [x] Document it: `/document fit scoring with shown reasoning` · pull request title and body written 2026-09-07 from the 29 commits and the real diff. As with feature 12's row, this box records the pull request text being written, not the feature being finished: `Verify it` above is still honestly unticked, with 4 of 43 `verify.md` steps open (two need a screen reader, one needs a listing stating a visa stance, one is unrunnable as written), and the body says so rather than implying closure
 
-### 15. Eval ground truth set · in-progress
+### 15. Eval ground truth set · done
 The authored content the harness needs and does not get for free: several realistic profile archetypes beyond the author's own, matching job postings across a range of fit levels, and a decided expected band for each pair. Real writing work, budgeted as its own line rather than discovered mid build. The bands are fixed from the rubric before any model output is looked at, so the set measures the scorer instead of describing it.
 **Done when:** the archetypes cover clearly different career shapes, the pairs span the full band range including deliberate poor fits, every expected band was set before seeing any real output, and the set lives in version control as data rather than inside test code.
 - [x] Design it (spec): [0016](../specs/0016-eval-ground-truth-set/index.md)
@@ -304,7 +304,9 @@ The authored content the harness needs and does not get for free: several realis
   - [x] The boundary pair (`acceptableBands`), the three preference isolation pairs (circumstances grouped, title isolated alone), and the stability probe pair (U+2026 truncation, its own guard check) (AC-3, AC-4, AC-5)
   - [x] Full coverage guard test across the complete sixteen pair set (AC-8)
 - [x] Verify it: `/check verify eval ground truth set` · PASS 2026-09-07, all 8 acceptance criteria met, 25 of 25 `verify.md` steps run and passed. Re verified the same day after AC-4 was amended to cover all four preference dimensions and `preference-title-conflict` was added
-- [x] Test it: `/test eval ground truth set` · `src/features/scoring/eval/prompt.test.ts`, 21 tests driving the real `buildScoringPrompt()` against the committed set, closing the gap that every AC-4 and AC-5 claim about the rendered prompt was proved by hand and locked by nothing. Each of the four behaviours broken on purpose after the commit hooks ran
+- [x] Test it: `/test eval ground truth set` · `src/features/scoring/eval/prompt.test.ts`, 22 tests driving the real `buildScoringPrompt()` against the committed set, closing the gap that every AC-4 and AC-5 claim about the rendered prompt was proved by hand and locked by nothing. Each behaviour broken on purpose after the commit hooks ran
+
+_This tier carries no `Review it` box, so two fresh model rounds ran on Sonnet without one and are recorded here instead. Round one, [findings](../reviews/2026-09-07-feat-eval-ground-truth-set.md), covered the nine file build and returned Approve with nits; its four findings are all closed. Round two, [findings](../reviews/2026-09-07-feat-eval-ground-truth-set-prompt-tests.md), reviewed the prompt rendering tests alone and found a real Major: a salary leak rendered as `191,919` defeated the substring guard and shipped green past all 1107 tests. The guard now compares two whole renders instead of searching for digits, and the same regression fails 16 tests. Round two's second Major did not survive checking, since it rested on running one folder rather than the full suite._
 
 ### 16. Eval harness runner
 Run every ground truth pair against the current scoring configuration and report which fell outside their expected band. Run it whenever the scoring prompt or the model changes, so a swap is checked rather than hoped about.
