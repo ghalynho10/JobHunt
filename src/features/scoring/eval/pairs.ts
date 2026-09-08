@@ -360,12 +360,23 @@ export const PAIRS: readonly GroundTruthPair[] = [
    * differently: it can only mean it matched the posting's title against the
    * candidate's list and let the miss count.
    *
-   * TITLE IS ISOLATED ALONE BECAUSE IT IS THE ONE PREFERENCE WITH A SCORED
-   * COUNTERPART. `buildScoringPrompt()` states `Title:` in the posting section
-   * and `- Desired titles:` in the preferences section, so both halves of a
-   * comparison are in front of the model, with only the written instruction
-   * telling it not to make one. A pay figure has no such counterpart, which is
-   * why the other three travel together in one pair.
+   * TITLE IS ISOLATED ALONE FOR TWO REASONS, NEITHER OF THEM ABOUT WHICH FIELDS
+   * THE PROMPT SENDS (spec 0016, AC-4). First, coverage: `preference-violation`
+   * already varied location, remote and pay together, so those three had a case
+   * that could catch them; title was conflicted nowhere in the set. Second,
+   * semantic fusion: a title names the work itself, so a fit judgment about a
+   * Backend Engineer posting and a stated desire for a Backend Engineer title
+   * are one short step apart. Location, remote and pay describe circumstances
+   * of employment and are orthogonal to capability, so reading one of them as a
+   * fit signal is a longer step.
+   *
+   * NOT BECAUSE TITLE IS THE ONLY PREFERENCE WITH A COUNTERPART IN THE PROMPT.
+   * An earlier version of this comment said that and it is false: the prompt
+   * sends `Location:` against `- Desired locations:` with exactly the structure
+   * of `Title:` against `- Desired titles:`, and `preference-violation` above
+   * puts both halves of the location comparison in one prompt. Remote and pay
+   * are the two with no structured counterpart. That rule would isolate
+   * location too, which is not what this set does.
    */
   {
     id: "preference-title-conflict",
