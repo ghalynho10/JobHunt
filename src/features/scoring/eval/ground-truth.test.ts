@@ -202,6 +202,27 @@ describe("validateGroundTruth", () => {
     expect(issues[0]?.message).toContain("good_match");
   });
 
+  /**
+   * THE SAME BAND TWICE IS THE ONE ELEMENT CASE IN DISGUISE, and it slipped
+   * past an earlier length based check: two entries, and it contains its own
+   * `expectedBand`, so nothing fired while the pair named one real band. Raised
+   * by a fresh model review on 2026-09-07.
+   */
+  it("catches an acceptableBands naming the same band twice", () => {
+    const issues = validateGroundTruth(
+      [fixtureArchetype],
+      validPairs.map((pair) =>
+        pair.id === "good"
+          ? { ...pair, acceptableBands: ["good_match", "good_match"] as const }
+          : pair,
+      ),
+    );
+
+    expect(kinds(issues)).toEqual(["invalid-acceptable-bands"]);
+    expect(issues[0]?.subject).toBe("good");
+    expect(issues[0]?.message).toContain("1 distinct band");
+  });
+
   it("catches a one element acceptableBands standing in for an exact expectation", () => {
     const issues = validateGroundTruth(
       [fixtureArchetype],

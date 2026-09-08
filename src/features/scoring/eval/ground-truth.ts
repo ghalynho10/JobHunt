@@ -210,11 +210,21 @@ export function validateGroundTruth(
         });
       }
 
-      if (pair.acceptableBands.length < 2) {
+      /**
+       * DISTINCT BANDS, NOT ARRAY LENGTH. Counting entries let
+       * `["good_match", "good_match"]` through: two elements, and it contains
+       * its own `expectedBand`, so both checks passed while the pair named one
+       * real band and was therefore an exact expectation wearing a tolerant
+       * shape, the precise thing this check exists to refuse. Raised by a fresh
+       * model review on 2026-09-07.
+       */
+      const distinctBands = new Set(pair.acceptableBands);
+
+      if (distinctBands.size < 2) {
         issues.push({
           kind: "invalid-acceptable-bands",
           subject: pair.id,
-          message: `Pair "${pair.id}" lists ${pair.acceptableBands.length} acceptableBands; a widened tolerance needs at least two.`,
+          message: `Pair "${pair.id}" lists ${pair.acceptableBands.length} acceptableBands naming ${distinctBands.size} distinct band(s); a widened tolerance needs at least two different bands.`,
         });
       }
     }
