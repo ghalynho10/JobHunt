@@ -123,9 +123,52 @@ describe("formatReportTable, the per pair rows (covers AC-6)", () => {
   it("prints the status, the pair id and the bands observed", () => {
     const table = formatReportTable(reportWith());
 
-    expect(table).toContain(
-      "PASS        control-direct-match  strong_match, 5 of 5 succeeded",
+    expect(table).toMatch(
+      /^ {2}PASS {2,}control-direct-match {2}strong_match, 5 of 5 succeeded$/m,
     );
+  });
+
+  /**
+   * THE BUG THIS PINS, found in review on 2026-09-08. `INCONCLUSIVE` is
+   * exactly twelve characters, so the twelve wide status column padded it by
+   * nothing and printed `INCONCLUSIVEcontrol-one-gap`, the pair id glued
+   * straight onto the status. Every shorter status kept its gap, so the table
+   * looked correct in every other row and in the one test that sampled a PASS
+   * row, while the row a reader most needs to pick out was the broken one.
+   *
+   * ASSERTED AS THE GAP THE READER SEES, not as the constant the code sets, and
+   * over every status the table can print rather than one example. A test that
+   * hard coded the new width would re-create exactly the drift that hid this.
+   */
+  it("always leaves a gap between the status and what follows it, longest status included", () => {
+    const table = formatReportTable(
+      reportWith({
+        pairs: [passingVerdict, inconclusiveVerdict],
+        skipped: ["preference-match"],
+        incomplete: ["key-domain-mismatch"],
+      }),
+    );
+
+    const labelled = table
+      .split("\n")
+      .filter((line) =>
+        /^ {2}(PASS|FAIL|INCONCLUSIVE|SKIPPED|INCOMPLETE)/.test(line),
+      );
+
+    expect(labelled).toHaveLength(4);
+
+    for (const line of labelled) {
+      expect(line).toMatch(
+        /^ {2}(PASS|FAIL|INCONCLUSIVE|SKIPPED|INCOMPLETE) {2,}\S/,
+      );
+    }
+
+    /** One column for every status, which is what "a column" means. */
+    const prefixes = new Set(
+      labelled.map((line) => /^ {2}[A-Z]+ +/.exec(line)?.[0].length),
+    );
+
+    expect(prefixes.size).toBe(1);
   });
 
   /**
@@ -183,8 +226,8 @@ describe("formatReportTable, skipped against incomplete (covers AC-3, AC-8)", ()
       reportWith({ skipped: ["preference-match", "preference-violation"] }),
     );
 
-    expect(table).toContain(
-      "SKIPPED     preference-match, preference-violation",
+    expect(table).toMatch(
+      /^ {2}SKIPPED {2,}preference-match, preference-violation$/m,
     );
   });
 
@@ -201,8 +244,8 @@ describe("formatReportTable, skipped against incomplete (covers AC-3, AC-8)", ()
       }),
     );
 
-    expect(table).toContain("SKIPPED     preference-match");
-    expect(table).toContain("INCOMPLETE  key-domain-mismatch");
+    expect(table).toMatch(/^ {2}SKIPPED {2,}preference-match$/m);
+    expect(table).toMatch(/^ {2}INCOMPLETE {2,}key-domain-mismatch$/m);
   });
 
   it("omits both lines when neither applies", () => {

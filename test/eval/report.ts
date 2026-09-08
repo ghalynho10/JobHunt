@@ -76,6 +76,22 @@ export interface EvalReport {
 const OUTPUT_DIRECTORY = fileURLToPath(new URL("./.output/", import.meta.url));
 
 /**
+ * The width of the table's status column.
+ *
+ * IT MUST STAY WIDER THAN THE LONGEST STATUS WORD, never merely equal to it.
+ * `INCONCLUSIVE` is exactly twelve characters, so the twelve wide column this
+ * replaces padded it by nothing and glued the status straight onto the pair id
+ * (`INCONCLUSIVEcontrol-one-gap`), while every shorter status kept its gap.
+ * Found in review on 2026-09-08. The four places that must agree all derive
+ * from this one constant now, because their drifting apart as separate
+ * literals is what let the row render wrong with a test seemingly over it.
+ */
+const STATUS_COLUMN_WIDTH = 14;
+
+/** The two spaces every table row is indented by. */
+const ROW_INDENT = 2;
+
+/**
  * Assembles the run's report from what the harness observed (AC-3, AC-8, AC-9).
  *
  * IT IS A PURE FUNCTION AND NOT INLINE IN THE `afterAll` FOR ONE REASON: the
@@ -161,13 +177,13 @@ export function formatReportTable(report: EvalReport): string {
   );
 
   const lines = report.pairs.flatMap((verdict) => {
-    const status = verdict.status.toUpperCase().padEnd(12);
+    const status = verdict.status.toUpperCase().padEnd(STATUS_COLUMN_WIDTH);
     const reason =
       verdict.inconclusiveReason === undefined
         ? ""
         : ` (${verdict.inconclusiveReason})`;
 
-    const row = `  ${status}${verdict.pairId.padEnd(width)}  ${verdict.summary}${reason}`;
+    const row = `${" ".repeat(ROW_INDENT)}${status}${verdict.pairId.padEnd(width)}  ${verdict.summary}${reason}`;
 
     /**
      * A failure count with no cause beside it is the silent failure this
@@ -176,18 +192,22 @@ export function formatReportTable(report: EvalReport): string {
      */
     const causes = Object.entries(verdict.failureDetails).map(
       ([detail, count]) =>
-        `${" ".repeat(14 + width)}  failed ${count}x: ${detail}`,
+        `${" ".repeat(ROW_INDENT + STATUS_COLUMN_WIDTH + width)}  failed ${count}x: ${detail}`,
     );
 
     return [row, ...causes];
   });
 
   if (report.skipped.length > 0) {
-    lines.push(`  SKIPPED     ${report.skipped.join(", ")}`);
+    lines.push(
+      `${" ".repeat(ROW_INDENT)}${"SKIPPED".padEnd(STATUS_COLUMN_WIDTH)}${report.skipped.join(", ")}`,
+    );
   }
 
   if (report.incomplete.length > 0) {
-    lines.push(`  INCOMPLETE  ${report.incomplete.join(", ")}`);
+    lines.push(
+      `${" ".repeat(ROW_INDENT)}${"INCOMPLETE".padEnd(STATUS_COLUMN_WIDTH)}${report.incomplete.join(", ")}`,
+    );
   }
 
   return [
