@@ -242,7 +242,7 @@ export const PAIRS: readonly GroundTruthPair[] = [
     expectedBand: "weak_match",
     tags: ["control"],
     rationale:
-      "General software engineering and Node scripting carry over a little, and the archetype is at the three to five years asked for. Distributed systems, Kafka, schema and topic design, service architecture and operational ownership are the bulk of the visible ask and sit entirely outside a frontend history with no backend service and no direct database work. Only a small part carries over, which is weak_match rather than not_a_match.",
+      "General software engineering and Node scripting carry over a little, and the archetype is at the three to five years asked for. Distributed systems, Kafka, schema and topic design, service architecture and operational ownership are the bulk of the visible ask and sit entirely outside a frontend history with no backend service and no direct database work. Only a small part carries over, which is weak_match rather than not_a_match. The line between those two bands is not literal skill token overlap, which is zero here: not_a_match's own wording turns on the posting being \"a different kind of work\", and a frontend engineer against a backend role is the same kind of work at a different layer. That is exactly what separates this pair from control-unrelated-field, where a mechanical engineering posting states outright that no software development is involved and the archetype's work has nothing to do with it. This is why the band is stated exactly rather than widened with acceptableBands: the anchors do narrow it, the reading is just harder than most, and this spec reserves acceptableBands for where the anchor text genuinely cannot narrow (Key invariants). It is also the set's only exact weak_match pair, so widening it would leave that band reachable only through boundary-seniority-gap's own tolerance.",
   },
   {
     id: "control-frontend-match",
@@ -344,6 +344,41 @@ export const PAIRS: readonly GroundTruthPair[] = [
   },
 
   /**
+   * The stability probe (AC-5).
+   *
+   * THIS PAIR DOES NOT ASSERT A CONFIDENT BAND, AND THAT IS ITS POINT. Spec
+   * 0015's Follow up recorded this exact input shape, a real Adzuna excerpt at
+   * the length ceiling naming no concrete requirement, scoring strong_match
+   * three times and possible_match six times inside a single render on
+   * 2026-09-06. The pair exists so feature 16 can watch how far this shape
+   * moves across repeated runs, not so a single run can be marked right.
+   *
+   * THE LENGTH MATTERS AS MUCH AS THE ELLIPSIS. Written near the 500 character
+   * ceiling rather than as a short snippet with a decorative ellipsis stuck on,
+   * so `buildScoringPrompt()`'s own claim to the model, "this is the first 500
+   * characters of a longer description", is actually true of this fixture. A
+   * short snippet ending in U+2026 would reach the same branch while making the
+   * prompt say something false about the text beneath it.
+   */
+  {
+    id: "stability-probe-generic",
+    archetypeId: "direct-fit-control",
+    listing: posting({
+      sourceJobId: "gt-015",
+      title: "Software Engineer",
+      companyName: "Perrimore Group",
+      location: "Remote",
+      descriptionSnippet:
+        "At Perrimore Group we believe the best products come from people who are trusted to do their best work. Over the last decade we have built a culture we are proud of: we move quickly, we care about the people we serve, and we look after each other through every stage of growth. We offer a generous benefits package, a real commitment to balance outside work, and colleagues who make a hard week lighter. If this sounds like the kind of place you have been looking for, join our growing team and…",
+    }),
+    expectedBand: "possible_match",
+    acceptableBands: ["strong_match", "possible_match"],
+    tags: ["stability-probe"],
+    rationale:
+      "There is no concrete skill, technology, or seniority requirement anywhere in the visible text, so no anchor can be applied to it honestly. The two accepted bands are not a reading of BAND_ANCHORS at all: they are the two bands this exact input shape was actually observed producing on 2026-09-06, recorded in spec 0015's Follow up. Feature 16 should treat this pair as a variance measurement across reruns rather than as an ordinary accuracy check, which spec 0016 leaves to feature 16's own spec to decide.",
+  },
+
+  /**
    * The third isolation pair, and the only one varying a single dimension
    * (AC-4).
    *
@@ -392,40 +427,5 @@ export const PAIRS: readonly GroundTruthPair[] = [
     tags: ["preference-isolation"],
     rationale:
       "Byte identical requirements text to preference-match, and the location, remote language and pay all still agree with the archetype's stated preferences. The only difference anywhere in this posting is its title, Server Side Engineer, which is absent from desired_titles as a string while describing exactly the work those titles name. By the anchors alone this is the same strong_match as its baseline. If a run scores it lower, the model read desired_titles as a checklist to match the posting's title against, which spec 0015's instruction forbids, and no other reading of the posting changed to explain it.",
-  },
-
-  /**
-   * The stability probe (AC-5).
-   *
-   * THIS PAIR DOES NOT ASSERT A CONFIDENT BAND, AND THAT IS ITS POINT. Spec
-   * 0015's Follow up recorded this exact input shape, a real Adzuna excerpt at
-   * the length ceiling naming no concrete requirement, scoring strong_match
-   * three times and possible_match six times inside a single render on
-   * 2026-09-06. The pair exists so feature 16 can watch how far this shape
-   * moves across repeated runs, not so a single run can be marked right.
-   *
-   * THE LENGTH MATTERS AS MUCH AS THE ELLIPSIS. Written near the 500 character
-   * ceiling rather than as a short snippet with a decorative ellipsis stuck on,
-   * so `buildScoringPrompt()`'s own claim to the model, "this is the first 500
-   * characters of a longer description", is actually true of this fixture. A
-   * short snippet ending in U+2026 would reach the same branch while making the
-   * prompt say something false about the text beneath it.
-   */
-  {
-    id: "stability-probe-generic",
-    archetypeId: "direct-fit-control",
-    listing: posting({
-      sourceJobId: "gt-015",
-      title: "Software Engineer",
-      companyName: "Perrimore Group",
-      location: "Remote",
-      descriptionSnippet:
-        "At Perrimore Group we believe the best products come from people who are trusted to do their best work. Over the last decade we have built a culture we are proud of: we move quickly, we care about the people we serve, and we look after each other through every stage of growth. We offer a generous benefits package, a real commitment to balance outside work, and colleagues who make a hard week lighter. If this sounds like the kind of place you have been looking for, join our growing team and…",
-    }),
-    expectedBand: "possible_match",
-    acceptableBands: ["strong_match", "possible_match"],
-    tags: ["stability-probe"],
-    rationale:
-      "There is no concrete skill, technology, or seniority requirement anywhere in the visible text, so no anchor can be applied to it honestly. The two accepted bands are not a reading of BAND_ANCHORS at all: they are the two bands this exact input shape was actually observed producing on 2026-09-06, recorded in spec 0015's Follow up. Feature 16 should treat this pair as a variance measurement across reruns rather than as an ordinary accuracy check, which spec 0016 leaves to feature 16's own spec to decide.",
   },
 ];
