@@ -28,10 +28,16 @@ export interface EvalReport {
   readonly startedAt: string;
   readonly finishedAt: string;
   /**
-   * The `-t` pattern this run was invoked with, or `undefined` for a full run
+   * The `-t` pattern this run was invoked with, or `null` for a full run
    * (AC-8). Recorded so a partial report can never be mistaken for a full one.
+   *
+   * `null`, NOT `undefined`, AND THAT IS THE WHOLE POINT OF THE FIELD.
+   * `JSON.stringify` drops an `undefined` value, so the first full run wrote a
+   * report with no `filter` key at all (caught 2026-09-08): the reader then has
+   * to know that an absent key means a full run, which is exactly the silent
+   * inference AC-8 exists to remove. `null` says it out loud.
    */
-  readonly filter: string | undefined;
+  readonly filter: string | null;
   /** Pairs the filter excluded, so an absent pair is never silently absent. */
   readonly skipped: readonly string[];
   /**
@@ -105,7 +111,7 @@ export function formatReportTable(report: EvalReport): string {
   return [
     "",
     `Eval run against ${report.model}, band anchors ${report.bandAnchorsHash}`,
-    report.filter === undefined
+    report.filter === null
       ? "  filter: none (full set)"
       : `  filter: ${report.filter}`,
     "",

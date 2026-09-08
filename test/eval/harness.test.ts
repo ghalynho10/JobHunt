@@ -133,7 +133,7 @@ describe("eval harness", () => {
     const report: EvalReport = {
       startedAt,
       finishedAt: new Date().toISOString(),
-      filter: inject("evalTestNamePattern"),
+      filter: inject("evalTestNamePattern") ?? null,
       skipped: PAIRS.filter((pair) => !attempted.has(pair.id)).map(
         (pair) => pair.id,
       ),
