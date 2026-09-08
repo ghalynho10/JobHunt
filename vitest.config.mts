@@ -205,8 +205,17 @@ export default defineConfig({
           environment: "node",
           include: ["test/eval/**/*.test.ts"],
           setupFiles,
-          /** The harness needs the local stack for its one minted session. */
-          globalSetup: ["./test/setup/require-stack.ts"],
+          /**
+           * Two, and the second is this project's alone. `require-stack` is
+           * the same one the integration projects use: the harness needs the
+           * local stack for its one minted session. `eval-filter` hands the
+           * run's own `-t` pattern to the test file, which AC-8 requires every
+           * report to record.
+           */
+          globalSetup: [
+            "./test/setup/require-stack.ts",
+            "./test/setup/eval-filter.ts",
+          ],
           /**
            * FIVE MINUTES, AND IT IS DERIVED RATHER THAN PICKED. One pair's
            * test body awaits five `ai_scoring` calls ONE AFTER ANOTHER (spec
