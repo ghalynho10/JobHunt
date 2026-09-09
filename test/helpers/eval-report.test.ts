@@ -423,13 +423,60 @@ describe("buildEvalReport, a setup that never finished (covers AC-9)", () => {
     );
   });
 
+  /**
+   * THE ASSERTION IS THE WHOLE LINE, NOT A SUBSTRING OF IT, and that is the
+   * point. This test used to read `toContain("RUN NOT STARTED: The mint
+   * failed.")`, which passed while the real output said `The mint failed..
+   * Nothing was scored.`: the substring matched the first period and never
+   * looked at what followed. The fixture was realistic all along; the check
+   * simply could not see the defect it rendered. Same shape as the salary leak
+   * guard that searched for `191919` while the render said `191,919`.
+   */
   it("says the run never started, naming the cause, where it would say completed", () => {
     const table = formatReportTable(
       buildWith({ setupFailure: "The mint failed." }),
     );
 
-    expect(table).toContain("RUN NOT STARTED: The mint failed.");
+    expect(table).toContain(
+      "  RUN NOT STARTED: The mint failed. Nothing was scored.",
+    );
     expect(table).not.toContain("inconclusive");
+  });
+
+  /**
+   * A reason is a real `Error.message`, and both throw sites that can set one
+   * end it in a period, so the appended sentence doubled it. Asserted as "no
+   * doubled period anywhere in the render" rather than against one example,
+   * because the next reason to reach this line will be a different sentence.
+   */
+  it("never doubles the period when the reason already ends in one", () => {
+    const table = formatReportTable(
+      buildWith({
+        setupFailure:
+          "The committed ground truth set is invalid, so nothing was scored and no vendor call was made.",
+      }),
+    );
+
+    expect(table).not.toContain("..");
+    expect(table).toContain(
+      "  RUN NOT STARTED: The committed ground truth set is invalid, so nothing was scored and no vendor call was made. Nothing was scored.",
+    );
+  });
+
+  /**
+   * The other half of the same rule: normalising must not eat a period the
+   * reader still needs. A reason with none gets exactly one, from the appended
+   * sentence, and never zero.
+   */
+  it("still ends the reason in a period when it had none", () => {
+    const table = formatReportTable(
+      buildWith({ setupFailure: "The mint failed" }),
+    );
+
+    expect(table).toContain(
+      "  RUN NOT STARTED: The mint failed. Nothing was scored.",
+    );
+    expect(table).not.toContain("..");
   });
 
   /**
