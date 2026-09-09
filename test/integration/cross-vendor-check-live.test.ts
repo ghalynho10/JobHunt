@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { checkFitScore } from "@/features/scoring/check";
 import type { Listing } from "@/features/search/adzuna";
+import { TIERS, resolvedModel } from "@/lib/ai/tiers";
 import { isFailure } from "@/lib/result";
 
 import { deleteFixtureUser, mintFixtureUser } from "../helpers/fixture-user";
@@ -16,7 +17,17 @@ import { mintSession } from "../helpers/session";
  * unset by default, so a plain `pnpm test:integration` run never spends real
  * vendor money. Run explicitly with:
  *
- *   TEST_LIVE_MODEL_CALLS_ENABLED=true pnpm test:integration -t "real vendor"
+ *   TEST_LIVE_MODEL_CALLS_ENABLED=true pnpm test:integration -t "ai_check latency"
+ *
+ * THE FILTER IS `"ai_check latency"` AND THE PRECISION IS LOAD BEARING. Spec
+ * 0015's own live file documents `-t "real vendor"`, and that string appears
+ * in THREE describe blocks: `fit-scoring-live.test.ts` (two OpenAI calls),
+ * `model-client-router-live.test.ts` (one call per vendor), and this one. Run
+ * that way, this measurement would spend `ai_scoring` budget it has no use
+ * for and print its latencies interleaved with another vendor's. `-t
+ * "ai_check"` is not tight enough either: it also selects the router file's
+ * own single call `ai_check` case. The phrase below appears in this file and
+ * nowhere else in the repository.
  *
  * `.env.test` HOLDS PLACEHOLDER VENDOR KEYS AND THE FLAG ALONE IS NOT ENOUGH.
  * The integration projects load that file rather than `.env.local`, so a run
@@ -86,9 +97,11 @@ export function deriveTimeoutMs(latenciesMs: readonly number[]): number {
 }
 
 describe.skipIf(!liveModelCallsEnabled())(
-  "checkFitScore() against a real vendor (covers AC-1, AC-2, AC-6)",
+  "checkFitScore() ai_check latency measurement (covers AC-1, AC-2, AC-6)",
   () => {
     it(`returns a parsed verdict and measures ${LATENCY_SAMPLES} real latencies`, async () => {
+      const checkModel = resolvedModel(TIERS.ai_check.model);
+      const scoringModel = resolvedModel(TIERS.ai_scoring.model);
       const session = await freshSession("check-live-latency");
       const latencies: number[] = [];
 
@@ -131,13 +144,38 @@ describe.skipIf(!liveModelCallsEnabled())(
        * than only asserted. AC-6 asks for the observed figures and the
        * derived value to be recorded in spec 0019's Follow-up, and this is
        * where a person running the test reads them off.
+       *
+       * IT NAMES THE VENDOR AND MODEL EACH CALL ACTUALLY WENT TO, read off
+       * the resolved `TIERS` entry `callTier("ai_check", …)` hands to
+       * `generateObject`, and it prints `ai_scoring`'s beside it. That is the
+       * half a reader cannot otherwise confirm: a test filter that quietly
+       * selected the wrong file would still print a plausible looking set of
+       * latencies, and the resulting timeout would be derived from OpenAI.
+       * The printed line carries its own proof of which vendor was measured
+       * rather than asking anyone to trust the filter.
        */
-      /** AC-6: this printed line IS the deliverable, not a debug aid. */
       console.log(
-        `ai_check latencies (ms): ${latencies.join(", ")} · slowest ${Math.max(...latencies)} · derived timeoutMs ${deriveTimeoutMs(latencies)}`,
+        [
+          `ai_check via ${checkModel.provider}/${checkModel.modelId}`,
+          `(ai_scoring is ${scoringModel.provider}/${scoringModel.modelId})`,
+          `latencies (ms): ${latencies.join(", ")}`,
+          `slowest ${Math.max(...latencies)}`,
+          `derived timeoutMs ${deriveTimeoutMs(latencies)}`,
+        ].join(" · "),
       );
 
       expect(latencies).toHaveLength(LATENCY_SAMPLES);
+
+      /**
+       * THE `cross vendor` HALF OF THIS FEATURE'S NAME, asserted on the run
+       * that produced the number rather than only in `tiers.test.ts`. If the
+       * two tiers ever pointed at one vendor, the timeout derived here would
+       * be honest and the feature it configures would be meaningless, and
+       * nothing else in this file would notice.
+       */
+      expect(checkModel.provider.split(".")[0]).not.toBe(
+        scoringModel.provider.split(".")[0],
+      );
     });
   },
 );
