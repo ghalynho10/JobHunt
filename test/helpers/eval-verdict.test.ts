@@ -4,11 +4,15 @@ import type { Band } from "@/features/scoring/rubric";
 import type { ScoreOutcome } from "@/features/scoring/score";
 import { failure, success } from "@/lib/result";
 
+import { PAIRS } from "@/features/scoring/eval/pairs";
+
 import {
   classifyRerun,
   pairVerdict,
   preferenceLeakCheck,
+  validatePreferenceIds,
   PREFERENCE_BASELINE_ID,
+  PREFERENCE_CONFLICT_IDS,
   type PairVerdict,
   type RerunOutcome,
 } from "./eval-verdict";
@@ -600,5 +604,74 @@ describe("preferenceLeakCheck (covers AC-5)", () => {
     expect(outcome).toMatchObject({
       detail: expect.stringContaining(PREFERENCE_BASELINE_ID),
     });
+  });
+});
+
+/**
+ * The tie between AC-5's three pair ids and the committed set (AC-5).
+ *
+ * WHY THIS EXISTS. `PREFERENCE_BASELINE_ID` and `PREFERENCE_CONFLICT_IDS` are
+ * plain strings with no compiler level tie to `pairs.ts`. Every consumer of
+ * them already handles a miss gracefully, on purpose, because a `-t` filter can
+ * genuinely exclude one of these pairs; that same graciousness is what makes a
+ * rename invisible, since the leak check simply stops running and the run still
+ * exits 0. Found in review on 2026-09-08.
+ *
+ * IT DRIVES THE REAL COMMITTED `PAIRS`, not a hand written fixture, because a
+ * fixture would only prove the function reads a set it was handed. The first
+ * test below is the one that actually fails the day someone renames a pair.
+ */
+describe("validatePreferenceIds (covers AC-5)", () => {
+  it("holds against the real committed set today", () => {
+    expect(validatePreferenceIds(PAIRS)).toEqual([]);
+  });
+
+  /**
+   * The deliberate break, as a rename rather than a deletion, because a rename
+   * is the case that was silent: the pair still exists and the set is still
+   * valid by every other rule, so nothing else anywhere would notice.
+   */
+  it("names a pair that was renamed out from under it", () => {
+    const renamed = PAIRS.map((pair) =>
+      pair.id === PREFERENCE_BASELINE_ID
+        ? { ...pair, id: "preference-baseline" }
+        : pair,
+    );
+
+    expect(validatePreferenceIds(renamed)).toEqual([PREFERENCE_BASELINE_ID]);
+  });
+
+  it("names a renamed conflict pair, not only the baseline", () => {
+    const renamed = PAIRS.map((pair) =>
+      pair.id === "preference-violation"
+        ? { ...pair, id: "preference-conflict" }
+        : pair,
+    );
+
+    expect(validatePreferenceIds(renamed)).toEqual(["preference-violation"]);
+  });
+
+  it("names every missing id at once rather than stopping at the first", () => {
+    expect(validatePreferenceIds([])).toEqual([
+      PREFERENCE_BASELINE_ID,
+      ...PREFERENCE_CONFLICT_IDS,
+    ]);
+  });
+
+  /**
+   * A pair being filtered out of a RUN is not the same as a pair being missing
+   * from the SET, and only the second is this check's business. It is handed
+   * the committed set, never the filtered subset, so a one pair debugging run
+   * must not trip it.
+   */
+  it("reads the set it is given, so a filtered run is not its concern", () => {
+    const onlyTheThree = PAIRS.filter(
+      (pair) =>
+        pair.id === PREFERENCE_BASELINE_ID ||
+        PREFERENCE_CONFLICT_IDS.some((id) => id === pair.id),
+    );
+
+    expect(onlyTheThree).toHaveLength(3);
+    expect(validatePreferenceIds(onlyTheThree)).toEqual([]);
   });
 });
