@@ -40,6 +40,12 @@ Run wide band totals across all 80 reruns: 07:30 was `strong_match` 35, `good_ma
 
 ## The result, filled in when the paid run happens
 
-`control-one-gap` distribution on the confirming run:
+`control-one-gap` distribution on the confirming run: **`good_match` 2, `possible_match` 3**, read from the report's `distribution` field. Run at 2026-09-09T03:44:20Z against `gpt-5.6-luna`, anchor hash `1b45f524b356`, filter `control-one-gap`, 15 pairs skipped, status `completed`, exit 0. The pair **passes**, since `possible_match` is the strict majority and clears spec 0017's floor of 3 of 5.
+
+Read the split, not the verdict. The report's `summary` for this same pair reads `"possible_match, 5 of 5 succeeded"`, which is the success denominator again, and the actual margin is the minimum the harness accepts. Two of five reruns still returned `good_match`, so the corrected expectation is confirmed but not by a wide result, and one rerun moving the other way would leave no majority at all. That is the same fragility spec 0016's Follow up records for `weak-match-shallow-overlap`, now observed on this pair too. It is not a reason to widen `control-one-gap` with `acceptableBands`, per this spec's own invariant, and it is not evidence against the correction either: the old `good_match` expectation lost 3 to 2 here and 4 to 1 and 5 to 0 on the two baseline runs, so it has now failed on all three runs ever taken.
 
 Anything unexpected, including a pair that moved without being touched:
+
+- **The UTC day rolled between the design of this checklist and the confirming run**, so the usage counter proof had to watch a different row than expected. `check_usage_gate` computes `period_start` in UTC (`supabase/migrations/20260902120000_usage_gating.sql`), the run happened at 03:44Z on 2026-09-09 while the local date was still 2026-09-08, and the `2026-09-08` day row therefore stayed at 195 throughout. Watching that row would have shown no movement and read as though the filter had selected nothing. What actually moved: a new `ai_scoring global day 2026-09-09` row appeared at exactly 5, and `ai_scoring global month 2026-09-01` went 1225 to 1230. Five calls, one pair, confirmed by measurement rather than by reading the filter output.
+- **No pair moved without being touched**, because no other pair ran. The filter skipped the other 15, so this run says nothing about the `possible-adjacent-domain` style drift the table above records, and the preference leak check reports `skipped, preference-match did not run` rather than passing.
+- The anchor hash on this run is `1b45f524b356`, the same value both baseline runs carry, which is what makes this run comparable with them (AC-2).

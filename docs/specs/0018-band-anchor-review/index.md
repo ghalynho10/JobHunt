@@ -1,7 +1,7 @@
 # 0018. Band anchor review
 
 **Date**: 2026-09-08
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
