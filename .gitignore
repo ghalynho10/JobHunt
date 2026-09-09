@@ -60,3 +60,6 @@ next-env.d.ts
 
 # editor config, personal to a checkout rather than part of the product
 .vscode/
+
+# The measurement artifact the AC-6 latency run writes (spec 0019).
+/test/integration/.output/

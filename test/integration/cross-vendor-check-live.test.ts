@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
 import { afterAll, describe, expect, it } from "vitest";
 
 import { checkFitScore } from "@/features/scoring/check";
@@ -154,15 +157,64 @@ describe.skipIf(!liveModelCallsEnabled())(
        * The printed line carries its own proof of which vendor was measured
        * rather than asking anyone to trust the filter.
        */
-      console.log(
-        [
-          `ai_check via ${checkModel.provider}/${checkModel.modelId}`,
-          `(ai_scoring is ${scoringModel.provider}/${scoringModel.modelId})`,
-          `latencies (ms): ${latencies.join(", ")}`,
-          `slowest ${Math.max(...latencies)}`,
-          `derived timeoutMs ${deriveTimeoutMs(latencies)}`,
-        ].join(" · "),
+      const line = [
+        `ai_check via ${checkModel.provider}/${checkModel.modelId}`,
+        `(ai_scoring is ${scoringModel.provider}/${scoringModel.modelId})`,
+        `latencies (ms): ${latencies.join(", ")}`,
+        `slowest ${Math.max(...latencies)}`,
+        `derived timeoutMs ${deriveTimeoutMs(latencies)}`,
+      ].join(" · ");
+
+      /**
+       * `process.stdout.write` AND A FILE, NEVER `console.log`, AND THIS IS A
+       * CORRECTION RATHER THAN A STYLE CHOICE (2026-09-09).
+       *
+       * The first version of this test printed the line with `console.log`.
+       * It never appeared. This project's integration runs do not surface
+       * `console.log` to the reporter AT ALL, proved by a free probe on a
+       * passing test that made no vendor call, and nothing in
+       * `vitest.config.mts` or the setup files suppresses it deliberately. So
+       * a paid five call run completed, passed, and threw its entire
+       * deliverable away: the five real latencies AC-6 exists to capture were
+       * gone the moment the process exited, and the only way back to them was
+       * to spend the money again.
+       *
+       * THE FILE IS THE ACTUAL FIX, not the `stdout.write`. A stream can be
+       * swallowed by a reporter, a pipe, or a `tail` that cuts the wrong end;
+       * a measurement that cost real money should not depend on any of them
+       * surviving. The artifact is written before the assertions below run,
+       * so it exists even if one of them then fails, which is exactly the
+       * case where a reader most wants to see what the vendor actually did.
+       *
+       * It lands in a gitignored directory, the same shape spec 0017 uses for
+       * the eval harness's own reports (`/test/eval/.output/`).
+       */
+      const artifact = join(
+        import.meta.dirname,
+        ".output",
+        "ai-check-latency.json",
       );
+      mkdirSync(dirname(artifact), { recursive: true });
+      writeFileSync(
+        artifact,
+        `${JSON.stringify(
+          {
+            measuredAt: new Date().toISOString(),
+            checkProvider: checkModel.provider,
+            checkModelId: checkModel.modelId,
+            scoringProvider: scoringModel.provider,
+            scoringModelId: scoringModel.modelId,
+            latenciesMs: latencies,
+            slowestMs: Math.max(...latencies),
+            derivedTimeoutMs: deriveTimeoutMs(latencies),
+            line,
+          },
+          undefined,
+          2,
+        )}\n`,
+      );
+
+      process.stdout.write(`\n${line}\n`);
 
       expect(latencies).toHaveLength(LATENCY_SAMPLES);
 
