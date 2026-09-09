@@ -1,3 +1,4 @@
+import type { GroundTruthPair } from "@/features/scoring/eval/ground-truth";
 import { BANDS, type Band } from "@/features/scoring/rubric";
 import type { ScoreOutcome } from "@/features/scoring/score";
 import { isFailure } from "@/lib/result";
@@ -79,6 +80,45 @@ export const PREFERENCE_CONFLICT_IDS = [
   "preference-violation",
   "preference-title-conflict",
 ] as const;
+
+/**
+ * Checks that the three ids above still name real pairs (AC-5).
+ *
+ * WITHOUT THIS, RENAMING A PAIR TURNS AC-5 OFF AND NOTHING SAYS SO. The three
+ * constants above are plain strings with no tie to `pairs.ts`. The harness
+ * looks its baseline up with `PAIRS.find(...)`, and every consumer of that
+ * lookup already handles a miss gracefully: a missing baseline reports
+ * `leak-check-skipped` and a missing conflict pair is simply not compared. Each
+ * of those fallbacks is correct on its own, since a `-t` filter really can
+ * exclude one of these pairs, and that is exactly what makes the failure
+ * invisible: a renamed pair is indistinguishable from a filtered one, so the
+ * whole preference leak check goes dark and the run still exits 0. Found in
+ * review on 2026-09-08.
+ *
+ * IT LIVES HERE RATHER THAN IN `validateGroundTruth()`. That function is
+ * application code under `src/`, and root `AGENTS.md` forbids an application
+ * module importing anything under `test/`, which is where these three ids live
+ * and belong: they are the harness's own reading of the set, not a property of
+ * the set itself. Keeping the check beside the constants also means a later
+ * edit to them sees its guard in the same file.
+ *
+ * Pure, and returns rather than throws, matching `validateGroundTruth()`'s own
+ * shape. The caller decides what a broken tie is worth; the harness treats it
+ * as fatal before a single call is spent.
+ *
+ * @param pairs The committed ground truth set to check the ids against.
+ * @returns Every id above that names no pair, in the order listed. Empty means
+ *   the tie holds.
+ */
+export function validatePreferenceIds(
+  pairs: readonly GroundTruthPair[],
+): readonly string[] {
+  const pairIds = new Set(pairs.map((pair) => pair.id));
+
+  return [PREFERENCE_BASELINE_ID, ...PREFERENCE_CONFLICT_IDS].filter(
+    (id) => !pairIds.has(id),
+  );
+}
 
 export type VerdictStatus = "pass" | "fail" | "inconclusive";
 

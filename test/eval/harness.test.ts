@@ -15,6 +15,7 @@ import {
   pairVerdict,
   preferenceLeakCheck,
   PREFERENCE_BASELINE_ID,
+  validatePreferenceIds,
   type PairVerdict,
   type PreferenceLeakOutcome,
   type RerunOutcome,
@@ -125,6 +126,24 @@ describe("eval harness", () => {
               (issue) => `  ${issue.kind} [${issue.subject}]: ${issue.message}`,
             ),
           ].join("\n"),
+        );
+      }
+
+      /**
+       * AC-5's three pair ids, checked as hard as a duplicate id is.
+       *
+       * IT IS FATAL RATHER THAN A WARNING BECAUSE THE FAILURE IS SILENT. Every
+       * consumer of these ids already degrades gracefully when one is missing,
+       * correctly, since a `-t` filter can genuinely exclude a pair. That makes
+       * a rename look exactly like a filter, so the leak check would simply
+       * stop running and the run would still exit 0. Refusing here, before the
+       * mint, is the only place the difference can still be told.
+       */
+      const missingPreferenceIds = validatePreferenceIds(PAIRS);
+
+      if (missingPreferenceIds.length > 0) {
+        throw new Error(
+          `The committed ground truth set is invalid, so nothing was scored and no vendor call was made. AC-5's preference leak check names ${missingPreferenceIds.length} pair id(s) that no pair defines: ${missingPreferenceIds.join(", ")}. Either a pair was renamed in src/features/scoring/eval/pairs.ts, or one was removed. Update PREFERENCE_BASELINE_ID and PREFERENCE_CONFLICT_IDS in test/helpers/eval-verdict.ts to match, rather than deleting this check: without all three the leak check cannot run at all.`,
         );
       }
 
