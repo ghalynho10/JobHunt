@@ -30,6 +30,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 15 | Eval ground truth set | Slice 2 | done |
 | 16 | Eval harness runner | Slice 2 | done |
 | 17 | Cross vendor self check | Slice 2 | planned |
+| 33 | Band anchor review | Slice 2 | in-progress |
 | 18 | Structured search filters | Slice 3 | planned |
 | 19 | Listing data quality | Slice 3 | planned |
 | 20 | Guided application capture | Slice 4 | planned |
@@ -329,6 +330,19 @@ _The harness's first real finding, which belongs to the scorer rather than to th
 A genuine verification pass, not a bigger prompt: does the stated reasoning actually cite skills present in both the listing and the profile. It runs on a different vendor than the bulk scoring pass, because checking a model's work with the same model defeats the point of having a check. The same principle as cross model code review, applied one layer down inside the pipeline.
 **Done when:** the check runs on a demonstrably different vendor than the scoring tier; a fabricated skill in the reasoning is caught; a caught result is surfaced to the user rather than silently dropped or silently kept; and the check's own failure is visible rather than treated as a pass.
 - [ ] Design it (spec): `/architect cross vendor self check`
+
+### 33. Band anchor review
+Check the band anchors against what feature 16's harness actually measured, and correct whichever side is wrong. The finding is that the anchors hold and one committed expectation does not, so this corrects the pair and records the anchor rule that was drafted and refused, rather than changing what real users are scored against.
+**Done when:** `control-one-gap` expects `possible_match` and passes a real run, `BAND_ANCHORS` and its hash `1b45f524b356` are untouched, the misread run evidence is corrected everywhere it was repeated, and the set still gives every band an exact expectation.
+_spec [0018](../specs/0018-band-anchor-review/index.md)_
+- [x] Design it (spec): `/architect band anchor review` · written 2026-09-08, 7 acceptance criteria, and the decision is that the anchors do **not** change. Cross checked twice on Fable against an Opus author. The first draft added two anchor rules and was refused on three independent grounds: it contradicted a fourth pair (`weak-match-shallow-overlap`, whose own rationale rejects the test it proposed), it used "a substantial share of the role" when `rubric.ts:58` says anchors are written against the visible posting and never against the role, and it falsified spec 0016's accepted AC-3 by removing `boundary-seniority-gap`'s tolerance. The evidence it rested on was also wrong: the report's `summary` reads `"5 of 5 succeeded"` as a **success denominator**, not a band count, so `key-domain-mismatch` was a 3 to 2 split rather than stable, which is noise and not a defined gap. The second review of the narrowed spec returned sound with seven gaps, all applied
+- [ ] Build it: `/develop band anchor review`
+  - [ ] Correct the pair and its file's own claim: `control-one-gap` to `possible_match` argued from the existing `possible_match` anchor text, and `pairs.ts`'s "before any model was asked" header amended to name its one exception, satisfies AC-1, AC-1b
+  - [ ] Correct the record: the misread evidence at `scope.md:326`, plus spec 0016's stale table row and its Follow up quote that reads as present tense, satisfies AC-4, AC-4b
+  - [ ] Prove it for free: the drift guard passes untouched, the data quality gate is clean, and every band still has an exact expectation now that `good-match-adjacent` is the only pair expecting `good_match`, satisfies AC-2, AC-3
+  - [ ] Confirm it paid: `pnpm eval -t control-one-gap`, five vendor calls rather than eighty, satisfies AC-5
+- [ ] Verify it: `/check verify band anchor review`
+- [ ] Test it: `/test band anchor review`
 
 ## Slice 3: Search depth
 
