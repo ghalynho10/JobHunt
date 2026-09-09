@@ -6,8 +6,30 @@ import type { CookieMethodsServer } from "@supabase/ssr";
 import type { Listing } from "@/features/search/adzuna";
 import { isFailure } from "@/lib/result";
 
+import { checkFitScore, type CheckOutcome } from "./check";
 import type { ScoringProfile } from "./rubric";
 import { scoreListing, type ScoreOutcome } from "./score";
+
+/**
+ * One listing's full outcome: what the scorer said, and what the check made
+ * of it (spec 0019, `## Feature design`).
+ *
+ * THE TWO SKIP VARIANTS ARE STRINGS AND NOT `CheckOutcome`S, deliberately.
+ * "Nothing was attempted" and "something was attempted and did not finish"
+ * are different facts about a card, and AC-8 requires the reader to be able
+ * to tell them apart: a check that broke says so, a check that never needed
+ * to run says nothing at all. Encoding the difference in the TYPE means a
+ * later change cannot quietly render them the same, which a shared shape plus
+ * a convention would allow.
+ *
+ * `"skipped_no_score"` is AC-5: the score itself refused or failed, so there
+ * is no claim to check. `"skipped_no_skills"` is AC-4: the score succeeded
+ * and claimed nothing, so there is nothing to check and no call is spent.
+ */
+export interface ListingOutcome {
+  readonly score: ScoreOutcome;
+  readonly check: CheckOutcome | "skipped_no_score" | "skipped_no_skills";
+}
 
 /**
  * Score every listing in one render, all at once (spec 0015, AC-8, AC-14).
@@ -46,17 +68,17 @@ export async function scoreListings(
   profile: ScoringProfile,
   listings: readonly Listing[],
   cookieAdapter?: CookieMethodsServer,
-): Promise<readonly ScoreOutcome[]> {
+): Promise<readonly ListingOutcome[]> {
   return Sentry.startSpan(
     {
       name: "scoring.score_listings",
       op: "function",
       attributes: { listings: listings.length },
     },
-    async (span): Promise<readonly ScoreOutcome[]> => {
+    async (span): Promise<readonly ListingOutcome[]> => {
       const outcomes = await Promise.all(
         listings.map(async (listing) =>
-          scoreListing(profile, listing, cookieAdapter),
+          scoreThenCheck(profile, listing, cookieAdapter),
         ),
       );
 
@@ -74,15 +96,101 @@ export async function scoreListings(
       let refused = 0;
       let failed = 0;
 
-      for (const outcome of outcomes) {
-        if (isFailure(outcome)) failed += 1;
-        else if (outcome.value.allowed) scored += 1;
+      /**
+       * AC-10's four counts, sitting UNDER `scored` rather than beside it.
+       *
+       * `scored` MUST EQUAL `checked + checkSkippedEmpty + checkUnverifiable`,
+       * and a test asserts exactly that identity. It is what makes these four
+       * readable at all: without it, a page of listings that claimed nothing
+       * and a page whose checks all broke both show a low `checked`, and an
+       * operator cannot tell the quiet day from the outage. The identity is
+       * also what would catch a fifth outcome being added here later and not
+       * being tallied, which is the way a partition silently stops
+       * partitioning.
+       *
+       * A LISTING WHOSE SCORE NEVER SUCCEEDED IS IN NONE OF THE FOUR. It is
+       * already counted by `refused` or `failed`, and AC-5 means no check was
+       * ever attempted on it, so counting it again under a check attribute
+       * would double count the same listing under two different questions.
+       */
+      let checked = 0;
+      let checkSkippedEmpty = 0;
+      let flagged = 0;
+      let checkUnverifiable = 0;
+
+      for (const { score, check } of outcomes) {
+        if (isFailure(score)) failed += 1;
+        else if (score.value.allowed) scored += 1;
         else refused += 1;
+
+        if (check === "skipped_no_score") continue;
+
+        if (check === "skipped_no_skills") {
+          checkSkippedEmpty += 1;
+        } else if (isFailure(check) || !check.value.allowed) {
+          checkUnverifiable += 1;
+        } else {
+          checked += 1;
+          if (check.value.value.ungroundedSkills.length > 0) flagged += 1;
+        }
       }
 
-      span.setAttributes({ scored, refused, failed });
+      span.setAttributes({
+        scored,
+        refused,
+        failed,
+        checked,
+        checkSkippedEmpty,
+        flagged,
+        checkUnverifiable,
+      });
 
       return outcomes;
     },
   );
+}
+
+/**
+ * One listing, scored and then checked (spec 0019, AC-4, AC-5).
+ *
+ * CHAINED, NOT CONCURRENT, AND IT HAS TO BE. The check's whole input is the
+ * score's own `matchedSkills`, so it cannot start before that list exists.
+ * The two calls run in series per listing while the listings themselves still
+ * run concurrently with each other, so the batch costs the slowest single
+ * chain rather than twenty of them end to end.
+ *
+ * THE TWO SKIPS ARE WHERE THE BUDGET IS ACTUALLY PROTECTED. A refused or
+ * failed score has no claim to check (AC-5), and a score claiming no skills
+ * has nothing to check (AC-4). Either one spending an `ai_check` call would
+ * buy a verdict about an empty list, and AC-4's separate count exists so a
+ * page of listings that claimed nothing can never read as a page of verified
+ * ones.
+ *
+ * @param profile The caller's own profile, already bounded by `boundProfile()`.
+ * @param listing One listing this render is showing.
+ * @param cookieAdapter The same test seam both calls beneath this expose.
+ */
+async function scoreThenCheck(
+  profile: ScoringProfile,
+  listing: Listing,
+  cookieAdapter?: CookieMethodsServer,
+): Promise<ListingOutcome> {
+  const score = await scoreListing(profile, listing, cookieAdapter);
+
+  /** AC-5: a refusal or a failure never triggers a check call. */
+  if (isFailure(score) || !score.value.allowed) {
+    return { score, check: "skipped_no_score" };
+  }
+
+  const claimedSkills = score.value.value.matchedSkills;
+
+  /** AC-4: nothing claimed, so nothing to check and no call spent. */
+  if (claimedSkills.length === 0) {
+    return { score, check: "skipped_no_skills" };
+  }
+
+  return {
+    score,
+    check: await checkFitScore(listing, claimedSkills, cookieAdapter),
+  };
 }
