@@ -569,4 +569,51 @@ describe("the committed ground truth set", () => {
       ).not.toContain(name);
     }
   });
+
+  /**
+   * Spec 0018's correction, pinned so it cannot quietly go back (AC-1).
+   *
+   * THIS PAIR IS THE ONE EXPECTATION IN THE SET THAT WAS RE-ARGUED AFTER A RUN
+   * DISAGREED WITH IT, which is exactly the shape that invites a silent revert:
+   * the pair passes on a 3 to 2 majority today, so the next reader who sees it
+   * split may be tempted to put `good_match` back rather than read the anchor
+   * text again. Spec 0018 settled it from `possible_match`'s own wording and
+   * changed no anchor, so a change here is a decision to re-open that, and it
+   * should fail loudly and be argued in a spec rather than edited in passing.
+   */
+  it("states spec 0018's corrected band for control-one-gap exactly", () => {
+    const pair = PAIRS.find((candidate) => candidate.id === "control-one-gap");
+
+    expect(pair, "control-one-gap is still in the set").toBeDefined();
+    expect(
+      pair?.expectedBand,
+      "control-one-gap expects possible_match, per spec 0018 AC-1; re-argue it in a spec before changing this",
+    ).toBe("possible_match");
+  });
+
+  /**
+   * Spec 0018's Key invariant, applied to every control rather than to one pair.
+   *
+   * `acceptableBands` WIDENS A GENUINE AMBIGUITY IN THE ANCHORS. IT IS NOT A WAY
+   * TO STOP A PAIR FAILING. That distinction is what the `control` tag already
+   * carries: spec 0016 explains `mild-stretch-possible-match`'s own tagging as
+   * "no `acceptableBands` and the plain `control` tag rather than `boundary`",
+   * because the anchor text settles it. So a control that grows a tolerance has
+   * not been re-argued, it has been excused, and the two pairs that legitimately
+   * carry one are tagged `boundary` and `stability-probe` instead.
+   *
+   * This is the general form of the check above. Pinning only `control-one-gap`
+   * would leave the same escape open on every other control in the set.
+   */
+  it("gives no control tagged pair an acceptableBands tolerance", () => {
+    const widened = PAIRS.filter(
+      (pair) =>
+        pair.tags.includes("control") && pair.acceptableBands !== undefined,
+    ).map((pair) => pair.id);
+
+    expect(
+      widened,
+      "a control pair carries acceptableBands; per spec 0018 a control is settled by the anchor text, so re-argue the band or retag the pair as boundary",
+    ).toEqual([]);
+  });
 });
