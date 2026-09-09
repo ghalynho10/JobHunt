@@ -29,7 +29,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 14 | Fit scoring with shown reasoning | Slice 2 | done |
 | 15 | Eval ground truth set | Slice 2 | done |
 | 16 | Eval harness runner | Slice 2 | done |
-| 17 | Cross vendor self check | Slice 2 | planned |
+| 17 | Cross vendor self check | Slice 2 | in-progress |
 | 33 | Band anchor review | Slice 2 | done |
 | 18 | Structured search filters | Slice 3 | planned |
 | 19 | Listing data quality | Slice 3 | planned |
@@ -326,10 +326,20 @@ _This tier carries no `Review it` or `Document it` box, so the round that ran is
 
 _The harness's first real finding, which belongs to the scorer rather than to this feature. Across two full sixteen pair runs on 2026-09-08, read per pair from each report's `distribution` field: `control-one-gap` returned `good_match` 1 and `possible_match` 4 in the 07:30 run and `possible_match` 5 in the 07:35 run, against an expected `good_match`, so it failed both; `key-domain-mismatch` returned `weak_match` 3 and `not_a_match` 2, then `not_a_match` 5, against an expected `not_a_match`, so it failed the first and passed the second. Both runs therefore exited non zero, which is the harness reporting correctly, not failing. **This line was corrected on 2026-09-08.** It first read both pairs as stable at 5 of 5 and called `control-one-gap`'s result a stable disagreement rather than noise. That came from each report's `summary` field, whose `5 of 5` is the **success denominator**, meaning every rerun returned a band rather than erroring, not the count landing on that band; the distributions above are what the runs actually showed, and the inference built on the misread is withdrawn. Taken up by spec [0018](../specs/0018-band-anchor-review/index.md), whose finding is that `BAND_ANCHORS` holds and the recorded expectation is what was wrong: `control-one-gap` is corrected to `possible_match` and no anchor changes. The `weak_match` and `not_a_match` boundary that spec 0016's `boundary-seniority-gap` rationale names as a gap in `BAND_ANCHORS` is still undefined, and stays recorded as a gap there rather than being closed on one split pair._
 
-### 17. Cross vendor self check · needs a decision · GA
+### 17. Cross vendor self check · in-progress · GA
 A genuine verification pass, not a bigger prompt: does the stated reasoning actually cite skills present in both the listing and the profile. It runs on a different vendor than the bulk scoring pass, because checking a model's work with the same model defeats the point of having a check. The same principle as cross model code review, applied one layer down inside the pipeline.
 **Done when:** the check runs on a demonstrably different vendor than the scoring tier; a fabricated skill in the reasoning is caught; a caught result is surfaced to the user rather than silently dropped or silently kept; and the check's own failure is visible rather than treated as a pass.
-- [ ] Design it (spec): `/architect cross vendor self check`
+_spec [0019](../specs/0019-cross-vendor-self-check/index.md)_
+- [x] Design it (spec): `/architect cross vendor self check`
+- [ ] Build it: `/develop cross vendor self check`
+  - [ ] The check primitive: extract the shared listing text builder and grounding criterion, write `checkFitScore()` against the `ai_check` tier, covers AC-1, AC-2, AC-3, AC-11
+  - [ ] Measure `ai_check`'s real latency and set its derived timeout in `tiers.ts`, covers AC-6
+  - [ ] Wire the check into `scoreListings()`'s dispatch and into `page.tsx` / `score-card.tsx`'s rendering (the three card states, the reasoning caveat, the unchanged band), covers AC-4, AC-5, AC-7, AC-8, AC-9, AC-12, AC-13
+  - [ ] Observability and tests: extend the `scoring.score_listings` span, update the existing test suites for the new `ListingOutcome` shape, and write this feature's own critical test scenarios, covers AC-1 through AC-13
+- [ ] Verify it: `/check verify cross vendor self check`
+- [ ] Test it: `/test cross vendor self check`
+- [ ] Review it (fresh model): `/check review cross vendor self check`
+- [ ] Document it: `/document cross vendor self check`
 
 ### 33. Band anchor review · done
 Check the band anchors against what feature 16's harness actually measured, and correct whichever side is wrong. The finding is that the anchors hold and one committed expectation does not, so this corrects the pair and records the anchor rule that was drafted and refused, rather than changing what real users are scored against.
