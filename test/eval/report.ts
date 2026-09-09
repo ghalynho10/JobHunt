@@ -236,8 +236,22 @@ function describeOutcome(report: EvalReport): string {
   switch (report.status) {
     case "aborted":
       return `  RUN ABORTED: ${report.aborted ?? "unknown reason"}`;
-    case "not-started":
-      return `  RUN NOT STARTED: ${report.notStarted ?? "unknown reason"}. Nothing was scored.`;
+    case "not-started": {
+      /**
+       * THE REASON IS A REAL `Error.message`, SO IT USUALLY ENDS IN A PERIOD
+       * ALREADY, and appending a sentence to it printed `at all.. Nothing was
+       * scored.` Both throw sites that can set it end their message that way:
+       * the `validateGroundTruth` issue list, whose every issue message ends in
+       * a period, and AC-5's preference id check. Normalising here rather than
+       * at each throw site keeps the rule in one place, where the sentence is
+       * actually appended, instead of asking every future caller to remember.
+       */
+      const reason = (report.notStarted ?? "unknown reason")
+        .trimEnd()
+        .replace(/\.+$/, "");
+
+      return `  RUN NOT STARTED: ${reason}. Nothing was scored.`;
+    }
     case "completed":
       return "  run completed";
   }
