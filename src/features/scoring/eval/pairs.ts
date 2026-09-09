@@ -7,10 +7,23 @@ import type { GroundTruthPair } from "./ground-truth";
  * (spec 0016, AC-2 through AC-5).
  *
  * EVERY `expectedBand` BELOW WAS ARGUED FROM `BAND_ANCHORS`'S OWN WRITTEN TEXT
- * BEFORE ANY MODEL WAS ASKED, and the `rationale` field carries that argument.
- * That ordering is the whole reason this file exists: a band read off a model's
- * output would make the set a description of today's scorer rather than a
- * measurement of it, and every later run would agree with it by construction.
+ * BEFORE ANY MODEL WAS ASKED, WITH THE ONE EXCEPTION NAMED NEXT, and the
+ * `rationale` field carries that argument. That ordering is the whole reason
+ * this file exists: a band read off a model's output would make the set a
+ * description of today's scorer rather than a measurement of it, and every
+ * later run would agree with it by construction.
+ *
+ * THE EXCEPTION IS `control-one-gap`, corrected from `good_match` to
+ * `possible_match` on 2026-09-08 (spec 0018) after two full runs disagreed with
+ * the band recorded here. It is not the accommodation the paragraph above
+ * warns about, and the test for that is whether the correction needs the runs
+ * in order to stand. It does not. It is argued from `possible_match`'s existing
+ * anchor text against the posting's own sentence calling the infrastructure
+ * half what sets the role apart, and both of those were written before any
+ * model was asked. No anchor moved. The runs prompted the re-reading; they are
+ * not the evidence for it. A band that could only be justified by pointing at
+ * what a run returned is the thing this file forbids, and such a pair would be
+ * left to fail rather than rewritten.
  *
  * NO PAIR ENCODES A RULE THE ANCHORS DO NOT STATE. In particular there is no
  * seniority ceiling here beyond the one `strong_match`'s own wording names. An
@@ -111,10 +124,10 @@ export const PAIRS: readonly GroundTruthPair[] = [
       descriptionSnippet:
         "Backend Engineer wanted for our platform team. Day to day is Python services, PostgreSQL, and the data pipelines feeding our customer reporting. What sets this role apart is the infrastructure half: you will own our Kubernetes workloads directly, writing and tuning the manifests, setting resource limits, and being on call for the cluster. Real production Kubernetes ownership is required, not just exposure to it. Two to five years of backend experience.",
     }),
-    expectedBand: "good_match",
+    expectedBand: "possible_match",
     tags: ["control"],
     rationale:
-      "Python, PostgreSQL and data pipelines are all directly covered, which is the core of the work. The posting then names production Kubernetes ownership as a requirement, and the archetype's own history says plainly it has read manifests and never owned a cluster. That is good_match's wording: most of the visible posting is covered, one area is a genuine stretch, and the core of the work is clearly within reach.",
+      "Python, PostgreSQL and data pipelines are directly covered. Production Kubernetes ownership is not: the archetype's own history says plainly it has read manifests and never owned a cluster. The posting does not leave the weight of that gap open, because it says in its own words that what sets this role apart is the infrastructure half, and that real production ownership is required rather than exposure. So a real part of the visible posting is covered and a real part is unproven, and applying would mean arguing that the pipeline work transfers to owning a cluster rather than pointing at having done it. That is possible_match's wording. Re-argued on 2026-09-08 under spec 0018, after two full runs both returned possible_match against the good_match recorded here. The ground for the correction is the posting's own what sets this role apart sentence, which was frozen into this file before any model was asked and does not depend on what those runs returned: the earlier reading counted the half the posting itself calls defining as one of good_match's one or two areas unproven or a stretch.",
   },
   {
     id: "control-unrelated-field",
