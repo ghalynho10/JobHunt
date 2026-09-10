@@ -558,6 +558,35 @@ describe("the applied marker read fails (AC-9, COPY-8)", () => {
  * lives in this spec's `verify.md`.
  */
 
+/**
+ * A whole card outcome per score (spec 0019).
+ *
+ * IT PAIRS EACH SCORE WITH A CHECK STATE THE SYSTEM CAN ACTUALLY REACH, not
+ * merely one that typechecks. A refused or failed score gets
+ * `"skipped_no_score"`, because AC-5 means no check is ever attempted on one.
+ * Pairing one with a completed check would let every spec 0015 assertion in
+ * this file pass against a shape `scoreListings()` cannot produce.
+ *
+ * IT DEFAULTS TO A CLEAN CHECK RATHER THAN A FLAGGED ONE, so nothing here
+ * silently starts exercising spec 0019's rendering. The tests that mean to
+ * exercise it build their outcomes explicitly instead.
+ */
+const listingOutcomes = (scores: readonly unknown[]) =>
+  scores.map((score) => {
+    const result = score as {
+      ok?: boolean;
+      value?: { allowed?: boolean };
+    };
+
+    return {
+      score,
+      check:
+        result.ok === true && result.value?.allowed === true
+          ? success({ allowed: true, value: { ungroundedSkills: [] } })
+          : "skipped_no_score",
+    };
+  });
+
 const scoreOf = (band: string) =>
   success({
     allowed: true,
@@ -690,10 +719,9 @@ describe("ranking the resolved outcomes (AC-9)", () => {
   });
 
   it("puts the better band first, whatever order Adzuna returned", async () => {
-    scoreListings.mockResolvedValue([
-      scoreOf("weak_match"),
-      scoreOf("strong_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([scoreOf("weak_match"), scoreOf("strong_match")]),
+    );
 
     expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
       "Second Job",
@@ -709,14 +737,68 @@ describe("ranking the resolved outcomes (AC-9)", () => {
      * pass. `Array.prototype.sort` has been required to be stable since ES2019,
      * which is what AC-9 leans on rather than a second comparison.
      */
-    scoreListings.mockResolvedValue([
-      scoreOf("good_match"),
-      scoreOf("good_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([scoreOf("good_match"), scoreOf("good_match")]),
+    );
 
     expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
       "First Job",
       "Second Job",
+    ]);
+  });
+
+  it("sorts by band alone, whatever the check said about either card (spec 0019, AC-12)", async () => {
+    /**
+     * AC-12's sort half, and it is genuinely falsifiable rather than a restated
+     * type. The better banded listing here is the one whose every claimed
+     * skill was flagged, and the worse banded one's check came back clean. A
+     * ranking that let a check outcome in at all, by demoting a flagged card
+     * or by treating an unverifiable one as unscored, would put "First Job"
+     * back on top and the whole spec 0015 suite would still pass.
+     */
+    scoreListings.mockResolvedValue([
+      {
+        score: scoreOf("weak_match"),
+        check: success({ allowed: true, value: { ungroundedSkills: [] } }),
+      },
+      {
+        score: scoreOf("strong_match"),
+        check: success({ allowed: true, value: { ungroundedSkills: ["Go"] } }),
+      },
+    ]);
+
+    expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
+      "Second Job",
+      "First Job",
+    ]);
+  });
+
+  it("keeps a card whose check broke exactly where its band puts it (AC-12)", async () => {
+    /**
+     * THE OTHER WAY AC-12 COULD BREAK. An unverifiable check is the state
+     * closest in shape to a failed score, and a rank function reaching for
+     * `isFailure(outcome)` on the whole outcome rather than on `.score` would
+     * dump every card whose check timed out to the bottom of the list, on a
+     * day when their scores were all fine.
+     */
+    scoreListings.mockResolvedValue([
+      {
+        score: scoreOf("weak_match"),
+        check: success({ allowed: true, value: { ungroundedSkills: [] } }),
+      },
+      {
+        score: scoreOf("strong_match"),
+        check: failure({
+          kind: "external_service_failed",
+          severity: "unexpected",
+          message: "check vendor down",
+        }),
+      },
+    ]);
+
+    expect(titlesInOrder(await render({ q: "engineer" }))).toEqual([
+      "Second Job",
+      "First Job",
     ]);
   });
 
@@ -739,10 +821,9 @@ describe("ranking the resolved outcomes (AC-9)", () => {
      * `ScoredResults`, so real model output would add cost and
      * nondeterminism while proving nothing extra about it.
      */
-    scoreListings.mockResolvedValue([
-      scoreOf("weak_match"),
-      scoreOf("strong_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([scoreOf("weak_match"), scoreOf("strong_match")]),
+    );
 
     const cards = flatten((await render({ q: "engineer" })) as never)
       .filter((element) => element.type === "li")
@@ -766,10 +847,9 @@ describe("ranking the resolved outcomes (AC-9)", () => {
   });
 
   it("announces the one time re-sort (AC-16, COPY-7)", async () => {
-    scoreListings.mockResolvedValue([
-      scoreOf("good_match"),
-      scoreOf("good_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([scoreOf("good_match"), scoreOf("good_match")]),
+    );
 
     const tree = await render({ q: "engineer" });
     const statuses = flatten(tree as never).filter(
@@ -794,14 +874,16 @@ describe("one listing failing while the others do not (AC-10)", () => {
         preferences: undefined,
       },
     });
-    scoreListings.mockResolvedValue([
-      failure({
-        kind: "external_service_failed",
-        severity: "unexpected",
-        message: "vendor down",
-      }),
-      scoreOf("strong_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        failure({
+          kind: "external_service_failed",
+          severity: "unexpected",
+          message: "vendor down",
+        }),
+        scoreOf("strong_match"),
+      ]),
+    );
   });
 
   it("marks that card alone, and leaves its sibling's real band standing", async () => {
@@ -849,10 +931,12 @@ describe("the usage cap refusing the batch (AC-11)", () => {
   });
 
   it("says it once, at page level, in feature 10's own words", async () => {
-    scoreListings.mockResolvedValue([
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+      ]),
+    );
 
     const text = textOf(await render({ q: "engineer" }));
     const sentence = SENTENCES["account_week_cap_reached"];
@@ -862,10 +946,12 @@ describe("the usage cap refusing the batch (AC-11)", () => {
   });
 
   it("shows no per card failure note, so a cap never reads as a breakage", async () => {
-    scoreListings.mockResolvedValue([
-      success({ allowed: false, reason: "global_day_cap_reached" }),
-      success({ allowed: false, reason: "global_day_cap_reached" }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        success({ allowed: false, reason: "global_day_cap_reached" }),
+        success({ allowed: false, reason: "global_day_cap_reached" }),
+      ]),
+    );
 
     const text = textOf(await render({ q: "engineer" }));
 
@@ -879,10 +965,12 @@ describe("the usage cap refusing the batch (AC-11)", () => {
      * different reasons is possible: twenty concurrent calls can cross more
      * than one cap boundary within one batch.
      */
-    scoreListings.mockResolvedValue([
-      success({ allowed: false, reason: "global_day_cap_reached" }),
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        success({ allowed: false, reason: "global_day_cap_reached" }),
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+      ]),
+    );
 
     const text = textOf(await render({ q: "engineer" }));
 
@@ -891,10 +979,12 @@ describe("the usage cap refusing the batch (AC-11)", () => {
   });
 
   it("still shows a band on a listing that was scored before the cap hit", async () => {
-    scoreListings.mockResolvedValue([
-      scoreOf("good_match"),
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        scoreOf("good_match"),
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+      ]),
+    );
 
     const text = textOf(await render({ q: "engineer" }));
 
@@ -953,14 +1043,16 @@ describe("the re-rank announcement (AC-16, COPY-7)", () => {
      * THE COUNTERWEIGHT, and it comes first so the two below cannot pass by the
      * announcement simply having been deleted.
      */
-    scoreListings.mockResolvedValue([
-      scoreOf("good_match"),
-      failure({
-        kind: "external_service_failed",
-        severity: "unexpected",
-        message: "vendor down",
-      }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        scoreOf("good_match"),
+        failure({
+          kind: "external_service_failed",
+          severity: "unexpected",
+          message: "vendor down",
+        }),
+      ]),
+    );
 
     expect(statuses(await render({ q: "engineer" }))).toContain(
       "Results are now ranked by fit.",
@@ -968,10 +1060,12 @@ describe("the re-rank announcement (AC-16, COPY-7)", () => {
   });
 
   it("stays silent when the usage cap refused every call", async () => {
-    scoreListings.mockResolvedValue([
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-      success({ allowed: false, reason: "account_week_cap_reached" }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+        success({ allowed: false, reason: "account_week_cap_reached" }),
+      ]),
+    );
 
     const tree = await render({ q: "engineer" });
 
@@ -981,18 +1075,20 @@ describe("the re-rank announcement (AC-16, COPY-7)", () => {
   });
 
   it("stays silent when every vendor call failed", async () => {
-    scoreListings.mockResolvedValue([
-      failure({
-        kind: "external_service_failed",
-        severity: "unexpected",
-        message: "vendor down",
-      }),
-      failure({
-        kind: "response_malformed",
-        severity: "unexpected",
-        message: "bad shape",
-      }),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([
+        failure({
+          kind: "external_service_failed",
+          severity: "unexpected",
+          message: "vendor down",
+        }),
+        failure({
+          kind: "response_malformed",
+          severity: "unexpected",
+          message: "bad shape",
+        }),
+      ]),
+    );
 
     const tree = await render({ q: "engineer" });
 
@@ -1051,10 +1147,9 @@ describe("keyboard focus across the reveal (spec 0015, AC-17)", () => {
         preferences: undefined,
       },
     });
-    scoreListings.mockResolvedValue([
-      scoreOf("strong_match"),
-      scoreOf("weak_match"),
-    ]);
+    scoreListings.mockResolvedValue(
+      listingOutcomes([scoreOf("strong_match"), scoreOf("weak_match")]),
+    );
   });
 
   const boundary = (tree: unknown) => {

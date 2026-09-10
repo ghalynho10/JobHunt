@@ -10,9 +10,11 @@ import { SCORING_COPY } from "@/features/scoring/copy";
 import { readScoringProfile } from "@/features/scoring/profile-gate";
 import { BANDS, bandRank } from "@/features/scoring/rubric";
 import type { ScoringProfile } from "@/features/scoring/rubric";
-import type { ScoreOutcome } from "@/features/scoring/score";
 import { ScoreCard } from "@/features/scoring/score-card";
-import { scoreListings } from "@/features/scoring/score-listings";
+import {
+  scoreListings,
+  type ListingOutcome,
+} from "@/features/scoring/score-listings";
 import type { Listing } from "@/features/search/adzuna";
 import { searchListings } from "@/features/search/adzuna";
 import { SEARCH_COPY } from "@/features/search/copy";
@@ -404,8 +406,8 @@ async function ScoredResults({
    * of the five reasons.
    */
   const refusal = paired.find(
-    (row) => !isFailure(row.outcome) && !row.outcome.value.allowed,
-  )?.outcome;
+    (row) => !isFailure(row.outcome.score) && !row.outcome.score.value.allowed,
+  )?.outcome.score;
 
   const refusedReason =
     refusal === undefined || isFailure(refusal) || refusal.value.allowed
@@ -444,7 +446,7 @@ async function ScoredResults({
    * sentence is true there and still renders.
    */
   const anythingScored = paired.some(
-    (row) => !isFailure(row.outcome) && row.outcome.value.allowed,
+    (row) => !isFailure(row.outcome.score) && row.outcome.score.value.allowed,
   );
 
   return (
@@ -510,9 +512,19 @@ async function ScoredResults({
  * stability. They are told apart by what renders on the card, not by where the
  * card sits: a failure shows `COPY-3` and a refusal shows nothing at all, with
  * the cap named once above the list.
+ *
+ * IT READS `.score` AND NOTHING ELSE, WHICH IS SPEC 0019 AC-12 (no check
+ * outcome ever moves a listing between bands or changes this order). The
+ * ranking is computed here, before any card renders, and the check's verdict
+ * has no way into this function: a flagged listing sorts exactly where its
+ * band puts it. That matters because a card can lose every matched chip it
+ * had and keep its band, which is the honest outcome. The excerpt failing to
+ * confirm a claim is a limit of the excerpt, not a re-scoring of the job.
  */
-function outcomeRank(outcome: ScoreOutcome): number {
-  if (isFailure(outcome) || !outcome.value.allowed) return BANDS.length;
+function outcomeRank(outcome: ListingOutcome): number {
+  const { score } = outcome;
 
-  return bandRank(outcome.value.value.band);
+  if (isFailure(score) || !score.value.allowed) return BANDS.length;
+
+  return bandRank(score.value.value.band);
 }

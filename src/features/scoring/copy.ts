@@ -111,4 +111,59 @@ export const SCORING_COPY = {
    * fit order. Said once, because it happens once.
    */
   reranked: "Results are now ranked by fit.",
+  /**
+   * `COPY-9` (spec 0019, AC-7). The flagged card's correction note, one per
+   * card, naming every skill the check could not ground.
+   *
+   * IT SAYS WHAT THE APP DID, THEN WHY. A chip disappearing from somebody's
+   * own card with no sentence attached is the silent default this project's
+   * own rule forbids: the reader would see a shorter list and have no way to
+   * know whether they were scored differently, or whether the posting simply
+   * said less.
+   *
+   * IT IS A VERIFICATION LIMIT AND NEVER AN ACCUSATION, which is the whole
+   * register of this feature's copy. Adzuna returns at most 500 characters,
+   * so a second model failing to find "Terraform" in the excerpt is very
+   * often the excerpt's own limit rather than evidence the first model
+   * invented it. "could not find these in the excerpt shown" says exactly
+   * what happened and claims nothing further. Anything reading as "these
+   * were wrong" would be this app calling a claim false on evidence that
+   * cannot support it.
+   */
+  removedSkills: (skills: readonly string[]): string =>
+    `Removed from matched skills, a second check could not find these in the excerpt shown: ${skills.join(", ")}.`,
+  /**
+   * `COPY-10` (spec 0019, AC-7). The unverifiable card state: the check was
+   * attempted and did not finish.
+   *
+   * ONE SENTENCE FOR A TIMEOUT, A VENDOR ERROR AND A GATE REFUSAL ALIKE, on
+   * `couldNotScore`'s own reasoning: the difference between them is not
+   * something a reader can act on, and the specific one is already in Sentry.
+   * The two remain structurally distinct types underneath (spec 0012's
+   * invariant); this is a rendering decision taken over them, not a merging
+   * of them.
+   *
+   * A CARD SHOWING THIS KEEPS ITS MATCHED SKILLS EXACTLY AS SCORED. Removing
+   * them because a check broke would let an outage quietly edit somebody's
+   * profile off their own screen, which is the failure dressed as success
+   * this whole feature exists to prevent.
+   */
+  couldNotCheck: "Could not verify skill matches for this listing.",
+  /**
+   * `COPY-11` (spec 0019, AC-13). The caveat above the written reasoning on a
+   * flagged card.
+   *
+   * IT EXISTS BECAUSE THE REASONING IS LEFT UNTOUCHED. The written paragraph
+   * may name a skill this card just removed, and the raw string is never
+   * edited, truncated or regenerated (spec 0019, key invariants: store raw,
+   * format at render). Without this line the card would remove a chip while
+   * the prose beneath it still leaned on that chip, and the two would
+   * contradict each other with nothing to explain the gap.
+   *
+   * IT DOES NOT SAY WHICH PART. Naming the sentence would mean this app
+   * deciding which clause of a model's paragraph rested on which claim, which
+   * it cannot know. `COPY-9` above already names the skills.
+   */
+  reasoningCaveat:
+    "Part of this reasoning could not be checked against the excerpt shown.",
 } as const;

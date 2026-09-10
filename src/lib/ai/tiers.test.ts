@@ -206,3 +206,38 @@ describe("no file other than tiers.ts and client.ts imports an @ai-sdk/ or ai pa
     ).toEqual([]);
   });
 });
+
+/**
+ * `ai_check`'s measured timeout (spec 0019, AC-6).
+ *
+ * IT IS PINNED BECAUSE IT COST REAL MONEY TO OBTAIN. The number is not a
+ * preference and cannot be re-derived by reading the code: it came from five
+ * live Google calls on 2026-09-09 (928, 677, 684, 5905, 5272 milliseconds)
+ * put through AC-6's rule. Nothing else in the suite touched `timeoutMs` at
+ * all before this, so a later session nudging it back to a rounder 30000, or
+ * to whatever `ai_scoring` happens to use, would have been invisible: every
+ * test would still pass and the only cost would be a worst case page wait
+ * twice what the measurement supports.
+ */
+describe("ai_check's measured timeout (spec 0019, AC-6)", () => {
+  it("holds the value derived from the live measurement", () => {
+    expect(TIERS.ai_check.timeoutMs).toBe(20_000);
+  });
+
+  it("is shorter than ai_scoring's, which is the point of measuring it", () => {
+    /**
+     * THE GENERAL FORM, and the one that would survive a re-measurement. The
+     * two tiers shared 30000 only because `ai_check` had never been invoked
+     * and nobody knew better. A check chains AFTER its own score (AC-5), so
+     * this value adds directly to the worst case wait before a card settles.
+     * If a future re-derivation raises it, THIS is the assertion that should
+     * be argued with rather than quietly deleted.
+     */
+    expect(TIERS.ai_check.timeoutMs).toBeLessThan(TIERS.ai_scoring.timeoutMs);
+  });
+
+  it("stays inside AC-6's own floor and ceiling", () => {
+    expect(TIERS.ai_check.timeoutMs).toBeGreaterThanOrEqual(15_000);
+    expect(TIERS.ai_check.timeoutMs).toBeLessThanOrEqual(30_000);
+  });
+});
