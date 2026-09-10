@@ -103,10 +103,18 @@ export async function scoreListings(
        * and a test asserts exactly that identity. It is what makes these four
        * readable at all: without it, a page of listings that claimed nothing
        * and a page whose checks all broke both show a low `checked`, and an
-       * operator cannot tell the quiet day from the outage. The identity is
-       * also what would catch a fifth outcome being added here later and not
-       * being tallied, which is the way a partition silently stops
-       * partitioning.
+       * operator cannot tell the quiet day from the outage.
+       *
+       * WHAT THE IDENTITY DOES NOT DO, corrected 2026-09-10 after a Fable 5.1
+       * review (`docs/observability/spans.md`'s `scoring.score_listings` row
+       * carries the same correction). It does NOT catch a fifth outcome being
+       * added here later and tallied nowhere. It could not: a test can only
+       * construct variants that already exist. The COMPILER catches that case
+       * instead, in the tally below, which narrows every variant of
+       * `ListingOutcome["check"]` by name and exhausts the string ones against
+       * `never`. Keep the two apart, because the wrong half was being relied
+       * on here: the type check guards that the partition stays COMPLETE, and
+       * the test proves the ARITHMETIC over the variants that exist today.
        *
        * A LISTING WHOSE SCORE NEVER SUCCEEDED IS IN NONE OF THE FOUR. It is
        * already counted by `refused` or `failed`, and AC-5 means no check was
