@@ -137,6 +137,30 @@ export type SponsorshipSignal = (typeof SPONSORSHIP_SIGNALS)[number];
 export const SKILL_GROUNDING_CRITERION =
   "whose name, or a clear synonym of it, actually appears in the posting's visible title or description";
 
+/**
+ * The shape the vendor is asked to return (AC-5, AC-6).
+ *
+ * DELIBERATELY THE NARROWEST ZOD SUBSET: enums, strings, and arrays of
+ * strings, with `.describe()` carrying the per field instruction and NO length
+ * or size constraint anywhere. `generateObject` compiles this to a JSON Schema
+ * and hands it to a vendor whose supported keyword list is that vendor's to
+ * change and not something this repository can pin. A `maxLength` or `maxItems`
+ * the vendor rejects fails the whole call with an HTTP 400, which would take
+ * out every listing on the page for a bound that exists only to tidy output.
+ *
+ * EVERY BOUND IS ENFORCED AFTER PARSING INSTEAD, in `normalizeFitScore()`.
+ * That is not a workaround: AC-5 already requires the two skill arrays to be
+ * filtered after parsing against the caller's own skill names, because a name
+ * the model invented must never reach the UI whatever the schema said. The
+ * caps ride along in that same pass.
+ *
+ * ITS DOC COMMENT WAS RESTORED ON 2026-09-09, after a Fable 5.1 review found
+ * this export had silently lost it: spec 0019 inserted
+ * `SKILL_GROUNDING_CRITERION` directly above, which left the original block
+ * documenting the constant instead and this schema with nothing, against root
+ * `AGENTS.md`'s rule that every export carries one. Worth knowing when adding
+ * an export above an existing one.
+ */
 export const fitScoreSchema = z.object({
   band: z
     .enum(BANDS)
@@ -248,6 +272,29 @@ export function keepOwnNames(
   return kept;
 }
 
+/**
+ * The post parse filter every score goes through before it reaches the UI
+ * (AC-5).
+ *
+ * A MODEL RETURNED SKILL NAME THE CALLER DOES NOT ACTUALLY HAVE IS DROPPED,
+ * NEVER DISPLAYED AND NEVER A REASON TO FAIL THE CALL. The alternative shapes
+ * are both worse: failing the listing turns a tidy hallucination into a "could
+ * not score" card, and displaying it puts a skill on the reader's own screen,
+ * under their own name, that they never claimed. Dropping it is the only
+ * option that leaves the card true.
+ *
+ * THE NAME MATCHING ITSELF LIVES IN `keepOwnNames()`, shared with spec 0019's
+ * check (AC-3). What stays here is what is specific to a score: the two lists,
+ * their contradiction rule, and the reasoning cap.
+ *
+ * ITS DOC COMMENT WAS RESTORED ON 2026-09-09 for the same reason
+ * `fitScoreSchema`'s above was, and found by the same review: spec 0019 lifted
+ * `keepOwnNames()` out of this function's own closure and placed it directly
+ * above, which left this export undocumented.
+ *
+ * @param score The parsed vendor answer, trusted for its shape and nothing else.
+ * @param ownSkillNames The caller's own `profile_skill` names, as they wrote them.
+ */
 export function normalizeFitScore(
   score: FitScore,
   ownSkillNames: readonly string[],

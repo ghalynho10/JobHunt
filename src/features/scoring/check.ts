@@ -49,6 +49,20 @@ export const ungroundedSkillsSchema = z.object({
  * instructed to count, and that failure would look like the check working.
  * The constant is the enforcement, not this comment.
  *
+ * THE LONGER PHRASE RULE IS A WORD BOUNDARY RULE, NEVER A SUBSTRING ONE, and
+ * the distinction is the whole reason those two sentences are worded so
+ * carefully (a Fable 5.1 review on 2026-09-09 caught this file getting it
+ * wrong). The legitimate case is real: a posting saying "Kubernetes
+ * administration" plainly grounds a claim of "Kubernetes", and a check that
+ * refused it would flag true claims constantly. But the same allowance stated
+ * as "part of a longer phrase" is a SUBSTRING rule, and it admits "Java"
+ * grounded by "JavaScript", which is the exact false claim `keepOwnNames()`'s
+ * own doc comment says this project refuses. Getting it wrong in that
+ * direction is the dangerous one: it biases the check toward NOT flagging, so
+ * the feature quietly stops catching things while every card still looks
+ * verified. The fragment refusal is therefore spelled out with its own
+ * example rather than left implied.
+ *
  * IT IS TOLD WHAT AN ABSENCE MEANS, which is the half a naive grounding check
  * gets wrong. Adzuna returns at most 500 characters of a description, so a
  * skill missing from the excerpt is unconfirmed, not disproved. That is
@@ -75,7 +89,9 @@ export const CHECK_SYSTEM_PROMPT = [
   "",
   "Copy each returned name exactly as it was given to you. Never rename, reword, expand, or correct a skill name.",
   "Never return a name that was not in the claimed list. You are judging that list, not adding to it.",
-  "A clear synonym counts as grounded. So does the skill appearing as part of a longer phrase, or in the title rather than the description.",
+  "A clear synonym counts as grounded, and so does the skill appearing in the title rather than in the description.",
+  "A skill also counts as grounded when it appears as a COMPLETE TERM inside a longer phrase, so `Kubernetes administration` grounds `Kubernetes`.",
+  "It does NOT count when the claimed name is only a fragment of a longer word, so `JavaScript` does not ground `Java`.",
   "If every claimed skill is grounded, return an empty list. An empty list is the ordinary answer and you should not hunt for something to return.",
   "",
   "## What an absence does and does not mean",

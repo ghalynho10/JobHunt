@@ -90,6 +90,25 @@ const listing: Listing = {
  */
 const LATENCY_SAMPLES = 5;
 
+/**
+ * This test's own timeout, DERIVED rather than picked, and it must exist
+ * (found by a Fable 5.1 review on 2026-09-09).
+ *
+ * The `integration` project's default is 30000ms (`vitest.config.mts`), sized
+ * for tests that talk to a local database. This one awaits
+ * `LATENCY_SAMPLES` vendor calls ONE AFTER ANOTHER, and each may legitimately
+ * run to `ai_check`'s own ceiling, so the real worst case is five times that
+ * ceiling, not thirty seconds. A slow but entirely healthy vendor day would
+ * therefore have failed this test on the clock, AFTER spending every one of
+ * its real calls: the money goes out and the measurement never comes back.
+ *
+ * IT READS `TIERS.ai_check.timeoutMs` RATHER THAN HARDCODING 20000, so
+ * re-deriving that ceiling under AC-6 moves this with it. The added 30000 is
+ * headroom for the fixture user mint and the session exchange, which happen
+ * before the first call.
+ */
+const TEST_TIMEOUT_MS = LATENCY_SAMPLES * TIERS.ai_check.timeoutMs + 30_000;
+
 /** AC-6's derivation: slowest x 3, rounded up to 5s, clamped 15s to 30s. */
 export function deriveTimeoutMs(latenciesMs: readonly number[]): number {
   const slowest = Math.max(...latenciesMs);
@@ -102,133 +121,167 @@ export function deriveTimeoutMs(latenciesMs: readonly number[]): number {
 describe.skipIf(!liveModelCallsEnabled())(
   "checkFitScore() ai_check latency measurement (covers AC-1, AC-2, AC-6)",
   () => {
-    it(`returns a parsed verdict and measures ${LATENCY_SAMPLES} real latencies`, async () => {
-      const checkModel = resolvedModel(TIERS.ai_check.model);
-      const scoringModel = resolvedModel(TIERS.ai_scoring.model);
-      const session = await freshSession("check-live-latency");
-      const latencies: number[] = [];
+    it(
+      `returns a parsed verdict and measures ${LATENCY_SAMPLES} real latencies`,
+      async () => {
+        const checkModel = resolvedModel(TIERS.ai_check.model);
+        const scoringModel = resolvedModel(TIERS.ai_scoring.model);
+        const session = await freshSession("check-live-latency");
+        const latencies: number[] = [];
 
-      for (let attempt = 0; attempt < LATENCY_SAMPLES; attempt += 1) {
-        const startedAt = Date.now();
-
-        const result = await checkFitScore(
-          listing,
-          ["Go", "PostgreSQL", "Kubernetes", "Terraform"],
-          session.jar,
+        const artifact = join(
+          import.meta.dirname,
+          ".output",
+          "ai-check-latency.json",
         );
 
-        latencies.push(Date.now() - startedAt);
-
-        if (isFailure(result)) {
-          throw new Error(`Expected a verdict, got a failure: ${result.kind}.`);
-        }
-
-        if (!result.value.allowed) {
-          throw new Error(
-            `Expected the call to be allowed, was refused: ${result.value.reason}.`,
+        /**
+         * SAVES WHAT HAS BEEN MEASURED SO FAR, called after EVERY call rather
+         * than once at the end.
+         *
+         * THIS IS THE SAME LESSON AS THE `console.log` LOSS, APPLIED PROPERLY
+         * THIS TIME. The first version of this test printed its measurement
+         * through `console.log`, which this project's integration runs do not
+         * surface, so a completed five call run threw its whole deliverable
+         * away. The fix wrote a file instead, but still wrote it AFTER the
+         * loop, which left the identical hole one step further along: a vendor
+         * error or a timeout on call four discards the three real latencies
+         * already paid for, and the only way back to them is to spend the money
+         * again. Partial data from a paid run is worth strictly more than
+         * nothing, so it is on disk before the next call is made.
+         */
+        const save = () => {
+          mkdirSync(dirname(artifact), { recursive: true });
+          writeFileSync(
+            artifact,
+            `${JSON.stringify(
+              {
+                measuredAt: new Date().toISOString(),
+                complete: latencies.length === LATENCY_SAMPLES,
+                samplesTaken: latencies.length,
+                samplesExpected: LATENCY_SAMPLES,
+                checkProvider: checkModel.provider,
+                checkModelId: checkModel.modelId,
+                scoringProvider: scoringModel.provider,
+                scoringModelId: scoringModel.modelId,
+                latenciesMs: latencies,
+                ...(latencies.length === LATENCY_SAMPLES
+                  ? {
+                      slowestMs: Math.max(...latencies),
+                      derivedTimeoutMs: deriveTimeoutMs(latencies),
+                    }
+                  : {}),
+              },
+              undefined,
+              2,
+            )}\n`,
           );
+        };
+
+        for (let attempt = 0; attempt < LATENCY_SAMPLES; attempt += 1) {
+          const startedAt = Date.now();
+
+          const result = await checkFitScore(
+            listing,
+            ["Go", "PostgreSQL", "Kubernetes", "Terraform"],
+            session.jar,
+          );
+
+          latencies.push(Date.now() - startedAt);
+
+          /** On disk before the next call is made, never after the loop. */
+          save();
+
+          if (isFailure(result)) {
+            throw new Error(
+              `Expected a verdict, got a failure: ${result.kind}.`,
+            );
+          }
+
+          if (!result.value.allowed) {
+            throw new Error(
+              `Expected the call to be allowed, was refused: ${result.value.reason}.`,
+            );
+          }
+
+          /**
+           * AC-3 against a real model rather than a constructed answer: every
+           * name that comes back was one of the names sent. A name this filter
+           * let through would remove a chip from somebody's card over a dispute
+           * no vendor actually raised.
+           */
+          for (const skill of result.value.value.ungroundedSkills) {
+            expect(["Go", "PostgreSQL", "Kubernetes", "Terraform"]).toContain(
+              skill,
+            );
+          }
         }
 
         /**
-         * AC-3 against a real model rather than a constructed answer: every
-         * name that comes back was one of the names sent. A name this filter
-         * let through would remove a chip from somebody's card over a dispute
-         * no vendor actually raised.
+         * THE MEASUREMENT IS THE POINT OF THIS TEST, so it is printed rather
+         * than only asserted. AC-6 asks for the observed figures and the
+         * derived value to be recorded in spec 0019's Follow-up, and this is
+         * where a person running the test reads them off.
+         *
+         * IT NAMES THE VENDOR AND MODEL EACH CALL ACTUALLY WENT TO, read off
+         * the resolved `TIERS` entry `callTier("ai_check", …)` hands to
+         * `generateObject`, and it prints `ai_scoring`'s beside it. That is the
+         * half a reader cannot otherwise confirm: a test filter that quietly
+         * selected the wrong file would still print a plausible looking set of
+         * latencies, and the resulting timeout would be derived from OpenAI.
+         * The printed line carries its own proof of which vendor was measured
+         * rather than asking anyone to trust the filter.
          */
-        for (const skill of result.value.value.ungroundedSkills) {
-          expect(["Go", "PostgreSQL", "Kubernetes", "Terraform"]).toContain(
-            skill,
-          );
-        }
-      }
+        const line = [
+          `ai_check via ${checkModel.provider}/${checkModel.modelId}`,
+          `(ai_scoring is ${scoringModel.provider}/${scoringModel.modelId})`,
+          `latencies (ms): ${latencies.join(", ")}`,
+          `slowest ${Math.max(...latencies)}`,
+          `derived timeoutMs ${deriveTimeoutMs(latencies)}`,
+        ].join(" · ");
 
-      /**
-       * THE MEASUREMENT IS THE POINT OF THIS TEST, so it is printed rather
-       * than only asserted. AC-6 asks for the observed figures and the
-       * derived value to be recorded in spec 0019's Follow-up, and this is
-       * where a person running the test reads them off.
-       *
-       * IT NAMES THE VENDOR AND MODEL EACH CALL ACTUALLY WENT TO, read off
-       * the resolved `TIERS` entry `callTier("ai_check", …)` hands to
-       * `generateObject`, and it prints `ai_scoring`'s beside it. That is the
-       * half a reader cannot otherwise confirm: a test filter that quietly
-       * selected the wrong file would still print a plausible looking set of
-       * latencies, and the resulting timeout would be derived from OpenAI.
-       * The printed line carries its own proof of which vendor was measured
-       * rather than asking anyone to trust the filter.
-       */
-      const line = [
-        `ai_check via ${checkModel.provider}/${checkModel.modelId}`,
-        `(ai_scoring is ${scoringModel.provider}/${scoringModel.modelId})`,
-        `latencies (ms): ${latencies.join(", ")}`,
-        `slowest ${Math.max(...latencies)}`,
-        `derived timeoutMs ${deriveTimeoutMs(latencies)}`,
-      ].join(" · ");
+        /**
+         * `process.stdout.write` AND A FILE, NEVER `console.log`, AND THIS IS A
+         * CORRECTION RATHER THAN A STYLE CHOICE (2026-09-09).
+         *
+         * The first version of this test printed the line with `console.log`.
+         * It never appeared. This project's integration runs do not surface
+         * `console.log` to the reporter AT ALL, proved by a free probe on a
+         * passing test that made no vendor call, and nothing in
+         * `vitest.config.mts` or the setup files suppresses it deliberately. So
+         * a paid five call run completed, passed, and threw its entire
+         * deliverable away: the five real latencies AC-6 exists to capture were
+         * gone the moment the process exited, and the only way back to them was
+         * to spend the money again.
+         *
+         * THE FILE IS THE ACTUAL FIX, not the `stdout.write`. A stream can be
+         * swallowed by a reporter, a pipe, or a `tail` that cuts the wrong end;
+         * a measurement that cost real money should not depend on any of them
+         * surviving. That file is written by `save()` above, after EVERY call
+         * rather than here, so a failure partway keeps the latencies already
+         * paid for; this line is the convenience copy for whoever is watching
+         * the run, not the record.
+         *
+         * It lands in a gitignored directory, the same shape spec 0017 uses for
+         * the eval harness's own reports (`/test/eval/.output/`).
+         */
+        process.stdout.write(`\n${line}\n`);
 
-      /**
-       * `process.stdout.write` AND A FILE, NEVER `console.log`, AND THIS IS A
-       * CORRECTION RATHER THAN A STYLE CHOICE (2026-09-09).
-       *
-       * The first version of this test printed the line with `console.log`.
-       * It never appeared. This project's integration runs do not surface
-       * `console.log` to the reporter AT ALL, proved by a free probe on a
-       * passing test that made no vendor call, and nothing in
-       * `vitest.config.mts` or the setup files suppresses it deliberately. So
-       * a paid five call run completed, passed, and threw its entire
-       * deliverable away: the five real latencies AC-6 exists to capture were
-       * gone the moment the process exited, and the only way back to them was
-       * to spend the money again.
-       *
-       * THE FILE IS THE ACTUAL FIX, not the `stdout.write`. A stream can be
-       * swallowed by a reporter, a pipe, or a `tail` that cuts the wrong end;
-       * a measurement that cost real money should not depend on any of them
-       * surviving. The artifact is written before the assertions below run,
-       * so it exists even if one of them then fails, which is exactly the
-       * case where a reader most wants to see what the vendor actually did.
-       *
-       * It lands in a gitignored directory, the same shape spec 0017 uses for
-       * the eval harness's own reports (`/test/eval/.output/`).
-       */
-      const artifact = join(
-        import.meta.dirname,
-        ".output",
-        "ai-check-latency.json",
-      );
-      mkdirSync(dirname(artifact), { recursive: true });
-      writeFileSync(
-        artifact,
-        `${JSON.stringify(
-          {
-            measuredAt: new Date().toISOString(),
-            checkProvider: checkModel.provider,
-            checkModelId: checkModel.modelId,
-            scoringProvider: scoringModel.provider,
-            scoringModelId: scoringModel.modelId,
-            latenciesMs: latencies,
-            slowestMs: Math.max(...latencies),
-            derivedTimeoutMs: deriveTimeoutMs(latencies),
-            line,
-          },
-          undefined,
-          2,
-        )}\n`,
-      );
+        expect(latencies).toHaveLength(LATENCY_SAMPLES);
 
-      process.stdout.write(`\n${line}\n`);
-
-      expect(latencies).toHaveLength(LATENCY_SAMPLES);
-
-      /**
-       * THE `cross vendor` HALF OF THIS FEATURE'S NAME, asserted on the run
-       * that produced the number rather than only in `tiers.test.ts`. If the
-       * two tiers ever pointed at one vendor, the timeout derived here would
-       * be honest and the feature it configures would be meaningless, and
-       * nothing else in this file would notice.
-       */
-      expect(checkModel.provider.split(".")[0]).not.toBe(
-        scoringModel.provider.split(".")[0],
-      );
-    });
+        /**
+         * THE `cross vendor` HALF OF THIS FEATURE'S NAME, asserted on the run
+         * that produced the number rather than only in `tiers.test.ts`. If the
+         * two tiers ever pointed at one vendor, the timeout derived here would
+         * be honest and the feature it configures would be meaningless, and
+         * nothing else in this file would notice.
+         */
+        expect(checkModel.provider.split(".")[0]).not.toBe(
+          scoringModel.provider.split(".")[0],
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
   },
 );
 
