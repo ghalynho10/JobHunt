@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Listing } from "@/features/search/adzuna";
@@ -159,24 +162,54 @@ describe("the prompt it sends (AC-1, AC-2, AC-11)", () => {
      */
     expect(buildCheckPrompt(listing, ["Go", "PostgreSQL"])).toBe(
       [
-        buildListingBlock(listing),
-        "",
         "# The claimed skills to check",
         "",
         "- Go",
         "- PostgreSQL",
+        "",
+        buildListingBlock(listing),
       ].join("\n"),
     );
   });
 
-  it("states the grounding rule from rubric.ts rather than its own (AC-2)", () => {
+  it("renders the grounding rule's text into the prompt (AC-2)", () => {
     /**
-     * The constant is the enforcement; this proves it is actually read. A
-     * check applying a stricter, independently worded rule would flag exactly
-     * the synonym matches the scorer was instructed to count, and that
-     * failure would look like the check working.
+     * WHAT THIS ONE PROVES, EXACTLY: that the criterion's text reaches the
+     * rendered prompt. IT DOES NOT PROVE THE CONSTANT IS READ. A `check.ts`
+     * that pasted the same sentence as a literal would pass this identically,
+     * and would then drift silently the day `rubric.ts` reworded it, leaving
+     * the two vendors judging under different rules with every test green.
+     * The structural half is the test below; this one is about the output.
      */
     expect(CHECK_SYSTEM_PROMPT).toContain(SKILL_GROUNDING_CRITERION);
+  });
+
+  it("reads the shared constant rather than copying its text (AC-2)", () => {
+    /**
+     * THE STRUCTURAL GUARD, and the half the assertion above cannot make.
+     * AC-2 requires the criterion be "read from one constant both the scoring
+     * schema's own description and this prompt use". Only reading the source
+     * can tell a reference from a copy, so this follows the same source
+     * reading pattern `tiers.test.ts` uses for its import ban, comment
+     * stripping included: a mention inside a doc comment is prose about the
+     * rule, not a use of it, and must not satisfy either assertion.
+     */
+    const source = readFileSync(
+      fileURLToPath(new URL("./check.ts", import.meta.url)),
+      "utf8",
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+
+    expect(
+      source,
+      "check.ts must reference SKILL_GROUNDING_CRITERION in real code, not only in a comment.",
+    ).toContain("SKILL_GROUNDING_CRITERION");
+
+    expect(
+      source,
+      "check.ts must not hardcode the criterion's text. Interpolate SKILL_GROUNDING_CRITERION so rewording rubric.ts cannot leave the two vendors judging under different rules.",
+    ).not.toContain(SKILL_GROUNDING_CRITERION);
   });
 
   it("carries the untrusted input instruction the scorer carries (AC-11)", () => {
@@ -320,7 +353,7 @@ describe("the whole check prompt, pinned (AC-2)", () => {
   it("is exactly this text, with no sentence added beside the shared rule", () => {
     expect(CHECK_SYSTEM_PROMPT).toBe(
       [
-        "You check one claim at a time against one piece of text, and nothing else.",
+        "You check a list of claimed skills against one piece of text, and nothing else.",
         "",
         "## What you are checking",
         "",

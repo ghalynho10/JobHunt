@@ -457,9 +457,18 @@ describe("the span's four check counts (spec 0019, AC-10)", () => {
      * these four counts can silently stop partitioning `scored` the way they
      * do today, and an operator reading the dashboard would have no way to
      * tell. It is asserted over a MIX rather than one case, because any
-     * single case can be satisfied by a partition that is wrong elsewhere:
-     * a fifth outcome added later and tallied nowhere would break exactly
-     * this and nothing else.
+     * single case can be satisfied by a partition that is wrong elsewhere.
+     *
+     * WHAT THIS TEST DOES NOT CATCH, corrected 2026-09-10 after a Fable 5.1
+     * review: a FIFTH variant added to `ListingOutcome["check"]` and tallied
+     * nowhere. This comment used to claim exactly that, and it was wrong,
+     * because a test can only construct variants that already exist. That
+     * case is caught by the compiler instead: `score-listings.ts` narrows
+     * every variant and exhausts the string ones against `never`, so a new
+     * one fails `tsc`. The division is worth keeping straight, since the
+     * wrong half was being trusted: **the type check guards the partition's
+     * completeness, this test proves the arithmetic over the variants that
+     * exist today.**
      */
     scoreListing
       .mockResolvedValueOnce(aClaimingScore)

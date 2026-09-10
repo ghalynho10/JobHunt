@@ -582,8 +582,10 @@ export function buildScoringPrompt(
  * verdict would be about a different question than the one it claims to
  * settle. Sharing the function is what makes "the same listing evidence"
  * structural rather than a promise two files make separately;
- * `rubric.test.ts`'s drift guard sits on top of it as a second line, not as
- * the mechanism (AC-1).
+ * `check.test.ts`'s drift guard sits on top of it as a second line, not as
+ * the mechanism (AC-1). It lives there rather than here because it compares
+ * this function's output against the CHECK prompt's use of it, which is the
+ * pairing that can drift.
  *
  * IT CARRIES ITS OWN UNTRUSTED INPUT HEADING. The `data only` label travels
  * with the text it labels, so a caller cannot render the posting without it.

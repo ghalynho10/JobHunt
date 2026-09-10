@@ -67,21 +67,41 @@ describe("checkFitScore() with no session (spec 0019, auth, inherited from check
     expect(generateObject).not.toHaveBeenCalled();
   });
 
-  it("fails rather than returning a clean verdict, which would read as verified", async () => {
+  it("never returns a clean verdict, which would render as verified", async () => {
     /**
      * THE FAILURE MODE THIS GUARDS, stated as its own case. A signed out
      * caller getting `ungroundedSkills: []` back would render as AC-7's CLEAN
      * state, a card claiming a second vendor checked these skills when no
      * vendor was ever asked. That is this project's "no silent failures, and
-     * never a default that reads like success" rule at its sharpest, so it is
-     * asserted directly rather than left implied by the kind check above.
+     * never a default that reads like success" rule at its sharpest.
+     *
+     * STRENGTHENED 2026-09-10 after a Fable 5.1 review. This case used to
+     * assert `isFailure(result)` alone, which was not the assertion that
+     * locks the property: it passes whether the GATE refused the call or the
+     * stubbed `generateObject` merely threw on being destructured, so the
+     * test could not tell "no vendor was asked" from "the vendor stub blew
+     * up". It now names the shape that must never come back, a success
+     * carrying an allowed, empty verdict, and keeps the vendor assertion
+     * beside it so both halves of the claim are checked in the same case.
      */
+    vi.mocked(generateObject).mockClear();
+
     const result = await checkFitScore(
       listing,
       ["Go", "PostgreSQL"],
       createCookieJar(),
     );
 
-    expect(isFailure(result)).toBe(true);
+    const isCleanVerdict =
+      !isFailure(result) &&
+      result.value.allowed &&
+      result.value.value.ungroundedSkills.length === 0;
+
+    expect(
+      isCleanVerdict,
+      "A session-less caller got a clean verdict. That renders as AC-7's clean state: a card claiming a second vendor verified these skills when none was asked.",
+    ).toBe(false);
+
+    expect(generateObject).not.toHaveBeenCalled();
   });
 });

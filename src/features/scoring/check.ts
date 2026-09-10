@@ -77,7 +77,7 @@ export const ungroundedSkillsSchema = z.object({
  * model already states plainly.
  */
 export const CHECK_SYSTEM_PROMPT = [
-  "You check one claim at a time against one piece of text, and nothing else.",
+  "You check a list of claimed skills against one piece of text, and nothing else.",
   "",
   "## What you are checking",
   "",
@@ -125,6 +125,18 @@ export const CHECK_SYSTEM_PROMPT = [
  * answering a different question than the one its verdict is read as
  * settling.
  *
+ * THE CLAIMS COME FIRST AND THE UNTRUSTED POSTING LAST, reordered 2026-09-10
+ * after a Fable 5.1 review. With the posting first, a listing whose
+ * description ended with its own `# The claimed skills to check` heading
+ * could impersonate the section that followed it and append claims of its
+ * own. The exposure was never a fabricated skill reaching a card, because
+ * `keepOwnNames()` filters the answer back against the real claimed list
+ * (AC-3), so the worst case was a SUPPRESSED flag: a genuine over claim
+ * buried among injected ones and not reported. Putting the untrusted text
+ * last removes the impersonation entirely and costs nothing, since neither
+ * section depends on reading the other first. This is defence in depth on top
+ * of the instruction level defence AC-11 states, not a replacement for it.
+ *
  * @param listing The same listing object `scoreListing()` was given.
  * @param claimedSkills The score's own `matchedSkills`, already filtered.
  */
@@ -133,11 +145,11 @@ export function buildCheckPrompt(
   claimedSkills: readonly string[],
 ): string {
   return [
-    buildListingBlock(listing),
-    "",
     "# The claimed skills to check",
     "",
     ...claimedSkills.map((skill) => `- ${skill}`),
+    "",
+    buildListingBlock(listing),
   ].join("\n");
 }
 

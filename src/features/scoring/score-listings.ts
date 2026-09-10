@@ -123,15 +123,44 @@ export async function scoreListings(
         else if (score.value.allowed) scored += 1;
         else refused += 1;
 
-        if (check === "skipped_no_score") continue;
-
-        if (check === "skipped_no_skills") {
-          checkSkippedEmpty += 1;
-        } else if (isFailure(check) || !check.value.allowed) {
+        /**
+         * EXHAUSTIVE OVER `ListingOutcome["check"]` BY CONSTRUCTION, which is
+         * what actually protects AC-10's partition (a Fable 5.1 review on
+         * 2026-09-09 found the earlier shape could not).
+         *
+         * THE OLD SHAPE ENDED IN A BARE `else` THAT COUNTED `checked`. A new
+         * `Result` shaped variant added to the type would have fallen into it
+         * and been counted as a completed check: the arithmetic would still
+         * balance, the partition test would still pass, and the meaning of
+         * `checked` would have quietly changed with nothing able to see it.
+         * The two string variants are now narrowed by name and exhausted
+         * against `never`, so adding a third fails `tsc` here rather than
+         * being absorbed. The `Result` side is split into its failure and its
+         * two decision branches explicitly for the same reason.
+         *
+         * NO CAST ANYWHERE IN THIS BLOCK. A cast to `never` would compile
+         * whatever the type said, which is a guard that guards nothing.
+         */
+        if (typeof check === "string") {
+          if (check === "skipped_no_score") {
+            /** AC-5: no check was attempted, so it is in none of the four. */
+          } else if (check === "skipped_no_skills") {
+            checkSkippedEmpty += 1;
+          } else {
+            const exhaustive: never = check;
+            void exhaustive;
+          }
+        } else if (isFailure(check)) {
           checkUnverifiable += 1;
         } else {
-          checked += 1;
-          if (check.value.value.ungroundedSkills.length > 0) flagged += 1;
+          const decision = check.value;
+
+          if (decision.allowed) {
+            checked += 1;
+            if (decision.value.ungroundedSkills.length > 0) flagged += 1;
+          } else {
+            checkUnverifiable += 1;
+          }
         }
       }
 
