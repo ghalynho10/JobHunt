@@ -21,10 +21,13 @@ not rewritten. What has changed since:
   the same PR.
 - **Fixed in the commit that adds this note**: section 11 item 14. `docs/overview.md` now says nine tables,
   with the 23 policies over the six that hold user data.
-- **Still open**: the resume's "six-table" wording (section 8, bullet 1, which is not a repo change); features
-  18, 19 and 20, still `planned` above the `## v1.5` heading, now the only reason the verdict stops short of
-  "v1 complete"; UptimeRobot monitor 2 (section 5.4); the `landing-rule.test.ts` flake (section 7); and every
-  section 11 item not named above. One new item: the README's results-list screenshot shows feature 19's fake
+- **Fixed since the note was first written**: the resume's "six-table" wording (section 8, bullet 1),
+  corrected by the engineer outside the repo (**RECORDED**, from the engineer's own report); and the README's
+  "Where it has run" bullet, which said a card with a flagged skill had not been seen outside tests and now
+  describes the flagged EchoStar card in `docs/images/results-list.png`, agreeing with the screenshot.
+- **Still open**: features 18, 19 and 20, still `planned` above the `## v1.5` heading, now the only reason the
+  verdict stops short of "v1 complete"; UptimeRobot monitor 2 (section 5.4); the `landing-rule.test.ts` flake
+  (section 7); and every section 11 item not named above. One new item: the README's results-list screenshot shows feature 19's fake
   salary range ("$109,440 to $109,440"), so that bug now sits on the project's front page.
 
 _Requested before calling this project v1 publicly (resume, portfolio, interviews). Every claim below
