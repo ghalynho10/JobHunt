@@ -7,7 +7,9 @@ shows the reasoning behind each ranking.
 runs end to end on the deployed site, and three planned v1 features are not
 built yet ([details](#current-state))
 
-<!-- TODO: add two screenshots here from usejobhunt.dev, the results list and one result card, saved under docs/images/ -->
+![Ranked search results on usejobhunt.dev, each card showing a fit band, skill chips and its reasoning](docs/images/results-list.png)
+
+![One result card: a Good match band, the matched and unmentioned skills, and the written reasoning](docs/images/result-card.png)
 
 ## Why I built it
 
