@@ -9,6 +9,11 @@ built yet ([details](#current-state))
 
 ![Ranked search results on usejobhunt.dev, each card showing a fit band, skill chips and its reasoning](docs/images/results-list.png)
 
+The same claimed skill gets opposite verdicts here, and both are right: the
+first card's excerpt talks about AI agents, so "LLM agent orchestration"
+stays matched; the second card's excerpt never mentions agents, and the
+only near match is "Agentic" in the title, so the second vendor removed it.
+
 ![One result card: a Good match band, the matched and unmentioned skills, and the written reasoning](docs/images/result-card.png)
 
 ## Why I built it
