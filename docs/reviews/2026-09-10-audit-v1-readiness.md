@@ -1,5 +1,32 @@
 # Audit: is JobHunt honestly "v1"? · 2026-09-10
 
+**Resolution status, updated 2026-09-11.** Everything below is the point in time record of 2026-09-10 and is
+not rewritten. What has changed since:
+
+- **The loop has now run on the deployed site, which closes this audit's largest gap** (section 4, section 9
+  item 2, and the second of the verdict's two reasons). The engineer drove it on `usejobhunt.dev` on 2026-09-10:
+  a real sign in, a profile, a search over real listings ranked with the reasoning shown, and two real
+  applications recorded, one `good_match` and one `strong_match`. **RECORDED**, from the engineer's own
+  report; this audit did not observe it. Whether the production Sentry monitors (section 5.1) received spans
+  from that run has not been checked.
+- **`COPY-9` and `COPY-11` have now been seen on a real page.** Section 8 said that half of feature 17's
+  descoped verify steps was unobserved. `docs/images/results-list.png` (merged in #124) shows an EchoStar card
+  reading "Removed from matched skills, a second check could not find these in the excerpt shown: LLM agent
+  orchestration." and "Part of this reasoning could not be checked against the excerpt shown.", which are
+  `COPY-9` and `COPY-11` word for word (`src/features/scoring/copy.ts:134` and `:168`). **VERIFIED** by
+  viewing the image and reading the file.
+- **Fixed in #122** (`d474924`): section 11 items 1, 2 and 3 (the stale `score-listings.ts` comment, the Free
+  tier claim at `scope.md:342`, and the unrecorded `ai_check` cost), plus the "v1 loop is complete" wording in
+  `docs/overview.md` that sections 4 and 7 flagged. The two unpushed commits in section 11 item 13 landed in
+  the same PR.
+- **Fixed in the commit that adds this note**: section 11 item 14. `docs/overview.md` now says nine tables,
+  with the 23 policies over the six that hold user data.
+- **Still open**: the resume's "six-table" wording (section 8, bullet 1, which is not a repo change); features
+  18, 19 and 20, still `planned` above the `## v1.5` heading, now the only reason the verdict stops short of
+  "v1 complete"; UptimeRobot monitor 2 (section 5.4); the `landing-rule.test.ts` flake (section 7); and every
+  section 11 item not named above. One new item: the README's results-list screenshot shows feature 19's fake
+  salary range ("$109,440 to $109,440"), so that bug now sits on the project's front page.
+
 _Requested before calling this project v1 publicly (resume, portfolio, interviews). Every claim below
 is labelled. Nothing rests on "the docs say so": where a document is the only source, it is labelled
 **RECORDED** and named with its date and file, never **VERIFIED**._
