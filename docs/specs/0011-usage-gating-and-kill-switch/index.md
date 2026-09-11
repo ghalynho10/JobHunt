@@ -9,7 +9,7 @@ This spec builds the budget that stops the app from spending more on outside job
 
 ## Context
 
-Adzuna, the job listing source feature 11 will call, licenses this app a fixed monthly budget of calls. Nothing in the app currently stops a bug, a loop, or a burst of interest from spending that budget past what Adzuna allows, and past what this stays free to run. The risk is named directly in the project's scope: uncontrolled external cost during unemployment, only removable by a deliberate decision that the risk is acceptable, never by skipping this for time.
+Adzuna, the job listing source feature 11 will call, licenses this app a fixed monthly budget of calls. Nothing in the app currently stops a bug, a loop, or a burst of interest from spending that budget past what Adzuna allows, and past what this stays free to run. The risk is named directly in the project's scope: uncontrolled external cost on a self-funded project, only removable by a deliberate decision that the risk is acceptable, never by skipping this for time.
 
 The budget is against a single API key shared by every user, so a cap on one account protects nothing in aggregate: twenty enthusiastic friends can drain the shared monthly ceiling as easily as one heavy user. Two different kinds of limit are therefore both load bearing, a personal ceiling that is fair to one user and a shared ceiling that protects the key itself, and both must hold together under concurrent requests, since two calls landing at once must never both slip past a limit that only checked itself once.
 
@@ -18,7 +18,7 @@ Feature 3 already built the piece this spec assumes rather than re-decides: a si
 ## Requirements
 
 **User stories**:
-- As the operator, I want a per account and app wide budget on outside job search calls, so a bug or a burst of interest cannot run past the source's terms or run up cost while I am unemployed.
+- As the operator, I want a per account and app wide budget on outside job search calls, so a bug or a burst of interest cannot run past the source's terms or run up cost I would pay myself.
 - As a signed in user, I want a plain reason when a search is blocked, so I know it is a budget limit rather than something broken.
 - As the operator, I want the failure alert proven to fire for real, so a total, silent denial cannot happen here the way it did on the project this one learns from.
 

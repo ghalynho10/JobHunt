@@ -46,7 +46,7 @@ export function AppHeader({ current }: AppHeaderProps) {
     <SiteHeader
       /**
        * The lockup goes to search, not to `/`. It is the mock up's own target
-       * (`docs/design/jobhunt-app-shell.html` line 451) and the honest one: a
+       * (`docs/archive/jobhunt-app-shell.html` line 451) and the honest one: a
        * signed in person clicking the logo wants the product, not the pitch.
        */
       homeHref="/search"

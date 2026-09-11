@@ -220,7 +220,7 @@ Ordered for Tracer Bullet: a thin, real end to end slice through the identity se
 ## Follow-up
 
 - [ ] Feature 11 owns its own search input and segmented control. `ui-registry.md`'s open gap for those specific controls is not closed by this feature's `Input`, `Textarea`, `Select`, and `Field` set; only the identity, skills, experience, and preferences form gap is.
-- [ ] Feature 14's completeness threshold, what counts as "enough profile to score against", is still open, named in `docs/app-shell-direction.md` and owned by feature 14, not this one.
+- [ ] Feature 14's completeness threshold, what counts as "enough profile to score against", is still open, named in `docs/archive/app-shell-direction.md` and owned by feature 14, not this one.
 - [ ] Whether Playwright gets installed remains open. This feature's own Server Action test uses the no browser technique from spec 0004's Follow up and does not need a browser.
 - [ ] `ui-registry.md` should register the four new base components once they land, via `/imprint`, the same way `Logo` was registered after spec 0006.
 - [ ] **Feature 14 owns revisiting `addWorkExperience`'s duplicate submission gap**, recorded as an accepted tradeoff in `## Consequences` on 2026 09 02. It is listed here as well as there because a later builder scans this list for what is owed, and `## Consequences` reads as closed. Scoring is the first thing that reads work history without a person looking at it, so feature 14 is the one that can say whether duplicates need to be impossible rather than merely visible.

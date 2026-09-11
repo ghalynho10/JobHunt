@@ -13,7 +13,7 @@ import { isFailure } from "@/lib/result";
  * answer, and three copies of a rule this small is how they quietly stop
  * agreeing. Feature 14's scoring gate layers onto the CALLERS of this rule
  * later; it does not widen the rule, because a rule that grew a second question
- * would become the onboarding flow `docs/app-shell-direction.md` ruled out.
+ * would become the onboarding flow `docs/archive/app-shell-direction.md` ruled out.
  *
  * IT READS PROFILE ROW EXISTENCE ONLY, NEVER PROFILE SUFFICIENCY. Whether a
  * profile is good enough to score against is a different question with a

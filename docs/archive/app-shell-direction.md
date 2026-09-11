@@ -20,7 +20,7 @@ Two audiences, deliberately kept in one file for now. Split when convenient.
 - **FOR CARRY-FORWARD** — the final section, "For the carry-forward file".
   Findings tagged to features 11 and 14 that came out of the same
   conversation but belong to those specs, not to the shell. Move them into
-  `docs/jobhunt-carry-forward.md` under their feature headings.
+  `docs/archive/jobhunt-carry-forward.md` under their feature headings.
 
 ---
 
@@ -263,7 +263,7 @@ not before. Drawing first would silently re-answer decision 1.
 
 **Not for `/scope`.** These came out of the same conversation but belong to
 feature specs, not to the app shell. Move them into
-`docs/jobhunt-carry-forward.md` under the feature headings named below.
+`docs/archive/jobhunt-carry-forward.md` under the feature headings named below.
 
 Source for all of them: the reference project's own screens, viewed 2026-08-29
 — its results table, its job detail page, and a real Adzuna description as that

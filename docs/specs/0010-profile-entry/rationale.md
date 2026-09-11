@@ -2,7 +2,7 @@
 
 ## Context
 
-> ⚠️ Premise note: `docs/app-shell-direction.md` already names a real risk here by name: the profile experience could grow into a completeness meter, a progress bar, or a multi step wizard as sections get added. This spec deliberately does not build one. The view first, edit per section shape has no progress tracking and no required versus optional visual signal beyond `full_name` being the one required field. Skills, experience, and preferences carry no order among themselves; identity comes first only because it is the foreign key parent every other table depends on, a structural fact, not a completeness judgement. Feature 14 owns deciding what "enough profile to score" means; this feature only stores what the user chooses to type.
+> ⚠️ Premise note: `docs/archive/app-shell-direction.md` already names a real risk here by name: the profile experience could grow into a completeness meter, a progress bar, or a multi step wizard as sections get added. This spec deliberately does not build one. The view first, edit per section shape has no progress tracking and no required versus optional visual signal beyond `full_name` being the one required field. Skills, experience, and preferences carry no order among themselves; identity comes first only because it is the foreign key parent every other table depends on, a structural fact, not a completeness judgement. Feature 14 owns deciding what "enough profile to score" means; this feature only stores what the user chooses to type.
 
 Feature 9 is the first feature to write anything into the four tables spec 0003 already applied: `profile`, `profile_skill`, `work_experience`, and `job_preference`. Scoring (feature 14) cannot function without real data here, and the app shell's own landing rule (spec 0008) already sends a signed in user with no profile row to `/profile`, so this page is the first real screen most people see after signing in.
 
@@ -12,7 +12,7 @@ First, the schema itself is not neutral about how it expects to be written. `pro
 
 Second, a Server Action gets no cross table transaction through PostgREST. A single action that tried to write all four tables at once could not be atomic; a failure partway through would leave the profile half written, with no way to roll the earlier tables back.
 
-Third, `docs/app-shell-direction.md` had already settled the interaction model before this spec started: "Profile is view first, not a form. A page the user can look at, with editing available, not a form filled once and never seen again." The app shell mock up (`docs/design/jobhunt-app-shell.html`) implements exactly that shape for `/profile`, section cards with their own Edit or Add control, reviewed against the real design system in `docs/design/app-shell-mockup-findings.md` and `ui-registry.md`'s design tool import audit.
+Third, `docs/archive/app-shell-direction.md` had already settled the interaction model before this spec started: "Profile is view first, not a form. A page the user can look at, with editing available, not a form filled once and never seen again." The app shell mock up (`docs/archive/jobhunt-app-shell.html`) implements exactly that shape for `/profile`, section cards with their own Edit or Add control, reviewed against the real design system in `docs/design/app-shell-mockup-findings.md` and `ui-registry.md`'s design tool import audit.
 
 Two things the mock up gets wrong for this feature specifically, corrected here rather than carried over: it draws Education and a Matched or Missing skill breakdown, neither of which this feature builds (Education has no table; the skill breakdown is feature 14's scoring output), and its identity block shows a role and years of experience, neither of which `public.profile` has a column for.
 
@@ -36,7 +36,7 @@ Each section is its own Server Action and its own save. Which section is open fo
 
 **Pros**:
 - Each table is written the way its own grants and constraints expect: `profile_skill`'s delete-plus-insert shape, `work_experience`'s real update path, `job_preference`'s upsert on a single row.
-- Matches `docs/app-shell-direction.md`'s already settled decision, and the mock up's own section card layout.
+- Matches `docs/archive/app-shell-direction.md`'s already settled decision, and the mock up's own section card layout.
 - Keeps the profile form's Server Action drivable without a browser: the edit form is present in the HTML of a plain GET, which is exactly what spec 0004's Follow up recipe needs to read the form's hidden action fields.
 
 **Cons**:
@@ -63,9 +63,9 @@ A closely related decision, folded into Option 2 rather than given its own optio
 ## References
 
 **Project sources**:
-- `docs/design/jobhunt-app-shell.html`, the app shell mock up's `/profile` screen: view first, per section edit
+- `docs/archive/jobhunt-app-shell.html`, the app shell mock up's `/profile` screen: view first, per section edit
 - `docs/design/app-shell-mockup-findings.md`, the browser driven review of that mock up
-- `docs/app-shell-direction.md`, "Profile is view first, not a form", and the named risk of a completeness meter or wizard
+- `docs/archive/app-shell-direction.md`, "Profile is view first, not a form", and the named risk of a completeness meter or wizard
 - `ui-registry.md`, the 2026-08-30 design tool import audit and its open note that `src/components/ui` has no `Input` or equivalent yet
 - `supabase/migrations/20260825162457_data_model.sql`, the four tables' columns, constraints, grants, and policies
 - spec 0003, the data model and its value sourcing table

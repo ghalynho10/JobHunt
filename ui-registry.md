@@ -75,7 +75,7 @@ An elevated card that grows a border led look, or a flat card that grows a shado
 | --- | --- |
 | Section rhythm | `py-section-compact` / `-standard` / `-generous`, responsive pairs |
 | Content column, marketing pages | `mx-auto w-full max-w-6xl px-6` |
-| Content column, app shell screens | `880px` wide, `24px` gutter. Deliberately narrower than the marketing column: a dense list of result cards reads better on a narrower measure than a marketing hero. Confirmed 2026-08-30 against `docs/design/jobhunt-app-shell.html`, which is the only place this value has been used so far. |
+| Content column, app shell screens | `880px` wide, `24px` gutter. Deliberately narrower than the marketing column: a dense list of result cards reads better on a narrower measure than a marketing hero. Confirmed 2026-08-30 against `docs/archive/jobhunt-app-shell.html`, which is the only place this value has been used so far. |
 | Two column split | `grid-split` (3fr 2fr) at `lg`, for a primary and a secondary column |
 | Chip cluster gap | `gap-1.5` |
 | Card slot rhythm | header `gap-1`, body `mt-4`, footer `mt-6`, three different values by slot, not one flex gap for the whole card |
@@ -86,7 +86,7 @@ One sanctioned default animation exists: the match cell stagger. Nothing else an
 
 ## Design tool import audit, 2026-08-30
 
-Source: `docs/design/jobhunt-app-shell.html`, a design tool export of the app shell screens (search, dense search, role detail, profile, applications), checked against the baseline above, `brand-tokens.md`, and the real components in `src/components/ui`. This file is a reference mock, not shippable code, so there is nothing here to edit directly. The list below is what a future build of these screens must correct rather than carry over from the mock.
+Source: `docs/archive/jobhunt-app-shell.html`, a design tool export of the app shell screens (search, dense search, role detail, profile, applications), checked against the baseline above, `brand-tokens.md`, and the real components in `src/components/ui`. This file is a reference mock, not shippable code, so there is nothing here to edit directly. The list below is what a future build of these screens must correct rather than carry over from the mock.
 
 Colours, both typefaces, and the focus ring all matched the baseline exactly and needed no correction.
 

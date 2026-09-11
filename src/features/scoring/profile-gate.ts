@@ -40,7 +40,7 @@ export type ScoringProfileOutcome =
  * rule, on `/search`, and changes what that page renders rather than where the
  * visitor ends up: a thin profile still lands on `/search`. Teaching the
  * landing rule about profile sufficiency instead is how it becomes the
- * onboarding flow `docs/app-shell-direction.md` ruled out.
+ * onboarding flow `docs/archive/app-shell-direction.md` ruled out.
  *
  * `record_not_found` IS `thin`, NOT `unavailable`. No profile row at all is
  * zero skills and zero work history by definition, which is exactly the state
