@@ -64,6 +64,7 @@ it as a portfolio piece. It is free: spend caps stand in for billing.
      description, so this is not a confirmed gap."
    - a short written explanation of the band, addressed to you
    - a visa sponsorship badge, when the posting states a position either way
+     (built and tested, but not yet seen on a real listing)
 4. **See what a second check found.** A second model, from a different vendor,
    checks each matched skill against the same excerpt. A skill it cannot find
    is removed from the card, and the card says so: "Removed from matched
@@ -214,9 +215,7 @@ does not have to be given twice. All of it is in the repo:
   finished features, some over several rounds. The five without one are the
   scaffold, tooling, deployment, terms and privacy, and the band anchor
   review. Each review runs on a different model from the one that wrote the
-  code, by design, and names its reviewing model at the top. The folder also
-  holds the [v1 readiness audit](docs/reviews/2026-09-10-audit-v1-readiness.md)
-  I had run before calling this v1. The claims in this README trace back to it.
+  code, by design, and names its reviewing model at the top.
 - **[docs/reflexes.md](docs/reflexes.md)** holds 35 standing rules, one line
   each. Most were written right after a specific mistake in this project, mine
   or an agent's, and carry its date and what happened. Two examples:
