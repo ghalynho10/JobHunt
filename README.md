@@ -64,6 +64,7 @@ it as a portfolio piece. It is free: spend caps stand in for billing.
      description, so this is not a confirmed gap."
    - a short written explanation of the band, addressed to you
    - a visa sponsorship badge, when the posting states a position either way
+     (built and tested, but not yet seen on a real listing)
 4. **See what a second check found.** A second model, from a different vendor,
    checks each matched skill against the same excerpt. A skill it cannot find
    is removed from the card, and the card says so: "Removed from matched
