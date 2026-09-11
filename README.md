@@ -141,9 +141,11 @@ As of 2026-09-10.
   With a real profile I searched real listings on usejobhunt.dev, saw them
   ranked with the reasoning shown, and used it to apply to two real jobs, one
   scored good_match and one strong_match. Before that I had only driven it end
-  to end on a local production build. I haven't yet seen a card showing a skill
-  flagged by the cross-vendor check outside tests. The check itself is proven
-  by tests and by a probe against the real Google API.
+  to end on a local production build. On 2026-09-11 I saw the flagged state on
+  the deployed site for the first time, on the second card in the screenshot
+  above: the second vendor could not find "LLM agent orchestration" in the
+  excerpt, so it was removed from the matched skills with a note, and a caveat
+  appeared above the reasoning.
 - **Checks:** 1,221 unit tests and 132 integration tests pass. Another 8 are
   skipped on purpose, because they spend real vendor money. Lint, typecheck and
   format are clean. `main` is protected by three required checks: lint,
