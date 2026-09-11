@@ -1,7 +1,7 @@
 # Review, app shell and navigation (spec 0008), 2026-08-31
 
 **Reviewed by**: three independent agents, on Claude Fable 5, Claude Sonnet 5 and Claude Opus 5. Two went in cold with no focus areas; one was given four focus areas drawn from a first read. The spec's author model is not recorded, so a panel was used rather than a single reviewer, to make sure at least one reviewer was not the author.
-**Scope**: `docs/specs/0008-app-shell-and-navigation/index.md` and `rationale.md`, at commit `2687fe5`, status Proposed, judged against specs 0001, 0006 and 0007 (all Accepted), `docs/app-shell-direction.md`, and the current `src/proxy.ts`, `src/features/auth/actions.ts` and `src/features/entry-page/`.
+**Scope**: `docs/specs/0008-app-shell-and-navigation/index.md` and `rationale.md`, at commit `2687fe5`, status Proposed, judged against specs 0001, 0006 and 0007 (all Accepted), `docs/archive/app-shell-direction.md`, and the current `src/proxy.ts`, `src/features/auth/actions.ts` and `src/features/entry-page/`.
 **Verdict**: Send back. Two reviewers said accept with changes; the third said send back and carried the stronger evidence, because one finding may change the chosen mechanism rather than the spec's wording.
 
 ## Summary
@@ -160,7 +160,7 @@ It names `/sign-in` and `/auth/callback` and misses `/go`, which would re-run th
 
 ### 🟡 `/applications` ships with no way to reach it, AC-1 and AC-2
 
-Two reviewers. `docs/app-shell-direction.md:87-89`, the settled direction, says it is "reached from a link on `/profile` and from the confirmation after marking a job applied", and `docs/design/app-shell-mockup-findings.md:16-17` records that as built and validated, matching the settled decision. AC-1 correctly keeps it out of the nav but requires no inbound link anywhere, and AC-2's `/profile` placeholder carries none. The route is reachable only by typing the URL. Add the link to AC-1, or record the deferral to feature 12 in Follow up.
+Two reviewers. `docs/archive/app-shell-direction.md:87-89`, the settled direction, says it is "reached from a link on `/profile` and from the confirmation after marking a job applied", and `docs/design/app-shell-mockup-findings.md:16-17` records that as built and validated, matching the settled decision. AC-1 correctly keeps it out of the nav but requires no inbound link anywhere, and AC-2's `/profile` placeholder carries none. The route is reachable only by typing the URL. Add the link to AC-1, or record the deferral to feature 12 in Follow up.
 
 ### 🟡 AC-15's spans are never built by the build plan
 

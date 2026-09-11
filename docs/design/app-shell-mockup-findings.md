@@ -1,6 +1,6 @@
 # App shell mock-up — findings
 
-**Source:** docs/design/jobhunt-app-shell.html, driven directly in a real
+**Source:** docs/archive/jobhunt-app-shell.html, driven directly in a real
 browser (Chromium via Playwright) at 1440×900 and 320×800, reviewed
 2026-08-29/30. Token-level consistency is covered separately in
 ui-registry.md's "Design tool import audit, 2026-08-30" — this file covers
@@ -9,7 +9,7 @@ what that audit doesn't: layout, density, and information architecture.
 ## Confirmed correct against the shell decision
 
 - Routes render as `#/search` and `#/profile`, not `/` — matches the
-  resolved decision in app-shell-direction.md.
+  resolved decision in docs/archive/app-shell-direction.md.
 - Header: logo + Search + Profile + Sign out, no menu, zero horizontal
   overflow at 320px (confirmed via scrollWidth/clientWidth, not a screenshot
   guess).

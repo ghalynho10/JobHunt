@@ -131,7 +131,7 @@ Five searches, no page fetches, run because the brief correctly notes this space
 
 **Project sources** (verifiable, in this repo)
 
-- `jobhunt-idea-brief.md`: the two JobPilot audits, the settled platform and framework decisions, the named risk retention rule, the process rules, and the Adzuna terms reading
+- `docs/archive/jobhunt-idea-brief.md`: the two JobPilot audits, the settled platform and framework decisions, the named risk retention rule, the process rules, and the Adzuna terms reading
 - `docs/scope/scope.md`: feature 1's stated done when clause, the Tracer Bullet build approach, and the feature boundaries that put the component source, test runners and linter in features 5, 8 and 2
 - Installed skills: `supabase` and `supabase-postgres-best-practices` (`supabase/agent-skills`), `sentry-sdk-setup` and `sentry-node-sdk` (`getsentry/sentry-for-ai`), all four in `.agents/skills/`
 

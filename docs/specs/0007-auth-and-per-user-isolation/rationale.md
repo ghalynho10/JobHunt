@@ -62,7 +62,7 @@ Everything in Option 2, plus the Supabase convention of a trigger on `auth.users
 - `profile.full_name` is `not null` with `check (length(trim(full_name)) > 0)`, so a provider returning no name makes the trigger raise **inside the signup transaction**, which surfaces as an opaque "Database error saving new user" with nothing pointing at the cause.
 - [supabase/seed.sql](../../../supabase/seed.sql) inserts directly into `auth.users`, so the trigger fires on the seed and gives `dev-three@example.test` a profile, breaking spec 0003 **AC-14**'s deliberately profile free fixture and the test at [test/integration/profile-read.test.ts](../../../test/integration/profile-read.test.ts) whose failure message reads "something is inventing a profile".
 - Contradicts spec 0003's own value sourcing table, which already assigns profile creation to feature 9, and `readOwnProfile()`'s doc comment, which says the same.
-- Makes `docs/app-shell-direction.md`'s landing rule meaningless. "Land on `/profile` if no profile row exists" cannot discriminate when a row always exists, and it would have to become a three table completeness query instead.
+- Makes `docs/archive/app-shell-direction.md`'s landing rule meaningless. "Land on `/profile` if no profile row exists" cannot discriminate when a row always exists, and it would have to become a three table completeness query instead.
 
 ### Option 4: A hosted auth provider instead of Supabase Auth
 
@@ -102,7 +102,7 @@ The obvious alternative, making origin resolution request aware so the return ad
 - [spec 0003](../0003-data-model/index.md), **AC-2** and **AC-14**, the value sourcing table assigning profile creation to feature 9, and the migration's invariant 1.
 - [spec 0004](../0004-test-foundation/index.md), the session mint that does not depend on any password, and the follow up at line 174 that this spec shrinks.
 - [spec 0006](../0006-entry-page-and-link-metadata/index.md), **AC-4**, **AC-7** (superseded here), **AC-17**, and the security model at line 137 that keeps `/` session free.
-- [docs/app-shell-direction.md](../../app-shell-direction.md) section 2, marked BLOCKED pending this feature's trigger decision.
+- [docs/archive/app-shell-direction.md](../../archive/app-shell-direction.md) section 2, marked BLOCKED pending this feature's trigger decision.
 - [docs/experiments/0002-deployment-and-environments.md](../../experiments/0002-deployment-and-environments.md), the wrong environment conclusion behind AC-19's three column matrix.
 - Installed community skills: `supabase` and `supabase-postgres-best-practices` (`supabase/agent-skills`), `sentry-nextjs-sdk` (`getsentry/sentry-for-ai`).
 

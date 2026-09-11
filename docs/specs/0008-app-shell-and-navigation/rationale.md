@@ -19,7 +19,7 @@ chosen mechanism. See the sub decision below, which is rewritten.
 > ⚠️ **Premise note: the scope row's own done when clause contains one wording
 that this spec amends.** Scope feature 32 says "a user with no profile row
 lands on `/profile` and everyone else on `/`". Both `scope.md` and
-[docs/app-shell-direction.md](../../app-shell-direction.md) predate section 1
+[docs/archive/app-shell-direction.md](../../archive/app-shell-direction.md) predate section 1
 of the direction document, which resolved the search route as `/search`
 because spec 0006's accepted security model makes `/` a static page that reads
 nothing. Landing a signed in user on the marketing page is the same bug the
@@ -349,9 +349,9 @@ grow into the onboarding flow the direction document explicitly ruled out.
 - [spec 0005](../0005-design-system-and-ui-foundation/index.md), the design system the promoted header must hold: the token layer, the container idioms, and the mono versus sans rule.
 - [spec 0006](../0006-entry-page-and-link-metadata/index.md), the security model keeping `/` session free, **AC-4** (static prerender, zero client JavaScript), and the positive tradeoff promising a shared header before the second page needs one.
 - [spec 0007](../0007-auth-and-per-user-isolation/index.md), the deferred return path, the single leading slash validator constraint, safeguard 3 (`redirectTo` stays clean), **AC-16** (the deleted "coming soon" phrasing), and the flagged `/health` callback redirect this feature replaces.
-- [docs/app-shell-direction.md](../../app-shell-direction.md), read down through "Suggested path" as the settled decision: the page inventory, the nav membership, the header variants, the no mobile menu rule, and the three items this spec resolves (the invitation, the return path, the deliberate no index line).
+- [docs/archive/app-shell-direction.md](../../archive/app-shell-direction.md), read down through "Suggested path" as the settled decision: the page inventory, the nav membership, the header variants, the no mobile menu rule, and the three items this spec resolves (the invitation, the return path, the deliberate no index line).
 - [docs/design/app-shell-mockup-findings.md](../../design/app-shell-mockup-findings.md), the confirmed layout at 1440px and 320px, the tap target measurements, and the elevated skills card answer.
-- [docs/design/jobhunt-app-shell.html](../../design/jobhunt-app-shell.html), the visual mock up this spec builds toward.
+- [docs/archive/jobhunt-app-shell.html](../../archive/jobhunt-app-shell.html), the visual mock up this spec builds toward.
 - `ui-registry.md`, the "Design tool import audit, 2026-08-30" section, the token level record the header's styling must stay inside.
 - [scope.md](../../scope/scope.md), feature 32's done when clause, which seeded the acceptance criteria (with the one amendment in the premise note).
 - `src/proxy.ts`, the current proxy that binding rule 6 governs and that takes on echoing the requested path, and `src/proxy.test.ts` lines 49 to 70, the two assertions that are binding rule 6's mechanical guard and that revision 2 exists to keep true.

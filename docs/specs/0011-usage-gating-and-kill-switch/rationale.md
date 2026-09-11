@@ -9,7 +9,7 @@ and for a later `/architect` run that revisits this decision.
 See index.md's `## Context` for the build facing summary. The fuller picture:
 
 This design conversation ran unusually deep because the starting numbers offered turned out to be
-wrong by roughly an order of magnitude. An earlier version of `docs/jobhunt-carry-forward.md`
+wrong by roughly an order of magnitude. An earlier version of `docs/archive/jobhunt-carry-forward.md`
 attributed Adzuna's rate limits to their terms of service; on 2026-09-02 that attribution was
 checked against `developer.adzuna.com/terms`, `/docs/search`, and `/overview`, found nothing there,
 and concluded the limits were in the developer docs under "Default API access limits" (25 hits a
@@ -84,7 +84,7 @@ hit during the exact minute they are already intervening by hand.
 ## References
 
 **Project sources** (verifiable, in this repo):
-- `docs/jobhunt-carry-forward.md`, "Feature 10, Usage gating and kill switch" section, corrected 2026-09-02: the source of the four Adzuna limits and the reasoning for which one binds.
+- `docs/archive/jobhunt-carry-forward.md`, "Feature 10, Usage gating and kill switch" section, corrected 2026-09-02: the source of the four Adzuna limits and the reasoning for which one binds.
 - Spec 0001 (`docs/specs/0001-stack-and-architecture/index.md`), index line 34: atomic work is one statement in the database, naming this feature's gate directly.
 - Spec 0001, index line 123: the attempt counter is incremented inside the atomic gate function itself, at the moment the decision is made, "built with that function, not deferred."
 - Spec 0001, index line 171: trace sampling at 1.0 on gated operations costs more Sentry quota than a sampled configuration and needs revisiting if volume ever grows, the dependency this spec's Key invariants section names as a live coupling.

@@ -120,7 +120,7 @@ The design was written before any account existed, so several of its values were
 - Root `AGENTS.md`: pnpm 11.22, Node 24, the functional and immutable rules, errors as values through `failure()`.
 - `.github/workflows/ci.yml`: the existing lint, format, typecheck and build job, whose `SKIP_ENV_VALIDATION` comment already names feature 3 as the owner of the deployed build.
 - `docs/scope/scope.md`, feature 3 and the standing rules, in particular the named risk retention rule and no silent failures.
-- `docs/jobhunt-carry-forward.md`, feature 3 section: the MCP attack shape and Supabase's own mitigations.
+- `docs/archive/jobhunt-carry-forward.md`, feature 3 section: the MCP attack shape and Supabase's own mitigations.
 - `src/features/dev-session/actions.ts`: the `NODE_ENV` guard this spec replaces.
 - `supabase/migrations/20260820041006_scaffold_check.sql` and `supabase/seed.sql`: the scaffold thread's schema and its fixture, and the foreign key to `auth.users` that shapes how the fixture reaches a hosted project.
 

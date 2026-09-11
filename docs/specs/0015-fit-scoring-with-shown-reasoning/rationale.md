@@ -10,7 +10,7 @@ The profile this feature scores against already exists (spec 0010): `full_name`,
 
 Spec 0008's AC-6 already states that this feature's own scoring gate "layers onto the landing rule's callers, it does not replace the rule": a thin profile still lands on `/search`, it just should not be scored as if it were a real basis for a judgment.
 
-A job description is untrusted text reaching a model automatically, not text a user chose to paste. `docs/jobhunt-carry-forward.md`'s feature 14 entry verified this exact risk shape against `MadsLorentzen/ai-job-search` (MIT): postings are treated as untrusted input, the model follows no instructions embedded in them, and fetches no links from their body, an instruction level defense rather than a sandbox.
+A job description is untrusted text reaching a model automatically, not text a user chose to paste. `docs/archive/jobhunt-carry-forward.md`'s feature 14 entry verified this exact risk shape against `MadsLorentzen/ai-job-search` (MIT): postings are treated as untrusted input, the model follows no instructions embedded in them, and fetches no links from their body, an instruction level defense rather than a sandbox.
 
 Fetching the full posting from `job_url` was named as an option worth weighing (the carry forward doc, and the engineer's own brief). Checked directly against Adzuna's terms of service (`https://developer.adzuna.com/docs/terms_of_service`, fetched 2026-09-06): it says nothing about automated fetching, crawling, or volume limits on following `redirect_url` links, one way or the other. `AGENTS.md` also states plainly that this project has no headless browser yet ("Playwright is the recorded choice and arrives with the first feature that needs a browser"), which many real career pages would need since they render their content with JavaScript.
 
@@ -115,7 +115,7 @@ _Added 2026-09-06, after `/check verify` drove the running app and found AC-16's
 - Spec 0014 (apply redirect and application record), Accepted: `job_url` as Adzuna's `redirect_url`, `job_description` as the same snippet.
 - Spec 0010 (profile entry), Accepted: the profile, skills, work history, and preferences schema this feature reads.
 - Spec 0008 (app shell and navigation), Accepted: AC-6, the landing rule this feature's own scoring gate layers onto without replacing.
-- `docs/jobhunt-carry-forward.md`, feature 14 entry: the snippet problem's original framing, the verified prompt injection defense pattern, and the fetch option's own named risks.
+- `docs/archive/jobhunt-carry-forward.md`, feature 14 entry: the snippet problem's original framing, the verified prompt injection defense pattern, and the fetch option's own named risks.
 - `AGENTS.md`: no headless browser installed yet; the folder by feature rule; the error model (`failure()`, `attempt()`, `FailureKind`).
 - `.agents/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md` and `server-parallel-fetching.md`: the Suspense pattern (fallback renders immediately, the data holding component streams in) and the parallel fetching via composition pattern this spec's own sort once, score concurrently design applies directly.
 
