@@ -1,7 +1,7 @@
 # 0020. Spend visibility and gating polish
 
 **Date**: 2026-09-11
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -87,13 +87,13 @@ A signed in user's own usage reaches the page through a new Postgres function, `
 
 Tracer Bullet, this project's own build approach: the whole read path, database to page, is built as one thin end to end slice, since the display scope decision (job_search only) already keeps this to a single counter.
 
-1. Migration: add `get_job_search_usage_summary()`, taking no parameter, `security definer`, read only, matching `check_usage_gate`'s hardening (`set search_path = ''`, `execute` revoked from `public`, granted to `authenticated`), and its `period_start` expression exactly. No new grant on `usage_gate_counter`. Satisfies **AC-3**, **AC-4**, **AC-7**, **AC-8**.
-2. Build `getJobSearchUsageSummary()` in `src/lib/usage-gating/queries.ts`: `getClaims()` verification, the RPC call wrapped in `attempt()`, the response parsed with Zod rather than trusted (matching `gate.ts`'s own treatment of `check_usage_gate`'s row), a named span `usage_gate.read_summary` opened first and registered in `docs/observability/spans.md` (binding rule 3). Satisfies **AC-1**, **AC-2**, **AC-5**, **AC-7**.
-3. Write `COPY-1` and `COPY-2`. Satisfies **AC-1**, **AC-6**.
-4. Build the rendered notice in `src/features/search/`, calling `getJobSearchUsageSummary()` and wired into `SearchPage` above the `hasQuery` conditional in `src/app/(app)/search/page.tsx`, a plain `await`, no `Suspense` boundary of its own since the read is fast and unrelated to the slower scoring path already Suspended below it. Satisfies **AC-1**, **AC-6**.
-5. Export `RESULTS_PER_PAGE` from `src/features/search/adzuna.ts`, then write the cap arithmetic invariant test as an integration test that reads the real `usage_cap` rows through the Data API (never the direct database helper) and imports the real `RESULTS_PER_PAGE`, asserting the relationship for all three window scopes. Satisfies **AC-9**.
-6. Correct `src/features/legal/stored-fields.ts` lines 76 and 370 so neither claims or implies `usage_cap` or `usage_gate_counter.call_type` count job search calls only. Satisfies **AC-10**.
-7. Integration tests: the Critical test scenarios above, covering **AC-1** through **AC-8**.
+1. [x] Migration: add `get_job_search_usage_summary()`, taking no parameter, `security definer`, read only, matching `check_usage_gate`'s hardening (`set search_path = ''`, `execute` revoked from `public`, granted to `authenticated`), and its `period_start` expression exactly. No new grant on `usage_gate_counter`. Satisfies **AC-3**, **AC-4**, **AC-7**, **AC-8**.
+2. [x] Build `getJobSearchUsageSummary()` in `src/lib/usage-gating/queries.ts`: `getClaims()` verification, the RPC call wrapped in `attempt()`, the response parsed with Zod rather than trusted (matching `gate.ts`'s own treatment of `check_usage_gate`'s row), a named span `usage_gate.read_summary` opened first and registered in `docs/observability/spans.md` (binding rule 3). Satisfies **AC-1**, **AC-2**, **AC-5**, **AC-7**.
+3. [x] Write `COPY-1` and `COPY-2`. Satisfies **AC-1**, **AC-6**.
+4. [x] Build the rendered notice in `src/features/search/`, calling `getJobSearchUsageSummary()` and wired into `SearchPage` above the `hasQuery` conditional in `src/app/(app)/search/page.tsx`, a plain `await`, no `Suspense` boundary of its own since the read is fast and unrelated to the slower scoring path already Suspended below it. Satisfies **AC-1**, **AC-6**.
+5. [x] Export `RESULTS_PER_PAGE` from `src/features/search/adzuna.ts`, then write the cap arithmetic invariant test as an integration test that reads the real `usage_cap` rows through the Data API (never the direct database helper) and imports the real `RESULTS_PER_PAGE`, asserting the relationship for all three window scopes. Satisfies **AC-9**.
+6. [x] Correct `src/features/legal/stored-fields.ts` lines 76 and 370 so neither claims or implies `usage_cap` or `usage_gate_counter.call_type` count job search calls only. Satisfies **AC-10**.
+7. [x] Integration tests: the Critical test scenarios above, covering **AC-1** through **AC-8**.
 
 ## Consequences
 
