@@ -4,14 +4,15 @@ _Steps derived from spec 0020 acceptance criteria. `/check verify` runs these; `
 ## UI / manual
 
 - [x] Sign in, visit `/search` with no query string → the line `Searches used this week: N of 25.` renders above the search form, before any search has been run → AC-1
-- [ ] From that page, run a search → the same line still renders, now above the results, and `N` has gone up by exactly one → AC-1, AC-2
+- [x] From that page, run a search → the same line still renders, now above the results, and `N` has gone up by exactly one → AC-1, AC-2, AC-11
 - [x] Reload `/search` twice without searching → `N` does not move, and no Adzuna call is spent → AC-3
 - [x] Sign in as a second, freshly created account and visit `/search` → it shows `0 of 25`, not the first account's number → AC-7
 - [x] With the app running, `update public.usage_cap set cap_value = 40 where call_type = 'job_search' and scope = 'account' and period = 'week';` then reload `/search` → the line reads `of 40` with no deploy and no restart. Put the value back afterwards → AC-5
 - [x] Break the read (stop the database, or `alter function public.get_job_search_usage_summary() rename to _tmp;`) and reload `/search` → the page shows `We couldn't load your search count just now. You can still search.` with `role="alert"`, the search form still renders underneath, and no number and no zero is shown → AC-6
 - [x] Delete one of `job_search`'s three `usage_cap` rows and reload `/search` → the failure notice renders rather than a number, matching the gate's own all or nothing rule. Restore the row → AC-6
 - [x] Tab through `/search` with the keyboard → the ordinary usage line is not announced as an alert and is not a focus stop; the failure notice is announced → AC-6
-- [ ] Read `/privacy` → the `usage_cap` entry and the `usage_gate_counter.call_type` entry both name the AI scoring and checking calls, not job search alone → AC-10
+- [x] Read `/privacy` → the `usage_gate_counter.call_type` entry names the AI scoring and checking calls, not job search alone → AC-10
+- [x] Read `src/features/legal/stored-fields.ts:76` → the `usage_cap` entry does the same. Confirmed at its source, NOT on `/privacy`: `NON_PERSONAL_TABLES[].why` is read only by `stored-fields.test.ts` and renders nowhere. Split from the step above on 2026-09-12, because the original wording claimed both were on the page and could therefore never pass → AC-10
 
 ## Commands
 
@@ -75,3 +76,21 @@ sentence, corrected and confirmed on the page. It does NOT render the
 The correction AC-10 asks for IS in `stored-fields.ts` at line 76, so the
 criterion is met at its source; the step is left unticked because it cannot be
 confirmed the way it is written.
+
+## Revision steps, added 2026-09-12 (AC-11 to AC-15)
+
+- [x] Sign in, run a search → the figure counts that search. Three consecutive searches showed 1, 2, 3 against a database holding 1, 2, 3 → AC-11
+- [x] Seed an account to one below its cap, run its last allowed search → the page reads `25 of 25` beside the results, the database holds 25, and no refusal shows on that render. The next search is refused. This is the exact case that failed on 2026-09-11 → AC-11, AC-13
+- [x] Bare visit and search render both show the line, from the same read → AC-12
+- [x] Turn the kill switch on, run a search → the figure is unchanged, the kill switch sentence shows, and nothing is consumed. This is the path that never reaches `check_usage_gate`, so it is the one a design carrying the number back from the gate decision would have got wrong → AC-13
+- [x] A search that passes the gate then fails at Adzuna → the figure includes the spend. Covered by `test/integration-serial/usage-line-ordering.test.ts` against the real gate and the real counters with the Adzuna response forced to 503. NOT driven through HTTP: forcing an Adzuna failure in the running dev server would mean restarting it with a bad key → AC-14
+- [x] `anon` cannot execute `check_usage_gate` or `get_job_search_usage_summary`, and `authenticated` still can → AC-15
+- [x] Break the usage read on a SEARCH render (rename the function away) → the notice shows with `role="alert"`, no number is rendered, and the results still render underneath → AC-6
+
+## Run record, 2026-09-12
+
+PASS. All fifteen criteria met, driven against the running dev server on `http://localhost:3000` with two real minted sessions, six real Adzuna searches, and the live local database.
+
+The two steps left unticked on 2026-09-11 are now closed. The search render figure is correct on every trial, including at the cap boundary where it previously said `24 of 25` while the database held 25. The `/privacy` step was split in two rather than ticked as written, because the original wording asserted both corrected sentences were on the rendered page and only one is; the other is confirmed at its source, which is what spec 0020's corrected AC-10 now says.
+
+State restored after the run: both fixture users deleted, `job_search` global counters cleared, all nine `usage_cap` rows at their seeded values, the kill switch back to false, and both `security definer` functions present with their original grants.

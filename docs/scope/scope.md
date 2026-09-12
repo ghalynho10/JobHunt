@@ -421,7 +421,7 @@ Surface actual usage against the caps so the limits are legible rather than a su
   - [x] Tests: the integration scenarios proving the read path end to end (AC-1 through AC-8)
   - [x] Order the usage read behind the search: lift `searchListings()` into `SearchPage`, pass the awaited result to `UsageNotice` as a prop (AC-11, AC-12, AC-13, AC-14)
   - [x] Tests for the revision: the cap boundary end to end, a kill switch refusal, an Adzuna failure after the gate allowed, and the `anon` grant on both `security definer` functions (AC-11 through AC-15)
-- [ ] Verify it: `/check verify spend visibility & gating polish`
+- [x] Verify it: `/check verify spend visibility & gating polish`
 - [ ] Test it: `/test spend visibility & gating polish`
 
 ### 29. Product analytics · needs a decision
