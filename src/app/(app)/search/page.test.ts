@@ -1327,3 +1327,146 @@ describe("the weekly usage line (spec 0020)", () => {
     expect(alerts(failed)).toHaveLength(1);
   });
 });
+
+/**
+ * The ordering the usage line depends on (spec 0020, AC-11, AC-13).
+ *
+ * WHAT MAKES THIS A REAL TEST AND NOT A RESTATEMENT OF THE CODE. The two mocks
+ * below are wired to each other through one shared counter: the search
+ * increments it, the usage read reports whatever it holds AT THE MOMENT IT IS
+ * CALLED. So the assertion is not "a read happened" or "a number rendered", it
+ * is "the number rendered is the one that existed after the search ran". That
+ * is the property, and it is exactly what the shipped code got wrong on
+ * 2026-09-11: the read and the search were siblings, the read won, and every
+ * search render reported the pre search count.
+ *
+ * THE SEARCH YIELDS BEFORE IT INCREMENTS, deliberately. Without that, two
+ * concurrent calls could still resolve in the lucky order and the test would
+ * pass against the broken code. The yield stands in for the Adzuna round trip
+ * that makes the real race so one sided.
+ *
+ * A TEST THAT ONLY ASSERTED "25 of 25" AGAINST A FIXED MOCK WOULD PASS AGAINST
+ * THE OLD CODE TOO. Spec 0020 calls that out by name; the shared counter is
+ * what avoids it.
+ */
+describe("the usage read is ordered after this render's own search (spec 0020)", () => {
+  const CAP = 25;
+
+  /** Starts one below the cap: the boundary the whole revision is about. */
+  function wireBoundary(startingConsumed: number) {
+    let consumed = startingConsumed;
+
+    searchListings.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      consumed += 1;
+      return success({ allowed: true, value: [listing] });
+    });
+
+    getJobSearchUsageSummary.mockImplementation(async () =>
+      success({
+        consumedCount: consumed,
+        capValue: CAP,
+        periodStart: "2026-09-07",
+      }),
+    );
+  }
+
+  it("shows the count including this search, not the count before it (AC-11)", async () => {
+    wireBoundary(24);
+
+    const tree = await render({ q: "engineer" });
+
+    /**
+     * THE BOUNDARY ASSERTION. `24 of 25` is what the broken code rendered, and
+     * it reads as though one search remains to somebody who has just spent
+     * their last. Both halves are asserted: the right number present AND the
+     * wrong number absent, because a page that somehow showed both would pass
+     * a check for the first alone.
+     */
+    expect(textOf(tree)).toContain("Searches used this week: 25 of 25.");
+    expect(textOf(tree)).not.toContain("24 of 25");
+  });
+
+  it("counts the search on an ordinary render too, not only at the cap", async () => {
+    wireBoundary(3);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(textOf(tree)).toContain("Searches used this week: 4 of 25.");
+  });
+
+  it("shows the unchanged count on a bare visit, where no search runs", async () => {
+    wireBoundary(24);
+
+    const tree = await render({});
+
+    expect(textOf(tree)).toContain("Searches used this week: 24 of 25.");
+    expect(searchListings).not.toHaveBeenCalled();
+  });
+
+  it("shows the unchanged count when the search was refused (AC-13)", async () => {
+    /**
+     * A REFUSAL CONSUMES NOTHING, so the pre search count IS the true one here.
+     * Driven as a kill switch refusal rather than a cap refusal on purpose:
+     * that path never reaches `check_usage_gate` at all, and it is the path a
+     * design carrying the number back from the gate decision would have got
+     * wrong (spec 0020, Decision, why the gate option was dropped).
+     */
+    /** `const`, because a refusal counts nothing: that is the point of the test. */
+    const consumed = 24;
+
+    searchListings.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return success({ allowed: false, reason: "kill_switch_engaged" });
+    });
+
+    getJobSearchUsageSummary.mockImplementation(async () =>
+      success({
+        consumedCount: consumed,
+        capValue: CAP,
+        periodStart: "2026-09-07",
+      }),
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(textOf(tree)).toContain("Searches used this week: 24 of 25.");
+    expect(textOf(tree)).toContain(SENTENCES.kill_switch_engaged);
+    expect(consumed).toBe(24);
+  });
+
+  it("includes the spent search when the search failed after passing the gate (AC-14)", async () => {
+    /**
+     * THE WORST PATH TO UNDER REPORT ON. The gate allowed the call and the
+     * budget went, then Adzuna failed, so the reader paid for nothing. A line
+     * that showed the pre search count here would be wrong in the most
+     * expensive direction. `withUsageGate()` discards the gate decision on this
+     * path, which is why spec 0020 states it as its own criterion rather than
+     * leaving it to fall out of AC-11.
+     */
+    let consumed = 10;
+
+    searchListings.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      consumed += 1;
+      return failure({
+        kind: "external_service_failed",
+        severity: "unexpected",
+        message: "Adzuna did not answer.",
+      });
+    });
+
+    getJobSearchUsageSummary.mockImplementation(async () =>
+      success({
+        consumedCount: consumed,
+        capValue: CAP,
+        periodStart: "2026-09-07",
+      }),
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(textOf(tree)).toContain("Searches used this week: 11 of 25.");
+    expect(textOf(tree)).toContain(SEARCH_COPY.searchFailed);
+  });
+});
