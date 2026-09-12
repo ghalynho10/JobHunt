@@ -75,6 +75,26 @@ export default async function SearchPage({
   const where = single(params["where"]);
   const hasQuery = q !== undefined || where !== undefined;
 
+  /**
+   * THE SEARCH RUNS HERE, NOT INSIDE `SearchResults`, AND THE MOVE IS THE
+   * WHOLE FIX (spec 0020, AC-11). It used to run one level down, as a sibling
+   * of `UsageNotice`, so the usage read and the search raced and the read
+   * always won: every search render reported the count from before its own
+   * search. At the cap boundary that told somebody on their last allowed
+   * search that another remained, which is the exact surprise this feature
+   * exists to remove (`/check verify`, 2026-09-11).
+   *
+   * Awaiting it here is what lets the resolved value become a prop, and the
+   * prop is what orders `UsageNotice`'s read after the gate has committed.
+   * See that component for the other half.
+   *
+   * A BARE VISIT STILL RUNS NO SEARCH AND SPENDS NOTHING (AC-9). `hasQuery`
+   * decides that, exactly as before; only the call site moved.
+   */
+  const searchResult = hasQuery
+    ? await searchListings({ title: q, location: where })
+    : undefined;
+
   return (
     <>
       <AppHeader current="search" />
@@ -88,13 +108,27 @@ export default async function SearchPage({
            * so it renders on a bare visit and with results alike. Placed
            * anywhere below this line it would appear only after a search had
            * already spent one, which is the surprise the feature removes.
+           *
+           * `searchResult` IS PASSED SO THE READ INSIDE IT CANNOT RUN FIRST
+           * (AC-11). The component never looks at the value. Handing it an
+           * already awaited result is what makes React unable to render it
+           * until this render's search has finished and its gate call has
+           * committed. Removing the prop compiles and renders and quietly
+           * brings the boundary bug back.
            */}
-          <UsageNotice />
+          <UsageNotice searchResult={searchResult} />
 
-          {hasQuery ? (
-            <SearchResults title={q} location={where} />
-          ) : (
+          {/*
+           * BRANCHED ON `searchResult`, NOT ON `hasQuery`, and the difference
+           * is type narrowing rather than taste: this is what lets
+           * `SearchResults` take a plain resolved result instead of an
+           * optional one. The two conditions are the same condition, because
+           * `searchResult` is undefined exactly when `hasQuery` is false.
+           */}
+          {searchResult === undefined ? (
             <PrefilledForm />
+          ) : (
+            <SearchResults title={q} location={where} result={searchResult} />
           )}
         </Section>
       </main>
@@ -147,12 +181,20 @@ async function PrefilledForm() {
 async function SearchResults({
   title,
   location,
+  result,
 }: {
   readonly title: string | undefined;
   readonly location: string | undefined;
+  /**
+   * ALREADY RESOLVED, BY `SearchPage` (spec 0020, AC-11). This component used
+   * to call `searchListings()` itself. It no longer may: the call has to
+   * happen one level up so its resolved value can be handed to `UsageNotice`
+   * as well, which is what orders that component's usage read after this
+   * search. Fetching here again would spend a second Adzuna call per render
+   * and undo the ordering in the same stroke.
+   */
+  readonly result: Awaited<ReturnType<typeof searchListings>>;
 }) {
-  const result = await searchListings({ title, location });
-
   /**
    * AC-2: both fields blank is refused before the gate is checked and before
    * any Adzuna call runs, and it is the one failure shown on the form itself

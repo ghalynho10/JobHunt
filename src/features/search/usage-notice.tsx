@@ -2,6 +2,7 @@ import { Text } from "@/components/ui/text";
 import { isFailure } from "@/lib/result";
 import { getJobSearchUsageSummary } from "@/lib/usage-gating/queries";
 
+import type { searchListings } from "./adzuna";
 import { SEARCH_COPY } from "./copy";
 
 /**
@@ -21,6 +22,29 @@ import { SEARCH_COPY } from "./copy";
  * indexed lookup, and it is unrelated to the slow scoring path already
  * Suspended further down the page.
  *
+ * THE READ RUNS AFTER THIS RENDER'S OWN SEARCH, AND THE `searchResult` PROP IS
+ * THE ONLY THING MAKING THAT TRUE (spec 0020, AC-11). The prop's value is
+ * never read. Its job is to be an already awaited result, so React cannot
+ * render this component until `SearchPage`'s own `await searchListings()` has
+ * resolved, by which point the gate call inside it has committed and the
+ * counter reflects this search.
+ *
+ * WHY IT IS A PROP RATHER THAN A LINE OF CODE IN THE RIGHT ORDER. Reading
+ * usage after the search in `SearchPage` would be equally correct today and
+ * would stay correct only until somebody folded the read into a `Promise.all`,
+ * which this page already does for two other reads. There is no statement here
+ * to reorder: the ordering is a data dependency, and undoing it means moving
+ * this read up the tree on purpose. That distinction is the whole reason spec
+ * 0020 chose this shape over the simpler looking one.
+ *
+ * ONE SOURCE ON EVERY PATH (AC-12). The number always comes from
+ * `getJobSearchUsageSummary()`, on a bare visit, an allowed search, all five
+ * refusal reasons, and every failure. There is deliberately no second source
+ * and so no rule choosing between them. An earlier design had the gate return
+ * the count it produced; it was dropped because two of the five refusals and
+ * every failure path never produce one, so it would have needed this read as a
+ * fallback anyway (spec 0020, Decision).
+ *
  * THE FAILURE IS SAID OUT LOUD AND BLOCKS NOTHING (AC-6). Rendering nothing
  * here, or a zero, would hand a database outage the meaning of "you have used
  * none of your allowance", which is the default that reads like success the
@@ -35,7 +59,31 @@ import { SEARCH_COPY } from "./copy";
  * That is the same convention the empty results state and the thin profile
  * notice already set.
  */
-export async function UsageNotice() {
+export async function UsageNotice({
+  searchResult,
+}: {
+  /**
+   * This render's own search, already resolved, or `undefined` on a bare
+   * visit. Never read. See the header: it exists to order the call below.
+   */
+  readonly searchResult: Awaited<ReturnType<typeof searchListings>> | undefined;
+}) {
+  /**
+   * `void` RATHER THAN A RENAME OR A DISABLE COMMENT, decided in spec 0020
+   * rather than here. The prop is deliberately unused, which trips
+   * `@typescript-eslint/no-unused-vars`, and `pnpm lint` runs
+   * `--max-warnings=0` so a warning fails the build. A `_searchResult` rename
+   * does NOT help: the rule is configured with no `argsIgnorePattern`, so the
+   * underscore means nothing to it (checked against the real config). An
+   * `eslint-disable` would be the first in `src/`. This is a real reference,
+   * so the rule is satisfied honestly.
+   *
+   * DO NOT DELETE THIS LINE. Removing it makes the prop unused, which makes
+   * lint fail, which invites removing the prop, which silently restores the
+   * bug the prop exists to prevent.
+   */
+  void searchResult;
+
   const summary = await getJobSearchUsageSummary();
 
   if (isFailure(summary)) {
