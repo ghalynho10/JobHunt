@@ -422,7 +422,7 @@ Surface actual usage against the caps so the limits are legible rather than a su
   - [x] Order the usage read behind the search: lift `searchListings()` into `SearchPage`, pass the awaited result to `UsageNotice` as a prop (AC-11, AC-12, AC-13, AC-14)
   - [x] Tests for the revision: the cap boundary end to end, a kill switch refusal, an Adzuna failure after the gate allowed, and the `anon` grant on both `security definer` functions (AC-11 through AC-15)
 - [x] Verify it: `/check verify spend visibility & gating polish`
-- [ ] Test it: `/test spend visibility & gating polish`
+- [x] Test it: `/test spend visibility & gating polish`
 
 ### 29. Product analytics · needs a decision
 Product usage analytics, kept conceptually and technically separate from the dashboard's own computed application statistics. The reference project's own documentation was caught conflating the two.
