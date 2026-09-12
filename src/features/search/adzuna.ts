@@ -33,7 +33,19 @@ const CURRENCY_BY_COUNTRY: Readonly<Record<typeof ADZUNA_COUNTRY, string>> = {
   us: "USD",
 };
 
-const RESULTS_PER_PAGE = 20;
+/**
+ * How many listings one Adzuna call asks for.
+ *
+ * EXPORTED FOR ONE READER, AND THE EXPORT IS THE POINT (spec 0020, AC-9).
+ * `usage_cap`'s `ai_scoring` and `ai_check` rows are `job_search`'s own caps
+ * multiplied by this number, because each search fans out to one model call
+ * per listing. An integration test imports this value to assert that
+ * relationship still holds, rather than copying `20` into a second place where
+ * the two could quietly disagree. Nothing else outside this module reads it,
+ * and nothing else should: it is a request parameter, not a page size the
+ * product exposes.
+ */
+export const RESULTS_PER_PAGE = 20;
 const REQUEST_TIMEOUT_MS = 8000;
 
 /**
