@@ -22,6 +22,7 @@ import { FocusRecorder, FocusRestorer } from "@/features/search/focus-keeper";
 import { readSearchPrefill } from "@/features/search/preferences";
 import { ResultList } from "@/features/search/result-list";
 import { SearchForm } from "@/features/search/search-form";
+import { UsageNotice } from "@/features/search/usage-notice";
 import { isFailure } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
 
@@ -81,6 +82,14 @@ export default async function SearchPage({
       <main className="flex-1">
         <Section weight="standard">
           <Heading level={1}>Search</Heading>
+
+          {/*
+           * Spec 0020, AC-1: the caller's own allowance, ABOVE the conditional
+           * so it renders on a bare visit and with results alike. Placed
+           * anywhere below this line it would appear only after a search had
+           * already spent one, which is the surprise the feature removes.
+           */}
+          <UsageNotice />
 
           {hasQuery ? (
             <SearchResults title={q} location={where} />

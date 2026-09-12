@@ -33,6 +33,7 @@ import {
 
 const searchListings = vi.hoisted(() => vi.fn());
 const readSearchPrefill = vi.hoisted(() => vi.fn());
+const getJobSearchUsageSummary = vi.hoisted(() => vi.fn());
 
 /**
  * ONLY `searchListings` IS REPLACED. The rest of that module is kept, because
@@ -45,6 +46,20 @@ vi.mock("@/features/search/adzuna", async (importOriginal) => ({
   searchListings,
 }));
 vi.mock("@/features/search/preferences", () => ({ readSearchPrefill }));
+
+/**
+ * Added when feature 28 gave `/search` its usage line (spec 0020). The real
+ * read reaches `cookies()` and a `security definer` Postgres function; this
+ * file is about what the page renders, so it is replaced at the module
+ * boundary like the other server reads here. Its real behaviour against the
+ * real function is proved in `test/integration/usage-summary.test.ts`.
+ *
+ * THE DEFAULT IS A SUCCESSFUL READ, set in `beforeEach`, because the line is
+ * unconditional now: every assertion in this file about how many alerts the
+ * page shows would otherwise pick up this feature's failure notice as a
+ * fourth one.
+ */
+vi.mock("@/lib/usage-gating/queries", () => ({ getJobSearchUsageSummary }));
 
 /**
  * Added when feature 12 gave `/search` its applied markers (spec 0014, AC-9).
@@ -123,6 +138,9 @@ beforeEach(() => {
     success({ title: undefined, location: undefined }),
   );
   readScoringProfile.mockResolvedValue({ kind: "thin" });
+  getJobSearchUsageSummary.mockResolvedValue(
+    success({ consumedCount: 3, capValue: 25, periodStart: "2026-09-07" }),
+  );
 });
 
 describe("a bare visit (AC-9)", () => {
@@ -1195,5 +1213,117 @@ describe("keyboard focus across the reveal (spec 0015, AC-17)", () => {
 
     expect(has(tree, FocusRecorder)).toBe(false);
     expect(has(tree, FocusRestorer)).toBe(false);
+  });
+});
+
+/**
+ * The usage line (spec 0020, AC-1, AC-2, AC-5, AC-6).
+ *
+ * WHAT THESE PROVE AND WHAT THEY DO NOT. Every assertion here is about the
+ * page's own composition: that the line is rendered unconditionally, that the
+ * two numbers reaching it are the ones the read returned, and that a failed
+ * read neither hides the form nor states a number. Where those numbers come
+ * from, that `consumed_count` is read rather than `attempt_count` and that the
+ * cap is read live from `usage_cap`, is a property of the Postgres function
+ * and is proved against the real one in `test/integration/usage-summary.test.ts`.
+ * A mock here could only encode the same assumption twice.
+ */
+describe("the weekly usage line (spec 0020)", () => {
+  it("renders on a bare visit, before any search has been run (AC-1)", async () => {
+    /**
+     * THE PLACEMENT ASSERTION, and the reason it is first. A line that
+     * appeared only alongside results would show up for the first time after
+     * the search that spent one, which is the surprise this feature exists to
+     * remove. The bare visit is the case that proves the placement.
+     */
+    const tree = await render({});
+
+    expect(textOf(tree)).toContain("Searches used this week: 3 of 25.");
+    expect(searchListings).not.toHaveBeenCalled();
+  });
+
+  it("renders with results too, not only on a bare visit (AC-1)", async () => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: [listing] }),
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(textOf(tree)).toContain("Searches used this week: 3 of 25.");
+  });
+
+  it("shows the numbers the read returned rather than any value of its own (AC-2, AC-5)", async () => {
+    /**
+     * Both numbers move together, and both are asserted, because either one
+     * being hardcoded renders a sentence that still looks right. `25` is the
+     * seeded cap today, so a cap literal in the page would pass the test above
+     * and fail this one.
+     */
+    getJobSearchUsageSummary.mockResolvedValue(
+      success({ consumedCount: 18, capValue: 40, periodStart: "2026-09-07" }),
+    );
+
+    const tree = await render({});
+
+    expect(textOf(tree)).toContain("Searches used this week: 18 of 40.");
+  });
+
+  it("says the count could not be loaded, and does not show a zero (AC-6)", async () => {
+    /**
+     * THE SILENT ZERO IS THE BUG THIS LOCKS OUT. Rendering "0 of 25" through a
+     * failed read would tell somebody near their cap that they had spent
+     * nothing, which is the default that reads like success the project's own
+     * rule forbids. The assertion is therefore on the absence of the phrase as
+     * well as the presence of the notice.
+     */
+    getJobSearchUsageSummary.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "Could not read usage.",
+      }),
+    );
+
+    const tree = await render({});
+
+    expect(textOf(tree)).toContain(SEARCH_COPY.usageUnavailable);
+    expect(textOf(tree)).not.toContain("Searches used this week");
+  });
+
+  it("still renders the search form underneath the failure (AC-6)", async () => {
+    getJobSearchUsageSummary.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "Could not read usage.",
+      }),
+    );
+
+    const tree = await render({});
+
+    expect(flatten(tree).filter((el) => el.type === "input")).toHaveLength(2);
+  });
+
+  it("carries role=alert on the failure and not on the ordinary line", async () => {
+    /**
+     * The two states must not be announced the same way. A count is ordinary
+     * page content and interrupting a screen reader with it on every render
+     * would be noise; a failed read is a real failure and takes the same
+     * treatment as this page's other two, which is the convention the empty
+     * results state already set from the other direction.
+     */
+    const ordinary = await render({});
+    expect(alerts(ordinary)).toHaveLength(0);
+
+    getJobSearchUsageSummary.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "Could not read usage.",
+      }),
+    );
+
+    const failed = await render({});
+    expect(alerts(failed)).toHaveLength(1);
   });
 });
