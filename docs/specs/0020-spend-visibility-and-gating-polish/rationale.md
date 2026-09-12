@@ -93,3 +93,45 @@ Option A was the first answer, and its own stated objection to Option B is what 
 Both halves hold today. Nothing in this spec changes either.
 
 **Clause 3, the kill switch stays a last resort.** `checkUsageGate()` still calls `readKillSwitch()` before the atomic window check, unchanged by anything in this spec. Spend visibility is a read of `usage_gate_counter` and `usage_cap`; it has no path back into the kill switch at all.
+
+---
+
+## Revision, 2026-09-12: what the usage line shows on a search render
+
+### Context
+
+The first version of this spec never asked what the number should mean on a render whose own search has not been counted yet. `/check verify` drove the built feature on 2026-09-11 and found the answer the code had picked by accident: `UsageNotice` and `SearchResults` render as siblings, both read, and the usage read finishes first, so a search render always reported the count from before its own search. Four consecutive trials, then a fifth at the boundary: an account seeded to 24 of 25 ran its last allowed search, the page rendered `Searches used this week: 24 of 25` while the database held 25, and the next search was refused. The last thing the page told that person before refusing them was that they had a search left.
+
+That is not a cosmetic lag. This spec's own Summary says the feature exists so a refusal is information the person already had. At the only moment that promise is tested, the feature was breaking it.
+
+### Options considered
+
+**Option 1: copy alone, wording the line as "before this search".** Rejected outright, and it is worth saying why rather than just dismissing it. It is honest, cheap, and touches nothing. It also fails the only test that matters: at 24 of 25, "24 of 25 before this search" still leaves a reader to do the arithmetic that tells them whether another search remains, and the whole point of putting a number on the page was to spare them that. Copy cannot fix a number that is wrong.
+
+**Option 2: sequence the page, read usage after the search resolves.** The cheapest correct fix. Cons: correctness sits in the order of two statements in `SearchPage`. This page already parallelizes independent reads (`Promise.all` over the applied and scoring reads, at `src/app/(app)/search/page.tsx:243`, inside `SearchOutcome`), so folding a third read into that pattern is a natural, well intentioned edit that would silently restore the defect with every test still green.
+
+**Option 3: `searchListings()` owns the post gate read.** Same correctness as Option 2, with the ordering moved next to the gate call that makes it necessary. Cons: still a guarantee held by ordering, and it widens `searchListings()`'s return type to carry a number that has nothing to do with searching.
+
+**Option 4: the gate returns the number its own decision produced.** `check_usage_gate` already computes the account week `consumed_count` atomically inside the transaction that increments it, so it could return it and the search render would report the exact figure its own call produced, with no ordering to preserve. Chosen first, then dropped; see the Rationale below, because the reason is not obvious and the option is attractive enough to be proposed again.
+
+**Option 5, chosen: order the existing read by a data dependency.** `SearchPage` awaits `searchListings()` and passes the resolved result to `UsageNotice` as a prop; the read stays inside `UsageNotice`, so it cannot begin until that prop exists. Pros: one mechanism for every render, no SQL change, no new special cases, and an ordering that cannot be undone by reordering statements. Cons: the property that makes it correct (the read living inside the component) is invisible at the call site, and one extra round trip per search render.
+
+### Rationale
+
+Options 2 through 5 all produce the right number on the happy path. The engineer's opening framing offered Option 4 as "the only option correct by construction", and that needed one correction before it could be recorded as a reason: sequencing is not a race. PostgREST commits each RPC before responding and this project runs no read replica, so a read issued after `searchListings()` resolves cannot miss the increment. Recording "the others are racy" would have put a false premise into the spec and made the decision look forced.
+
+Option 4 was chosen on that corrected basis and then dropped by a cross check, on a single fact that decides the whole question: **returning the count from the gate does not remove the second read, it adds a first one.** Three paths never produce a gate figure, verified in the code rather than reasoned about. Both kill switch refusals return at `src/lib/usage-gating/gate.ts:135` and `:139`, before the `.rpc()` at `:149`, so two of the five refusal reasons never reach the SQL function. `validation_failed` returns from `searchListings()` before its `withUsageGate()` call, on a render `hasQuery` still reports as a search. And `withUsageGate()` discards the decision when the wrapped call fails (`with-usage-gate.ts:50`), so a search that spent budget and then failed at Adzuna loses the number on the one path where somebody paid for nothing.
+
+`UsageNotice` therefore has to read for itself on all of those regardless of what the gate returns. Option 4 ships two mechanisms plus the logic choosing between them, and pays for it with a drop and recreate of the atomic gate, an amendment to `Accepted` spec 0011, two fields on `UsageGateDecision` that two of its three call types ignore, and edits to four test files that assert the decision shape exactly. Its one remaining advantage is provenance, what a specific call cost rather than what the counter now reads, and nothing in this product consumes that. A cost that is certain, paid for a benefit that is hypothetical, is the trade this spec should not make.
+
+Two further facts about Option 4 are recorded so a later revisit starts from the real price rather than the attractive summary. Postgres cannot change a function's return type in place, verified against this project's database, so it is a drop and recreate of the most safety critical function in the codebase, and a drop takes the grants with it. And naming the new output columns `consumed_count` and `cap_value` collides with the six unqualified references already in the body: plpgsql raises `column reference "consumed_count" is ambiguous` at runtime, reproduced directly, so the columns would need renaming too.
+
+What makes Option 5 correct is worth stating precisely, because it is easy to mistake for Option 2 and dismiss on Option 2's weakness. Option 2 puts the ordering in the order of two statements, where a later `Promise.all` undoes it. Option 5 puts it in a data dependency: `UsageNotice` cannot render until `SearchPage`'s `await` resolves, because its prop is that awaited value, and the read lives inside the component. There is no statement to reorder, and undoing it means hoisting the read out of the component and back up the tree, which is a deliberate structural change rather than a plausible tidy up. That is the entire difference between the rejected option and the chosen one, and anyone revisiting this should see it before treating the two as the same idea.
+
+The honest weakness of Option 5 is that this property is invisible where the component is used. `<UsageNotice searchResult={result} />` does not announce that the prop's only job is to exist. The mitigation is the invariants list and a boundary test that asserts the rendered figure rather than that a read happened; a test written the lazy way would pass against the broken code too.
+
+An earlier draft of this reasoning also claimed the `Promise.all` sat two lines from the sequencing it argued against, when it is about 150 lines away inside a different function. The habit argument survives that correction; the adjacency claim did not, and nothing here rests on it.
+
+### On AC-10's framing
+
+The original AC-10 and Summary both said this spec fixes "two sentences in the privacy notice". Reading the rendered `/privacy` page rather than the source showed that only one of them is there. `usage_gate_counter.call_type`'s `describedAs` renders; `usage_cap`'s text is `NON_PERSONAL_TABLES[].why`, and its only reader in the entire codebase is `src/features/legal/stored-fields.test.ts`. Both corrections are still worth making, because the registry is what the next person reading this codebase will believe, but the spec was claiming a user visible fix it was not delivering, and a criterion that overstates its own reach is one nobody can verify honestly. Corrected in place rather than dropped.
