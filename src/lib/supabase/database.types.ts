@@ -376,6 +376,15 @@ export type Database = {
           reason: string
         }[]
       }
+      get_job_search_usage_summary: {
+        Args: never
+        Returns: {
+          cap_value: number
+          configured: boolean
+          consumed_count: number
+          period_start: string
+        }[]
+      }
       provider_display_name: { Args: { provider: string }; Returns: string }
     }
     Enums: {

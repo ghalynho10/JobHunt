@@ -73,7 +73,7 @@ export const NON_PERSONAL_TABLES: readonly NonPersonalTable[] = [
   },
   {
     table: "usage_cap",
-    why: "The usage caps checked before a job search call. These are fixed configuration values, the same for everyone, with no person attached to any row.",
+    why: "The limits checked before the app makes an outside call on your behalf, whether that is a job search or one of the AI steps that scores and checks a listing. These are fixed configuration values, the same for everyone, with no person attached to any row.",
   },
 ];
 
@@ -367,7 +367,8 @@ export const STORED_FIELDS: readonly StoredField[] = [
   {
     table: "usage_gate_counter",
     column: "call_type",
-    describedAs: "which kind of call this counts (job search today)",
+    describedAs:
+      "which kind of call this counts (a job search, or one of the AI steps that scores and checks a listing)",
   },
   {
     table: "usage_gate_counter",

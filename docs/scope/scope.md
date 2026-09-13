@@ -40,7 +40,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 25 | Resume tailoring per job | v1.5 | planned |
 | 26 | Profile depth & completeness | v1.5 | planned |
 | 27 | Auth remainder | v1.5 | planned |
-| 28 | Spend visibility & gating polish | v1.5 | planned |
+| 28 | Spend visibility & gating polish | v1.5 | done |
 | 29 | Product analytics | v1.5 | planned |
 | 30 | Company research, lite | v1.5 | planned |
 | 31 | Seeded demo account | v1.5 | planned |
@@ -410,10 +410,22 @@ _Owes the privacy notice a rewrite of its deletion section, recorded from spec [
 
 - [ ] Design it (spec): `/architect auth remainder`
 
-### 28. Spend visibility & gating polish
+### 28. Spend visibility & gating polish · done
 Surface actual usage against the caps so the limits are legible rather than a surprise, and extend gating past the two call types v1 covers as new call types arrive.
 **Done when:** a user can see their own usage against their cap, any newly added call type is gated by default rather than by remembering to add it, and the external kill switch remains the last resort it was built to be.
-- [ ] Build it: `/develop spend visibility & gating polish`
+- [x] Design it (spec): [0020](../specs/0020-spend-visibility-and-gating-polish/index.md)
+- [x] Build it: `/develop spend visibility & gating polish` · code in `src/lib/usage-gating/queries.ts`, `src/features/search/usage-notice.tsx`, `supabase/migrations/20260911120000_job_search_usage_summary.sql`
+  - [x] Read path: `get_job_search_usage_summary()` migration, `getJobSearchUsageSummary()` in `src/lib/usage-gating/queries.ts`, and the `usage_gate.read_summary` span (AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-8)
+  - [x] UI: `COPY-1`/`COPY-2` and the rendered notice wired into `/search` (AC-1, AC-6)
+  - [x] Cap arithmetic invariant test and the privacy notice correction in `src/features/legal/stored-fields.ts` (AC-9, AC-10)
+  - [x] Tests: the integration scenarios proving the read path end to end (AC-1 through AC-8)
+  - [x] Order the usage read behind the search: lift `searchListings()` into `SearchPage`, pass the awaited result to `UsageNotice` as a prop (AC-11, AC-12, AC-13, AC-14)
+  - [x] Tests for the revision: the cap boundary end to end, a kill switch refusal, an Adzuna failure after the gate allowed, and the `anon` grant on both `security definer` functions (AC-11 through AC-15)
+  - [x] Correction (spec 0020, 2026-09-13): pass the search promise and await it inside `UsageNotice`, rename the prop to `searchInFlight`, and correct the six comments that state the old mechanism (AC-11, AC-12)
+- [x] Verify it: `/check verify spend visibility & gating polish`
+- [x] Test it: `/test spend visibility & gating polish`
+
+_This tier carries no `Review it` box, so the two rounds that ran are recorded here. Reviewed 2026-09-13 on **Fable 5.1** over 20 files, verdict **Changes requested**: one major, four minors, [findings](../reviews/2026-09-13-feat-spend-visibility-and-gating-polish.md). The major was that the spec recorded a mechanism that was not the one operating, the `searchResult` prop said to hold the ordering when `SearchPage`'s own `await` did, proved by removing the prop entirely and watching all 74 tests still pass. That drove the correction slice and a second spec revision. A second round then reviewed the correction slice alone, over 5 files, verdict **Approve with nits**: no blockers, no majors, two minors and one nit, [findings](../reviews/2026-09-13-feat-spend-visibility-and-gating-polish-correction-slice.md). **The cross model guarantee is unconfirmed for that second round**: the reviewer was spawned with `model: sonnet` but named itself Opus 5, the author family, and a model cannot reliably name itself. It is recorded as provisional rather than dropped because the orchestrating session did not rely on it: it broke the code itself and reproduced the central guard table, which is evidence independent of who reviewed._
 
 ### 29. Product analytics · needs a decision
 Product usage analytics, kept conceptually and technically separate from the dashboard's own computed application statistics. The reference project's own documentation was caught conflating the two.

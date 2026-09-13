@@ -85,4 +85,43 @@ export const SEARCH_COPY = {
    * it is heard.
    */
   resultsListLabel: "Search results",
+  /**
+   * `COPY-1` of spec 0020. The ambient usage line, shown on every `/search`
+   * render once the read succeeds (spec 0020, AC-1).
+   *
+   * A FUNCTION RATHER THAN A STRING, because the two numbers are read live
+   * and neither may be a literal here: `capValue` comes from `usage_cap`, so
+   * an operator's no deploy change to the cap shows up on the next render
+   * (AC-5), and `consumedCount` is `usage_gate_counter.consumed_count`, never
+   * `attempt_count` (AC-2). `SCORING_COPY.removedSkills` is the existing
+   * precedent for a function in a copy registry.
+   *
+   * IT SAYS "USED" OUT LOUD. "18 of 25" alone leans on convention to mean
+   * consumed rather than remaining, and the two read identically to somebody
+   * seeing the line for the first time while deciding whether to search
+   * again.
+   *
+   * IT IS AMBIENT STATUS, NOT A WARNING, and there is deliberately no
+   * threshold at which it changes register. A line that stays calm at 3 of 25
+   * and turns urgent at 24 of 25 would be a second, unspecced behaviour; the
+   * number is the information, and it is on the page every time.
+   */
+  usageThisWeek: (consumedCount: number, capValue: number): string =>
+    `Searches used this week: ${consumedCount} of ${capValue}.`,
+  /**
+   * `COPY-2` of spec 0020. Shown when the usage read fails (AC-6).
+   *
+   * THE SAME SHAPE AS `prefillFailed` AND `appliedReadFailed` ABOVE, and added
+   * for the same reason those two were: rendering nothing, or a zero, would
+   * hand a database outage the meaning of "you have used none of your
+   * allowance", which is a claim the app cannot make. It names what was lost
+   * and nothing more.
+   *
+   * ITS SECOND HALF IS `prefillFailed`'S, WORD FOR WORD ("You can still
+   * search."), because the situation is word for word the same: one read on
+   * this page failed and the search itself is unaffected. Two different
+   * sentences for one fact would suggest two different facts.
+   */
+  usageUnavailable:
+    "We couldn't load your search count just now. You can still search.",
 } as const;

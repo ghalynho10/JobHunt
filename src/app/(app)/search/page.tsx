@@ -22,6 +22,7 @@ import { FocusRecorder, FocusRestorer } from "@/features/search/focus-keeper";
 import { readSearchPrefill } from "@/features/search/preferences";
 import { ResultList } from "@/features/search/result-list";
 import { SearchForm } from "@/features/search/search-form";
+import { UsageNotice } from "@/features/search/usage-notice";
 import { isFailure } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
 
@@ -74,6 +75,30 @@ export default async function SearchPage({
   const where = single(params["where"]);
   const hasQuery = q !== undefined || where !== undefined;
 
+  /**
+   * THE SEARCH IS STARTED HERE AND DELIBERATELY NOT AWAITED (spec 0020,
+   * AC-11). It used to run one level down inside `SearchResults`, as a sibling
+   * of `UsageNotice`, so the usage read and the search raced and the read
+   * always won: every search render reported the count from before its own
+   * search. At the cap boundary that told somebody on their last allowed
+   * search that another remained, which is the exact surprise this feature
+   * exists to remove (`/check verify`, 2026-09-11).
+   *
+   * THIS PAGE NO LONGER ORDERS ANYTHING, AND THAT IS THE POINT. An earlier fix
+   * awaited the search here and passed the resolved value down, then recorded
+   * that the PROP held the ordering. It did not; this `await` did, and the
+   * comment saying otherwise survived a verify pass and a test suite. The
+   * promise now goes to whoever needs it and each consumer awaits it where it
+   * matters, so the code that depends on the ordering is the code that
+   * enforces it.
+   *
+   * A BARE VISIT STILL RUNS NO SEARCH AND SPENDS NOTHING (AC-9). `hasQuery`
+   * decides that, exactly as before; only the call site moved.
+   */
+  const searchInFlight = hasQuery
+    ? searchListings({ title: q, location: where })
+    : undefined;
+
   return (
     <>
       <AppHeader current="search" />
@@ -82,10 +107,29 @@ export default async function SearchPage({
         <Section weight="standard">
           <Heading level={1}>Search</Heading>
 
-          {hasQuery ? (
-            <SearchResults title={q} location={where} />
-          ) : (
+          {/*
+           * Spec 0020, AC-1: the caller's own allowance, ABOVE the conditional
+           * so it renders on a bare visit and with results alike. Placed
+           * anywhere below this line it would appear only after a search had
+           * already spent one, which is the surprise the feature removes.
+           *
+           * THE PROMISE IS HANDED OVER UNAWAITED (AC-11). `UsageNotice` awaits
+           * it itself before reading usage; the ordering lives there, not here.
+           * See that component for what guards it.
+           */}
+          <UsageNotice searchInFlight={searchInFlight} />
+
+          {/*
+           * BRANCHED ON `searchInFlight`, NOT ON `hasQuery`, and the difference
+           * is type narrowing rather than taste: it lets `SearchResults` take a
+           * plain promise instead of an optional one. The two conditions are
+           * the same condition, because a promise is never `undefined`, so this
+           * is undefined exactly when `hasQuery` is false.
+           */}
+          {searchInFlight === undefined ? (
             <PrefilledForm />
+          ) : (
+            <SearchResults title={q} location={where} result={searchInFlight} />
           )}
         </Section>
       </main>
@@ -138,11 +182,24 @@ async function PrefilledForm() {
 async function SearchResults({
   title,
   location,
+  result: resultInFlight,
 }: {
   readonly title: string | undefined;
   readonly location: string | undefined;
+  /**
+   * THE SEARCH ITSELF, IN FLIGHT, STARTED BY `SearchPage` (spec 0020, AC-11).
+   * This component used to call `searchListings()` itself. It no longer may:
+   * the call has to happen one level up so the same promise can also reach
+   * `UsageNotice`, which awaits it before reading usage. Fetching here again
+   * would spend a second Adzuna call per render and break that ordering in
+   * the same stroke.
+   *
+   * TWO COMPONENTS AWAIT THIS ONE PROMISE, which is fine and needs no cache:
+   * a promise settles once and every awaiter sees the same settlement.
+   */
+  readonly result: ReturnType<typeof searchListings>;
 }) {
-  const result = await searchListings({ title, location });
+  const result = await resultInFlight;
 
   /**
    * AC-2: both fields blank is refused before the gate is checked and before
