@@ -2,7 +2,6 @@ import { Text } from "@/components/ui/text";
 import { isFailure } from "@/lib/result";
 import { getJobSearchUsageSummary } from "@/lib/usage-gating/queries";
 
-import type { searchListings } from "./adzuna";
 import { SEARCH_COPY } from "./copy";
 
 /**
@@ -22,20 +21,33 @@ import { SEARCH_COPY } from "./copy";
  * indexed lookup, and it is unrelated to the slow scoring path already
  * Suspended further down the page.
  *
- * THE READ RUNS AFTER THIS RENDER'S OWN SEARCH, AND THE `searchResult` PROP IS
- * THE ONLY THING MAKING THAT TRUE (spec 0020, AC-11). The prop's value is
- * never read. Its job is to be an already awaited result, so React cannot
- * render this component until `SearchPage`'s own `await searchListings()` has
- * resolved, by which point the gate call inside it has committed and the
- * counter reflects this search.
+ * THE READ RUNS AFTER THIS RENDER'S OWN SEARCH, AND THIS COMPONENT IS WHAT
+ * MAKES THAT TRUE (spec 0020, AC-11). It awaits the `searchInFlight` promise
+ * before calling `getJobSearchUsageSummary()`, so by the time the read goes
+ * out, the search has resolved and its gate call has committed. Nothing is
+ * read out of the promise; it is waited on, not consumed.
  *
- * WHY IT IS A PROP RATHER THAN A LINE OF CODE IN THE RIGHT ORDER. Reading
- * usage after the search in `SearchPage` would be equally correct today and
- * would stay correct only until somebody folded the read into a `Promise.all`,
- * which this page already does for two other reads. There is no statement here
- * to reorder: the ordering is a data dependency, and undoing it means moving
- * this read up the tree on purpose. That distinction is the whole reason spec
- * 0020 chose this shape over the simpler looking one.
+ * WHAT GUARDS THIS, STATED HONESTLY, BECAUSE TWO STRONGER CLAIMS HAVE ALREADY
+ * BEEN WRONG HERE. This is an ordinary `await` and an edit can undo it. There
+ * are two guards and they cover different mistakes:
+ *
+ *   - DELETING the `await` leaves `searchInFlight` unused, and `pnpm lint`
+ *     runs at `--max-warnings=0`, so the build fails at edit time.
+ *   - REORDERING it is caught only by the three ordering tests in
+ *     `src/app/(app)/search/page.test.ts`.
+ *
+ * THE FORBIDDEN EDIT IS `Promise.all`. Folding the two waits together,
+ * `await Promise.all([searchInFlight, getJobSearchUsageSummary()])`, looks
+ * like a free round trip saved. It uses the prop, it typechecks, it lints
+ * clean, and it puts the read back alongside the search, which is the exact
+ * bug this component was reshaped to fix. Only the tests will stop you.
+ *
+ * An earlier version of this file passed the RESOLVED search result as a prop
+ * that was never read, with a `void searchResult;` line to satisfy lint, and
+ * claimed the prop held the ordering. It did not: `SearchPage`'s own `await`
+ * did, and removing the prop changed nothing. That claim survived a review, a
+ * verify pass and a full suite before a second model caught it, which is why
+ * this comment now says what is true rather than what is reassuring.
  *
  * ONE SOURCE ON EVERY PATH (AC-12). The number always comes from
  * `getJobSearchUsageSummary()`, on a bare visit, an allowed search, all five
@@ -60,29 +72,22 @@ import { SEARCH_COPY } from "./copy";
  * notice already set.
  */
 export async function UsageNotice({
-  searchResult,
+  searchInFlight,
 }: {
   /**
-   * This render's own search, already resolved, or `undefined` on a bare
-   * visit. Never read. See the header: it exists to order the call below.
+   * This render's own search, still in flight, or `undefined` on a bare visit.
+   *
+   * `Promise<unknown>`, NOT the search's own return type, on purpose: this
+   * component waits on the search and must never grow a dependency on what a
+   * search returns. The wide type is what keeps that honest.
    */
-  readonly searchResult: Awaited<ReturnType<typeof searchListings>> | undefined;
+  readonly searchInFlight: Promise<unknown> | undefined;
 }) {
   /**
-   * `void` RATHER THAN A RENAME OR A DISABLE COMMENT, decided in spec 0020
-   * rather than here. The prop is deliberately unused, which trips
-   * `@typescript-eslint/no-unused-vars`, and `pnpm lint` runs
-   * `--max-warnings=0` so a warning fails the build. A `_searchResult` rename
-   * does NOT help: the rule is configured with no `argsIgnorePattern`, so the
-   * underscore means nothing to it (checked against the real config). An
-   * `eslint-disable` would be the first in `src/`. This is a real reference,
-   * so the rule is satisfied honestly.
-   *
-   * DO NOT DELETE THIS LINE. Removing it makes the prop unused, which makes
-   * lint fail, which invites removing the prop, which silently restores the
-   * bug the prop exists to prevent.
+   * THE ORDERING. Everything above in this file explains this one line. On a
+   * bare visit there is nothing to wait for and the read runs immediately.
    */
-  void searchResult;
+  if (searchInFlight !== undefined) await searchInFlight;
 
   const summary = await getJobSearchUsageSummary();
 

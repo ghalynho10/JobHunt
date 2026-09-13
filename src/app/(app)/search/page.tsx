@@ -76,23 +76,27 @@ export default async function SearchPage({
   const hasQuery = q !== undefined || where !== undefined;
 
   /**
-   * THE SEARCH RUNS HERE, NOT INSIDE `SearchResults`, AND THE MOVE IS THE
-   * WHOLE FIX (spec 0020, AC-11). It used to run one level down, as a sibling
+   * THE SEARCH IS STARTED HERE AND DELIBERATELY NOT AWAITED (spec 0020,
+   * AC-11). It used to run one level down inside `SearchResults`, as a sibling
    * of `UsageNotice`, so the usage read and the search raced and the read
    * always won: every search render reported the count from before its own
    * search. At the cap boundary that told somebody on their last allowed
    * search that another remained, which is the exact surprise this feature
    * exists to remove (`/check verify`, 2026-09-11).
    *
-   * Awaiting it here is what lets the resolved value become a prop, and the
-   * prop is what orders `UsageNotice`'s read after the gate has committed.
-   * See that component for the other half.
+   * THIS PAGE NO LONGER ORDERS ANYTHING, AND THAT IS THE POINT. An earlier fix
+   * awaited the search here and passed the resolved value down, then recorded
+   * that the PROP held the ordering. It did not; this `await` did, and the
+   * comment saying otherwise survived a verify pass and a test suite. The
+   * promise now goes to whoever needs it and each consumer awaits it where it
+   * matters, so the code that depends on the ordering is the code that
+   * enforces it.
    *
    * A BARE VISIT STILL RUNS NO SEARCH AND SPENDS NOTHING (AC-9). `hasQuery`
    * decides that, exactly as before; only the call site moved.
    */
-  const searchResult = hasQuery
-    ? await searchListings({ title: q, location: where })
+  const searchInFlight = hasQuery
+    ? searchListings({ title: q, location: where })
     : undefined;
 
   return (
@@ -109,26 +113,23 @@ export default async function SearchPage({
            * anywhere below this line it would appear only after a search had
            * already spent one, which is the surprise the feature removes.
            *
-           * `searchResult` IS PASSED SO THE READ INSIDE IT CANNOT RUN FIRST
-           * (AC-11). The component never looks at the value. Handing it an
-           * already awaited result is what makes React unable to render it
-           * until this render's search has finished and its gate call has
-           * committed. Removing the prop compiles and renders and quietly
-           * brings the boundary bug back.
+           * THE PROMISE IS HANDED OVER UNAWAITED (AC-11). `UsageNotice` awaits
+           * it itself before reading usage; the ordering lives there, not here.
+           * See that component for what guards it.
            */}
-          <UsageNotice searchResult={searchResult} />
+          <UsageNotice searchInFlight={searchInFlight} />
 
           {/*
-           * BRANCHED ON `searchResult`, NOT ON `hasQuery`, and the difference
-           * is type narrowing rather than taste: this is what lets
-           * `SearchResults` take a plain resolved result instead of an
-           * optional one. The two conditions are the same condition, because
-           * `searchResult` is undefined exactly when `hasQuery` is false.
+           * BRANCHED ON `searchInFlight`, NOT ON `hasQuery`, and the difference
+           * is type narrowing rather than taste: it lets `SearchResults` take a
+           * plain promise instead of an optional one. The two conditions are
+           * the same condition, because a promise is never `undefined`, so this
+           * is undefined exactly when `hasQuery` is false.
            */}
-          {searchResult === undefined ? (
+          {searchInFlight === undefined ? (
             <PrefilledForm />
           ) : (
-            <SearchResults title={q} location={where} result={searchResult} />
+            <SearchResults title={q} location={where} result={searchInFlight} />
           )}
         </Section>
       </main>
@@ -181,20 +182,25 @@ async function PrefilledForm() {
 async function SearchResults({
   title,
   location,
-  result,
+  result: resultInFlight,
 }: {
   readonly title: string | undefined;
   readonly location: string | undefined;
   /**
-   * ALREADY RESOLVED, BY `SearchPage` (spec 0020, AC-11). This component used
-   * to call `searchListings()` itself. It no longer may: the call has to
-   * happen one level up so its resolved value can be handed to `UsageNotice`
-   * as well, which is what orders that component's usage read after this
-   * search. Fetching here again would spend a second Adzuna call per render
-   * and undo the ordering in the same stroke.
+   * THE SEARCH ITSELF, IN FLIGHT, STARTED BY `SearchPage` (spec 0020, AC-11).
+   * This component used to call `searchListings()` itself. It no longer may:
+   * the call has to happen one level up so the same promise can also reach
+   * `UsageNotice`, which awaits it before reading usage. Fetching here again
+   * would spend a second Adzuna call per render and break that ordering in
+   * the same stroke.
+   *
+   * TWO COMPONENTS AWAIT THIS ONE PROMISE, which is fine and needs no cache:
+   * a promise settles once and every awaiter sees the same settlement.
    */
-  readonly result: Awaited<ReturnType<typeof searchListings>>;
+  readonly result: ReturnType<typeof searchListings>;
 }) {
+  const result = await resultInFlight;
+
   /**
    * AC-2: both fields blank is refused before the gate is checked and before
    * any Adzuna call runs, and it is the one failure shown on the form itself
