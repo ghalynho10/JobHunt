@@ -84,8 +84,18 @@ export async function UsageNotice({
   readonly searchInFlight: Promise<unknown> | undefined;
 }) {
   /**
-   * THE ORDERING. Everything above in this file explains this one line. On a
-   * bare visit there is nothing to wait for and the read runs immediately.
+   * THE ORDERING, IN ONE PLACE, because a stack trace lands a reader on this
+   * line rather than at the top of the file, and this is the line that has
+   * been got wrong twice. This `await` is the whole mechanism: it holds the
+   * usage read below until this render's own search has resolved and its gate
+   * call has committed, so the figure shown counts THIS search and not the one
+   * before it (spec 0020, AC-11). Deleting it leaves `searchInFlight` unused
+   * and fails `pnpm lint` at `--max-warnings=0`. Folding it into
+   * `await Promise.all([searchInFlight, getJobSearchUsageSummary()])` lints and
+   * typechecks clean and is caught only by the ordering tests in
+   * `src/app/(app)/search/page.test.ts`. The file header above says why at
+   * length. On a bare visit there is nothing to wait for and the read runs
+   * immediately.
    */
   if (searchInFlight !== undefined) await searchInFlight;
 
