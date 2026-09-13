@@ -31,6 +31,15 @@ returns table (
   period_start date
 )
 language plpgsql
+-- `stable` RATHER THAN THE DEFAULT `volatile`, WHICH IS WHAT MAKES THE
+-- PARAGRAPH ABOVE ENFORCED RATHER THAN ASSERTED. A function with no volatility
+-- marker defaults to `volatile`, so the read only claim was carried by a
+-- comment and by review alone. Under `stable` Postgres refuses any `insert`,
+-- `update` or `delete` in this body at run time, which is the AC-3 guarantee
+-- (a bare `/search` visit must never create a counter row) held by the
+-- database instead of by whoever reads the next diff. It is `stable` and not
+-- `immutable` because the body reads tables and calls `auth.uid()`.
+stable
 security definer
 set search_path = ''
 as $$
