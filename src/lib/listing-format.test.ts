@@ -69,6 +69,25 @@ describe("salaryText (spec 0013 invariant 7, spec 0014 AC-18)", () => {
     ).toBe("$100,000 to $120,000");
   });
 
+  it("renders one figure, not a range to itself, when the two are equal", () => {
+    /**
+     * Adzuna returns an equal min and max for a posting that states a single
+     * salary, and the range form then asks the reader to compare a number with
+     * itself. Spec 0013 AC-8 never considered this case; the fix fills that gap
+     * rather than departing from it.
+     */
+    const text = salaryText({
+      salaryMin: 109440,
+      salaryMax: 109440,
+      salaryCurrency: "USD",
+    });
+
+    expect(text).toBe("$109,440");
+    // Asserted separately: the whole defect was the word "to" between two
+    // identical figures, so the absence of the range form is its own claim.
+    expect(text).not.toContain(" to ");
+  });
+
   it("renders a single stated figure as a bound, not as a fake range", () => {
     expect(
       salaryText({

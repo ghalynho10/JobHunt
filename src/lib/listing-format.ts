@@ -52,6 +52,18 @@ export function salaryText(figures: SalaryFigures): string | undefined {
     }).format(amount);
 
   if (figures.salaryMin !== undefined && figures.salaryMax !== undefined) {
+    /**
+     * A RANGE FROM A FIGURE TO ITSELF IS ONE FIGURE, so it reads as one.
+     * Adzuna returns an equal min and max for a posting that states a single
+     * salary, and "$109,440 to $109,440" invites the reader to look for a
+     * difference between two numbers that are the same. Spec 0013 AC-8 says "a
+     * salary range when present" and never considered this case, so this is a
+     * gap it did not cover rather than a departure from it.
+     */
+    if (figures.salaryMin === figures.salaryMax) {
+      return format(figures.salaryMin);
+    }
+
     return `${format(figures.salaryMin)} to ${format(figures.salaryMax)}`;
   }
 
