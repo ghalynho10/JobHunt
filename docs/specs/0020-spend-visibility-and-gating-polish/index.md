@@ -1,7 +1,7 @@
 # 0020. Spend visibility and gating polish
 
 **Date**: 2026-09-11 (revised 2026-09-12, corrected 2026-09-13)
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

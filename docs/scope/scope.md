@@ -40,7 +40,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 25 | Resume tailoring per job | v1.5 | planned |
 | 26 | Profile depth & completeness | v1.5 | planned |
 | 27 | Auth remainder | v1.5 | planned |
-| 28 | Spend visibility & gating polish | v1.5 | in-progress |
+| 28 | Spend visibility & gating polish | v1.5 | done |
 | 29 | Product analytics | v1.5 | planned |
 | 30 | Company research, lite | v1.5 | planned |
 | 31 | Seeded demo account | v1.5 | planned |
@@ -410,7 +410,7 @@ _Owes the privacy notice a rewrite of its deletion section, recorded from spec [
 
 - [ ] Design it (spec): `/architect auth remainder`
 
-### 28. Spend visibility & gating polish
+### 28. Spend visibility & gating polish · done
 Surface actual usage against the caps so the limits are legible rather than a surprise, and extend gating past the two call types v1 covers as new call types arrive.
 **Done when:** a user can see their own usage against their cap, any newly added call type is gated by default rather than by remembering to add it, and the external kill switch remains the last resort it was built to be.
 - [x] Design it (spec): [0020](../specs/0020-spend-visibility-and-gating-polish/index.md)
