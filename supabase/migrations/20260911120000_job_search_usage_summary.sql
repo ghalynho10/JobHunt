@@ -39,6 +39,16 @@ language plpgsql
 -- (a bare `/search` visit must never create a counter row) held by the
 -- database instead of by whoever reads the next diff. It is `stable` and not
 -- `immutable` because the body reads tables and calls `auth.uid()`.
+--
+-- AND WHY `stable` IS SAFE AROUND `auth.uid()` IN THE FIRST PLACE, which the
+-- line above assumes rather than states. A `stable` function may only call
+-- functions at least as strict as itself, and `auth.uid()` is itself declared
+-- `stable`, confirmed against the running stack on 2026-09-13 rather than
+-- assumed (`provolatile` reads `s` for `auth.uid`, `auth.role` and `auth.jwt`
+-- alike). Postgres does not check that pairing at `create function` time, so a
+-- helper that was secretly `volatile` would fail only when this line ran, in
+-- production, on the first call. Worth re checking before copying this marker
+-- onto a function that calls something else.
 stable
 security definer
 set search_path = ''
