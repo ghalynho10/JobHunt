@@ -126,7 +126,7 @@ Option 4 was chosen on that corrected basis and then dropped by a cross check, o
 
 Two further facts about Option 4 are recorded so a later revisit starts from the real price rather than the attractive summary. Postgres cannot change a function's return type in place, verified against this project's database, so it is a drop and recreate of the most safety critical function in the codebase, and a drop takes the grants with it. And naming the new output columns `consumed_count` and `cap_value` collides with the six unqualified references already in the body: plpgsql raises `column reference "consumed_count" is ambiguous` at runtime, reproduced directly, so the columns would need renaming too.
 
-What makes Option 5 correct is worth stating precisely, because it is easy to mistake for Option 2 and dismiss on Option 2's weakness. Option 2 puts the ordering in the order of two statements, where a later `Promise.all` undoes it. Option 5 puts it in a data dependency: `UsageNotice` cannot render until `SearchPage`'s `await` resolves, because its prop is that awaited value, and the read lives inside the component. There is no statement to reorder, and undoing it means hoisting the read out of the component and back up the tree, which is a deliberate structural change rather than a plausible tidy up. That is the entire difference between the rejected option and the chosen one, and anyone revisiting this should see it before treating the two as the same idea.
+What makes Option 5 correct is worth stating precisely, because it is easy to mistake for Option 2 and dismiss on Option 2's weakness. Option 2 puts the ordering in the order of two statements, where a later `Promise.all` undoes it. Option 5 puts it in a data dependency: `UsageNotice` cannot render until `SearchPage`'s `await` resolves, because its prop is that awaited value, and the read lives inside the component. There is no statement to reorder, and undoing it means hoisting the read out of the component and back up the tree, which is a deliberate structural change rather than a plausible tidy up. **[Corrected 2026-09-13: this sentence is wrong and is the worst sentence in this file. It was written about the shipped shape, where the ordering was not in the prop at all but in `SearchPage`'s `await`. It is also wrong about the shape that replaced it: folding the two awaits into one `Promise.all` inside `UsageNotice` reorders them with no hoisting and no structural change, uses the prop, and lints clean. There is always a statement to reorder. Left in place rather than edited, because this paragraph is the record of what was believed on 2026-09-12 and the belief is the thing worth keeping.]** That is the entire difference between the rejected option and the chosen one, and anyone revisiting this should see it before treating the two as the same idea.
 
 The honest weakness of Option 5 is that this property is invisible where the component is used. `<UsageNotice searchResult={result} />` does not announce that the prop's only job is to exist. The mitigation is the invariants list and a boundary test that asserts the rendered figure rather than that a read happened; a test written the lazy way would pass against the broken code too.
 
@@ -135,3 +135,50 @@ An earlier draft of this reasoning also claimed the `Promise.all` sat two lines 
 ### On AC-10's framing
 
 The original AC-10 and Summary both said this spec fixes "two sentences in the privacy notice". Reading the rendered `/privacy` page rather than the source showed that only one of them is there. `usage_gate_counter.call_type`'s `describedAs` renders; `usage_cap`'s text is `NON_PERSONAL_TABLES[].why`, and its only reader in the entire codebase is `src/features/legal/stored-fields.test.ts`. Both corrections are still worth making, because the registry is what the next person reading this codebase will believe, but the spec was claiming a user visible fix it was not delivering, and a criterion that overstates its own reach is one nobody can verify honestly. Corrected in place rather than dropped.
+
+---
+
+## Correction, 2026-09-13: the prop never held the ordering
+
+### What happened
+
+The 2026-09-12 revision chose Option 5, "order the existing read by a data dependency", and shipped it. A `/check review` on Fable 5.1, run before opening the pull request, found that the shape shipped is not the shape the words describe. `SearchPage` awaited `searchListings()` before returning its tree, so `UsageNotice` could not render until the search resolved no matter what it was passed. The `searchResult` prop was never read, `void searchResult;` awaited nothing, and React does not await props. The `await` before `return` was the whole mechanism.
+
+Five places said otherwise: this spec's Decision, AC-11, and invariants list, plus `usage-notice.tsx`'s header and `page.tsx:112` ("Removing the prop compiles and renders and quietly brings the boundary bug back").
+
+### The evidence, measured rather than argued
+
+Four experiments, all run against the working tree on 2026-09-13 and reverted afterwards:
+
+1. **Remove the prop entirely, keep the `await`.** All 74 page tests pass, including the three ordering tests that DO fail against the pre fix code. The prop is not load bearing.
+2. **Drop the `await`, keep the prop.** A type error, at `page.tsx:119` and `page.tsx:131`. Real, but narrow, and not unique: the second error is `SearchResults`'s own `result` prop catching the same edit, so `UsageNotice`'s prop added no tripwire the page did not already have.
+3. **Apply the streaming refactor to the shipped shape** (no `await` in `SearchPage`, promise passed down, prop type widened, `void` untouched). Typecheck clean, ESLint clean, and three ordering tests fail. The bug returns silently, with every comment still asserting it cannot.
+4. **Build the runner up** (promise passed, awaited inside `UsageNotice`). Typecheck clean, all 74 pass. Then delete that inner `await`: three ordering tests fail AND ESLint reports `'searchResult' is defined but never used`. Two independent guards, one of them at edit time.
+
+Experiment 3 is the one that decides it, and experiment 4 is the one that shows the alternative is strictly better rather than merely different.
+
+### Why the correction changes the code rather than only the words
+
+Rewriting the five places to say "the order is held by `SearchPage` awaiting before it returns" would be honest and free. It was seriously considered and rejected on one ground: that sentence describes Option 2, page level sequencing, which this spec examined on 2026-09-12 and rejected as the shape a later refactor undoes. Keeping the code and telling the truth means recording that the spec chose Option 5 and shipped Option 2. Experiment 3 shows that is not a technicality; the refactor that undoes it is the obvious next change to this page and it passes every gate except the tests.
+
+Option 5 as actually described, promise in, `await` inside the consumer, costs one small reshape of code whose behaviour does not change, and the existing tests are the proof of that. After it, the recorded mechanism and the operating mechanism are the same thing, and a later reader who checks the claim finds it true.
+
+### Where the false premise came from, recorded deliberately
+
+Not from the cross check. That ran on 2026-09-12, on Fable 5.1, and did useful work: it found nine decision gaps and reversed the option choice. It did not question the mechanism because the mechanism arrived as a premise rather than as a proposal.
+
+It came from the engineer's advisor chat, was carried into the decision panel as established, and was ratified by selection. That is the failure the 2026-09-02 reflex names exactly: selecting an option ratifies its stated reasoning into the spec, and a wrong reason is then recorded as a decision and read later as settled. The decision panel that chose this shape presented three options and argued the tradeoff between them competently. Only one of them, the chosen one, carried the prop mechanism, and that one was never checked: the panel debated which option was better without anyone testing whether the winning option worked the way its description said.
+
+Worth recording alongside it: on the same day, this session wrote a reflex describing this exact mechanism. Its text is "a hand written broken `SearchPage` left an `await` inside the JSX, so the ordering the test existed to check was still enforced". That is the same observation, one step from the same conclusion, written and not applied. A rule can be correct, freshly written, and still not fire on the thing in front of you.
+
+### What the second round changed, 2026-09-13, after the cross check
+
+The cross check on the correction (Fable 5.1, the same model that raised the finding) accepted that the new shape closes it, and then found the correction's own overreach. Three things came out of it and are recorded because the pattern is the point:
+
+1. **The count was wrong.** This file and the spec said "four ordering tests fail against the pre fix code" in several places. It is three. Of the five tests in the ordering block, two do not run a search at all or hold the counter constant, so they pass under any composition. Every break run performed during the build printed `3 failed | 71 passed`, so the correct number was on screen repeatedly and was written down wrong anyway. Re measured against the genuine pre fix commit before correcting it.
+
+2. **The `Promise.all` fold defeats the chosen shape too.** `await Promise.all([searchInFlight, getJobSearchUsageSummary()])` uses the prop, typechecks, lints clean, and restores the bug. That is the same edit used to reject Option 2 on 2026-09-12, so the chosen option is weaker than the correction first claimed. It is now named as the forbidden edit in the invariants and in the component header, and the "two independent guards" wording is gone: lint guards deletion, the tests guard reordering, and only the tests catch the fold.
+
+3. **The word structural is retired from this spec's ordering discussion.** Two claims of structural enforcement have now been made about one line, first that the prop held the ordering and then that a data dependency did, and both were false. The spec no longer claims any refactor cannot undo the ordering. It records where the ordering lives and what catches its removal, which is true and stays true. If a third claim of that kind appears in this spec, it should be read as a warning sign rather than as a strengthening.
+
+The promise shape was kept rather than reverted to the plain page level `await`. Its margin over that is smaller than the 2026-09-12 reasoning argued, but it is real: the risky edit moves from the page into one component, lint gains a guard on deletion, and a later `Suspense` boundary becomes additive. Reversing a second time would be churn on working code.
