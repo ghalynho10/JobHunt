@@ -94,3 +94,26 @@ PASS. All fifteen criteria met, driven against the running dev server on `http:/
 The two steps left unticked on 2026-09-11 are now closed. The search render figure is correct on every trial, including at the cap boundary where it previously said `24 of 25` while the database held 25. The `/privacy` step was split in two rather than ticked as written, because the original wording asserted both corrected sentences were on the rendered page and only one is; the other is confirmed at its source, which is what spec 0020's corrected AC-10 now says.
 
 State restored after the run: both fixture users deleted, `job_search` global counters cleared, all nine `usage_cap` rows at their seeded values, the kill switch back to false, and both `security definer` functions present with their original grants.
+
+## Correction slice run, 2026-09-13 (spec 0020 steps 12 to 15)
+
+PASS. The correction was behaviour preserving by design, so this run proved two separate things.
+
+**Behaviour identical, before and after.** The same three probes were driven against the current code and then against the pre correction commit (`ab5c594^`), on the same dev server, with two separately minted accounts seeded identically. Every output matched:
+
+| Probe | Before | After |
+|---|---|---|
+| Bare visit | `0 of 25`, no counter row created | `0 of 25`, no counter row created |
+| Last allowed search, seeded at 24 | `25 of 25`, db 25, results rendered, no refusal | identical |
+| The search after that | `25 of 25`, refused | identical |
+
+**The criteria still hold.** Kill switch refusal leaves the figure unchanged at `7 of 25` with nothing consumed (AC-13, the path that never reaches `check_usage_gate`); two accounts see their own numbers (AC-7); a live cap edit shows `7 of 40` with no deploy (AC-5); breaking the read on a SEARCH render, the newly reshaped path, shows the notice with `role="alert"`, no number, and the results still rendering underneath (AC-6); the read function contains no write statement (AC-3); `anon` cannot execute either `security definer` function while `authenticated` can (AC-8, AC-15). Suites: 74, 9, 6, 7 and 4 passed.
+
+**AC-11's two guards, re measured in this session rather than trusted from the build:**
+
+- Deleting the `await` inside `UsageNotice`: three ordering tests fail AND ESLint reports the prop unused.
+- Folding the two waits into `Promise.all`: three ordering tests fail and **ESLint stays clean**.
+
+That second line is the honest limit of the design and matches what the spec now records: lint guards deletion, the tests guard reordering, and nothing but the tests catches the fold.
+
+State restored: four fixture users deleted, `job_search` counters cleared, all nine `usage_cap` rows at their seeded values, kill switch `false`, both functions present with their grants.
