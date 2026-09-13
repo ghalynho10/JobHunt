@@ -84,6 +84,18 @@ describe("the result card", () => {
     expect(text).toContain("$120,000");
   });
 
+  it("shows one figure when the minimum and maximum are the same", () => {
+    /**
+     * The card composes the salary string it is given, so this is the end to
+     * end statement of the fix in `src/lib/listing-format.ts`: what a reader
+     * of a search result actually sees, not just what the helper returns.
+     */
+    const text = textOf(render({ salaryMin: 109440, salaryMax: 109440 }));
+
+    expect(text).toContain("$109,440");
+    expect(text).not.toContain("$109,440 to $109,440");
+  });
+
   it("reads as from when only a minimum is stated", () => {
     expect(textOf(render({ salaryMax: undefined }))).toContain("from $100,000");
   });
@@ -136,6 +148,33 @@ describe("a predicted salary is never shown as a stated one (AC-7, invariant 5)"
     expect(textOf(render({ salaryIsPredicted: true }))).toContain(
       "(estimated)",
     );
+  });
+
+  it("still labels an equal minimum and maximum as estimated", () => {
+    /**
+     * AC-7 is untouched by the single figure fix. A predicted salary that
+     * happens to state one figure is still a prediction, so it keeps both the
+     * label and the attribution the range form carries.
+     */
+    const card = render({
+      salaryMin: 109440,
+      salaryMax: 109440,
+      salaryIsPredicted: true,
+    });
+
+    const text = textOf(card);
+
+    expect(text).toContain("$109,440 (estimated)");
+    /**
+     * THE COUNT IS NOT DECORATION. `"$109,440 to $109,440 (estimated)"` also
+     * contains `"$109,440 (estimated)"`, because the second figure sits right
+     * before the label, so the line above passes on the defect this test
+     * exists beside. Counting the figure is what separates the two.
+     */
+    expect(text.match(/\$109,440/g)).toHaveLength(1);
+    expect(
+      flatten(card).filter((el) => el.type === JobsworthAttribution),
+    ).toHaveLength(1);
   });
 
   it("shows the Jobsworth attribution beside it", () => {
