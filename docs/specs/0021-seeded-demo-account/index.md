@@ -1,7 +1,7 @@
 # 0021. Seeded demo account
 
 **Date**: 2026-09-13
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

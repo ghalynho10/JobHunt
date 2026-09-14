@@ -158,6 +158,57 @@ export type Database = {
           },
         ]
       }
+      demo_result: {
+        Row: {
+          band: string
+          company_name: string
+          created_at: string
+          description_snippet: string | null
+          id: string
+          location: string | null
+          matched_skills: string[]
+          not_mentioned_skills: string[]
+          persona_slug: string
+          reasoning: string
+          salary_max: number | null
+          salary_min: number | null
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          band: string
+          company_name: string
+          created_at?: string
+          description_snippet?: string | null
+          id?: string
+          location?: string | null
+          matched_skills?: string[]
+          not_mentioned_skills?: string[]
+          persona_slug: string
+          reasoning: string
+          salary_max?: number | null
+          salary_min?: number | null
+          sort_order: number
+          title: string
+        }
+        Update: {
+          band?: string
+          company_name?: string
+          created_at?: string
+          description_snippet?: string | null
+          id?: string
+          location?: string | null
+          matched_skills?: string[]
+          not_mentioned_skills?: string[]
+          persona_slug?: string
+          reasoning?: string
+          salary_max?: number | null
+          salary_min?: number | null
+          sort_order?: number
+          title?: string
+        }
+        Relationships: []
+      }
       job_preference: {
         Row: {
           created_at: string
