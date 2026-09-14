@@ -43,7 +43,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 28 | Spend visibility & gating polish | v1.5 | done |
 | 29 | Product analytics | v1.5 | planned |
 | 30 | Company research, lite | v1.5 | planned |
-| 31 | Seeded demo account | v1.5 | planned |
+| 31 | Seeded demo account | v1.5 | in-progress |
 
 ## Foundation
 
@@ -438,15 +438,28 @@ Company level facts only, one fetch plus one summarize call, cached with a long 
 **Done when:** the fetch is proven against real sites before the feature is built out, cached results are reused rather than refetched, a site that cannot be read says so plainly instead of returning an empty summary, and the summarize call is gated like every other AI call.
 - [ ] Design it (spec): `/architect company research, lite`
 
-### 31. Seeded demo account · needs a decision
-A pre populated account reachable without signing up: a fake profile, applications across every status, discard history and a populated dashboard. Solves real demo friction, since a freshly created empty account shows a recruiter nothing. Needs the dashboard to exist first, because it seeds one.
+### 31. Seeded demo account
+A public page at `/demo` showing a fixed, already scored set of fake job listings under two
+example candidate profiles, so a visitor can see the product's ranking output without signing
+up and without the app spending a real search or scoring call. A richer version (a real seeded
+account with applications and a dashboard) was considered and deferred; see Deferred below.
 **Done when:** a visitor reaches it without signing up, every seeded value is obviously fake, a visitor cannot corrupt it for the next visitor, and it makes no external paid call.
-- [ ] Design it (spec): `/architect seeded demo account`
+- [x] Design it (spec): [0021](../specs/0021-seeded-demo-account/index.md)
+- [ ] Build it: `/develop seeded demo account`
+  - [ ] Seed the data: the `demo_result` migration, row level security, the load bearing grant, and all twelve seeded rows, satisfies AC-3, AC-6, AC-7
+  - [ ] Read path: the secret key query, its Zod parse, and the `demo.read` span, satisfies AC-2, AC-12
+  - [ ] Render one profile end to end: the demo card component, the `/demo` page, the banner, and the failure state, satisfies AC-1, AC-8, AC-9, AC-10, AC-11, AC-12
+  - [ ] Persona switching: the second profile's rows and the switcher links, satisfies AC-5
+  - [ ] Entry page integration: the hero link and the about section copy move, in the same pass as marking this feature done, satisfies AC-13
+- [ ] Verify it: `/check verify seeded demo account`
+- [ ] Test it: `/test seeded demo account`
 
 ## Deferred
 
 Out of scope for this build pass, kept so the plan stays honest.
 
+- **Richer seeded demo account**: a fuller version of feature 31 with applications across every status, discard history and a populated dashboard, instead of the no sign in read only demo. Needs feature 23 (applications dashboard) and likely feature 22 (discard with reason) to exist first, since it seeds both. `from spec 0021`
+- **Demo reasoning text drift**: the seeded `/demo` reasoning text is hand written and does not automatically track a future change to the real rubric (spec 0018 style band anchor work). Revisit its wording whenever the anchors change, so the demo does not quietly drift from the real product's voice. `from spec 0021`
 - **Tailoring and discard trends**: tailoring activity over time and discard reason patterns, the most honest signal about what the ranking is getting wrong · needs a decision
 - **Company research, full**: role specific synthesis tied to the listing being viewed, an adaptive extraction loop, a grounding check, and the browser automation choice made against pricing real at that time · needs a decision
 - **Fuller tailoring verification**: verification beyond the numeral only pattern · needs a decision
