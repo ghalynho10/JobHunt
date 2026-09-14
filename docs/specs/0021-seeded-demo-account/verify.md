@@ -48,3 +48,59 @@ reading the code alone.
 - [ ] On the live entry page, confirm the hero's link to `/demo` is a real, working `<a>` element
       (not `Text`), and confirm the about section's status card lists the demo under `working`
       rather than `planned`. Verifies **AC-13**.
+
+## Added by /develop, 2026-09-13
+
+Steps for the value sourcing rows the list above does not name individually, plus two things
+this build settled that change how the list above should be read.
+
+### What this build covers, and what it does not
+
+**AC-13 is not built.** Spec 0021's build plan step 6 sequences it with marking feature 31
+`done`, because `about-section.tsx`'s own doc comment forbids anything sitting under `working`
+that `docs/scope/scope.md` does not mark `done`. So a `/check verify` run against this build
+covers **AC-1 to AC-12 only**, and must leave **AC-13 unticked rather than passing it by
+inspection**.
+
+The close-out pass that builds AC-13 has to verify AC-13 itself: that the hero's link actually
+resolves to a working `/demo`, and that the status card's text genuinely moved from `PLANNED` to
+`WORKING`. Not that the edit was made, that it landed. This is the exact shape the 2026-09-01
+reflex in `docs/reflexes.md` was written for: feature 7's clause to retire the entry page's
+placeholder sat unmet under a `done` row, and the live homepage told every visitor that nothing
+worked for two days after sign in shipped, because nothing in the feature's own code area
+prompts that edit and no test covers it.
+
+**AC-11 is now an explicit override, not an inheritance.** The AC-11 step above says to confirm
+`noindex` is inherited "from the root layout with no override on this route". That is no longer
+true and the change is deliberate: `src/app/(marketing)/demo/page.tsx` sets
+`robots: { index: false, follow: false }` in its own `metadata`. The root layout's site wide
+`index: false` is documented in `layout.tsx` as holding "at least until accounts open", and
+`/privacy` and `/terms` have already opted back in, so a page relying on that default would
+become indexable the day somebody flips it. Verify the rendered `<meta name="robots">` says
+`noindex, nofollow`; do not treat the presence of the local override as drift to remove.
+
+### Value sourcing steps
+
+- [ ] Visit `/demo?persona=` (empty value) and `/demo?persona=backend-engineer&persona=product-designer`
+      (repeated param). Both show the `backend-engineer` profile. The repeated case defaulting
+      rather than taking the first value is deliberate and differs from `/search`, which takes
+      the first. Verifies the remaining two shapes of **AC-5**.
+- [ ] In the rendered switcher, confirm the active profile is NOT a link: it is a `span` carrying
+      `aria-current="page"`, and only the other profile is an `<a>`. Check this in the served
+      HTML, not by eye, because `Text` silently drops an `aria-current` passed to it and
+      TypeScript does not catch that (it skips prop checking for any hyphenated JSX attribute).
+      This was a real defect in the first version of the page. Verifies the switcher rows of the
+      Value sourcing table.
+- [ ] Across the twelve seeded rows, confirm all four `salaryText()` shapes render and one row
+      renders none: a range (`$165,000 to $195,000`), a one sided minimum (`from $140,000`), a
+      one sided maximum (`up to $210,000`), an equal min and max collapsing to one figure
+      (`$158,000`, not "$158,000 to $158,000"), and a row with no salary line at all. The seed
+      data carries all five cases on purpose so this is checkable without editing it.
+- [ ] Confirm the not mentioned section's caption is `SCORING_COPY.notMentionedCaption` byte for
+      byte, and that every seeded `description_snippet` is genuinely cut off (each ends with an
+      ellipsis mid sentence). The caption claims the posting shows only part of the description;
+      on `/demo` that is true only by construction, so a seed row rewritten as a complete
+      description would make the reused caption false.
+- [ ] Confirm no card renders a relative posted date and none renders a sponsorship chip. Both
+      are omitted deliberately, not missed: the demo has no meaningful posted time and no
+      sponsorship claim to make.
