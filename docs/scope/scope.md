@@ -448,8 +448,8 @@ account with applications and a dashboard) was considered and deferred; see Defe
 - [ ] Build it: `/develop seeded demo account`
   - [x] Seed the data: the `demo_result` migration, row level security, the load bearing grant, and all twelve seeded rows, satisfies AC-3, AC-6, AC-7
   - [x] Read path: the secret key query, its Zod parse, and the `demo.read` span, satisfies AC-2, AC-12
-  - [ ] Render one profile end to end: the demo card component, the `/demo` page, the banner, and the failure state, satisfies AC-1, AC-8, AC-9, AC-10, AC-11, AC-12
-  - [ ] Persona switching: the second profile's rows and the switcher links, satisfies AC-5
+  - [x] Render one profile end to end: the demo card component, the `/demo` page, the banner, and the failure state, satisfies AC-1, AC-8, AC-9, AC-10, AC-11, AC-12
+  - [x] Persona switching: the second profile's rows and the switcher links, satisfies AC-5
   - [ ] Entry page integration: the hero link and the about section copy move, in the same pass as marking this feature done, satisfies AC-13
 - [ ] Verify it: `/check verify seeded demo account`
 - [ ] Test it: `/test seeded demo account`
