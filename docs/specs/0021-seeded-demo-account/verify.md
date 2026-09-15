@@ -126,7 +126,7 @@ design pass, kept for history. This section supersedes it in full._
 
 **Before any step below**: a refresh must have run at least once, or every results step reads
 AC-15's empty state instead of what it is checking. `POST /api/demo/refresh` spends real money
-(one Adzuna search, up to 16 `ai_scoring` calls, up to 16 chained `ai_check` calls), so run it
+(~~one Adzuna search~~ two Adzuna searches since 2026-09-15, up to 16 `ai_scoring` calls, up to 16 chained `ai_check` calls), so run it
 once and check everything against that one run rather than re-running per step.
 
 ## UI / manual
@@ -169,8 +169,9 @@ once and check everything against that one run rather than re-running per step.
       an empty list, and expect wording distinct from AC-15's → AC-12
 - [ ] Confirm the entry page hero still does NOT link to `/demo` and the status card still shows
       the demo as planned. This is deliberately unbuilt in this pass → AC-13
-- [ ] Confirm the page shows the search query the results answer and the date of the last
-      refresh, and that both match `demo_refresh`'s own row → AC-14
+- [ ] Confirm the page shows ~~the search query~~ both search queries (revised 2026-09-15) the
+      results answer and the date of the last refresh, and that both match `demo_refresh`'s own
+      row → AC-14
 - [ ] Confirm both candidates' full profiles render: summary, every skill, every work history
       entry with its dates, and the preferences. Compare against `DEMO_PERSONAS` in
       `personas.ts` field by field, since that constant is what the scorer was actually given →
@@ -190,13 +191,17 @@ once and check everything against that one run rather than re-running per step.
       secret. Expect 401 both times, and expect `usage_gate_counter` unchanged, proving nothing
       was spent before the refusal → AC-18
 - [ ] `curl -X POST -H "Authorization: Bearer $DEMO_REFRESH_SECRET" .../api/demo/refresh`. Expect
-      200 with `{"refreshed":true,...}`, and expect `job_search` up by exactly 1 and `ai_scoring`
-      up by exactly the row count → AC-2, AC-17, AC-18
+      200 with `{"refreshed":true,...}`, and expect `job_search` up by exactly ~~1~~ 2 (revised
+      2026-09-15, two searches) and `ai_scoring` up by exactly the row count → AC-2, AC-17, AC-18
 - [ ] Immediately after that refresh, read `demo_result` and confirm every `source_job_id` appears
       under both personas and nowhere twice under one, and that `demo_refresh.refreshed_at` moved
       in the same moment → AC-6, AC-17
-- [ ] Force a refusal: set the `ai_scoring` global day cap in `usage_cap` to a value below the row
-      count, then refresh. Expect a non 200 naming the gate, `demo_result` byte for byte
+- [ ] Force a refusal: set the `ai_scoring` global day cap in `usage_cap` to ~~a value below the row
+      count~~ the UTC day's `ai_scoring` global `consumed_count` plus a number smaller than the row
+      count, read exactly as the 2026-09-15 section's **Reading and setting a day cap** describes
+      (with `call_type = 'ai_scoring'`; revised 2026-09-15, since a cap below the row count is
+      already exhausted on any day with earlier scoring calls, and refuses the first call instead
+      of one mid run), then refresh. Expect a non 200 naming the gate, `demo_result` byte for byte
       unchanged, `refreshed_at` unmoved, and the Sentry event at info level rather than error →
       AC-17
 - [ ] Force a check failure: make the `ai_check` vendor unreachable (a bad key, or an unroutable
@@ -231,15 +236,16 @@ source shows up rather than reading the same as a right one.
       confirm the page shows AC-12's failure rather than silently hiding the line
 - [ ] Attributions: flip one row's `salary_is_predicted` and confirm the `(estimated)` label and
       the Jobsworth attribution appear and disappear TOGETHER, never one without the other
-- [ ] Query line and refresh time: change `demo_refresh.search_title` and `search_location`
-      directly and confirm both halves of the sentence follow, including the nationwide wording
-      when `search_location` is null
+- [ ] Query line and refresh time: change `demo_refresh.~~search_title~~ search_titles` (both
+      elements, revised 2026-09-15) and `search_location` directly and confirm every part of the
+      sentence follows, including the nationwide wording when `search_location` is null
 - [ ] The two empty states: set `refreshed_at` to null with rows still present and confirm AC-15's
       state; then restore it and delete every row and confirm AC-12's failure instead. The two
       must not be reachable from each other
-- [ ] Which listings the refresh keeps: run a refresh and compare the stored `sort_order` against
+- [ ] ~~Which listings the refresh keeps: run a refresh and compare the stored `sort_order` against
       Adzuna's own returned order for the same query, confirming no reordering and no gap where a
-      duplicate was dropped
+      duplicate was dropped~~ · **SUPERSEDED 2026-09-15** by the kept walk step in the section
+      below
 - [ ] The scoring inputs: confirm the prompt the refresh sends carries the persona constant
       unchanged, not a re-derived or re-bounded copy
 - [ ] The refresh's own session: confirm the `ai_scoring` and `job_search` account scope counters
@@ -253,3 +259,115 @@ AC-1 · AC-2 (two steps) · AC-3 · AC-4 (three steps) · AC-5 (two steps) · AC
 AC-7 · AC-8 · AC-9 · AC-10 · AC-11 · AC-12 · AC-13 · AC-14 (two steps) · AC-15 · AC-16 · AC-17
 (four steps) · AC-18 (two steps) · AC-19. Every row of the Value sourcing table has its own step
 above.
+
+---
+
+## Revision, 2026-09-15: two searches, the kept walk, refresh outcomes
+
+_Steps for `index.md`'s 2026-09-15 revision: the two fixed queries, the per search kept walk, the
+**Refresh outcomes** table, and Build plan step 10. Where a step above conflicts, this section
+wins; the steps above it that changed are struck through in place._
+
+**Reading and setting a day cap, for every step below that sets one** (added 2026-09-15). The
+gate keys day counters on the UTC date (`(now() at time zone 'utc')::date`,
+`20260902120000_usage_gating.sql` line 142) and refuses when `consumed_count >= cap_value`
+(line 227). A refused call still increments `attempt_count`, so `consumed_count` is the column to
+read. The UTC day rolls at 20:00 local time, so a read that assumes "today" near then can return
+the previous day's row, or zero rows that look like zero calls; `docs/session-notes.md` records
+three instances. So read it by an explicit UTC date, through `psql`, never the Data API (which
+cannot see `usage_gate_counter` at all), and without `-At`, so psql prints the row count:
+
+```sh
+docker exec supabase_db_jobhunt psql -U postgres -d postgres -c "select (now() at time zone 'utc')::date as utc_today;"
+docker exec supabase_db_jobhunt psql -U postgres -d postgres -c "select period_start, attempt_count, consumed_count from public.usage_gate_counter where call_type = 'job_search' and scope = 'global' and period = 'day' and period_start = date '<utc_today from the first query>';"
+```
+
+`(0 rows)` means nothing was consumed on that UTC day, so `consumed_count` is 0. Set the cap with
+`update public.usage_cap set cap_value = <n> where call_type = 'job_search' and scope = 'global'
+and period = 'day';`, and note the original value (66) to restore. Check the refresh identity's
+own `job_search` account week row the same way first, and confirm its `consumed_count` is below 24
+(its cap is 25, and the second search needs room), so the account cap cannot refuse before the
+global day cap does. Before driving the refresh, read the UTC date again; if it changed, start
+over.
+
+- [ ] Read `src/features/demo/refresh.ts` and confirm exactly two searches run, titles
+      `"backend engineer"` then `"frontend engineer"`, both with no location → AC-17
+- [ ] The kept walk, as a unit test over fixture result lists rather than a live refresh, since a
+      live search cannot be made to return a duplicate or a short list on demand: a backend list
+      of 2 and a frontend list of 6 whose first entry repeats backend's first id. Expect kept
+      order backend 1, frontend 2, backend 2, frontend 3, frontend 4, frontend 5 (frontend's repeat
+      skipped, backend never topped up), `sort_order` 1 to 6 in that order, and each kept
+      listing's `search_title` naming the search that kept it. This tests the exported pure
+      `keepListings()` directly, with no mock of `searchListings()`. Break the walk on purpose (let
+      frontend borrow backend's unused share, which keeps a seventh listing) and confirm the test
+      fails → AC-7, AC-17
+- [ ] After a real refresh, read `demo_result` for one persona ordered by `sort_order` with its
+      `search_title` column, and confirm the titles alternate (`backend engineer`, `frontend
+      engineer`, ...) until one search stops, that neither title appears more than 4 times, and
+      that the other persona's rows carry the same `search_title` for each `source_job_id` →
+      AC-17
+- [ ] After that refresh, confirm `demo_refresh.search_titles` is exactly
+      `{"backend engineer","frontend engineer"}` and that `/demo` renders exactly `These are the
+      first results from two searches, up to four from each: "backend engineer" and "frontend
+      engineer".` Then set `search_location` to a city directly and confirm ` in <city>` appears
+      before the final period → AC-14
+- [ ] The skill counts: the route's `200` body carries `ownRoleRows`, `ownRoleEmpty`,
+      `crossRoleRows` and `crossRoleEmpty`, and `ownRoleRows + crossRoleRows` equals `rows`.
+      Recompute all four from `demo_result` with SQL, own role meaning
+      `persona_slug = 'backend-engineer' and search_title = 'backend engineer'` or
+      `persona_slug = 'frontend-engineer' and search_title = 'frontend engineer'`, and
+      `cardinality(matched_skills) = 0` for empty, and confirm they match the body. This is the
+      number the Follow-up stopping rule reads, so confirm it moves: set one own role row's
+      `matched_skills` to `'{}'` and recompute → Follow-up stopping rule
+- [ ] The zero kept abort: `keepListings([], [])` returns an empty result (a unit test), and
+      reading `refreshDemoResults()` shows that an empty result returns a `Failure` of kind
+      `record_not_found`, whose context names both titles, before `replace_demo_results()` is
+      reached → AC-17
+- [ ] A refused second search, driven live on the local stack. The two searches are not identical
+      calls: they are two separate gate checks, so the cap can let the first through and refuse
+      the second. Record `demo_result` (row count and every `source_job_id`) and
+      `demo_refresh.refreshed_at`. Read the UTC day's `job_search` global `consumed_count` (**Reading
+      and setting a day cap**, above) and set the cap to that value plus one, so the backend search
+      is allowed and the frontend search is refused. Refresh. Expect `503` with `refreshed: false`,
+      the global day `consumed_count` up by exactly 1 (the backend search) and `attempt_count` up by
+      2, no model call spent (both searches run before any scoring), `demo_result` and
+      `refreshed_at` exactly as recorded, an info level Sentry event naming `job_search` and
+      `"frontend engineer"`, a `refusedSearch` span attribute of `"frontend engineer"`, and a
+      `demo.refresh` span that is not marked failed. This costs one Adzuna search. Restore the cap
+      to 66 afterwards → AC-17
+- [ ] A vendor failure of the second search (not a refusal): Adzuna itself failing on only the
+      second call cannot be forced on a live stack without a mock, which this project's rules
+      forbid, so this one is proved by reading. In `refresh.ts`, confirm the frontend search's
+      `Failure` returns before `keepListings()` and before `replace_demo_results()`, and carries
+      `"frontend engineer"` in its context. If `/develop` adds a seam that lets a test supply the
+      two search results, prefer that test and record it here instead → AC-17
+- [ ] A refusal at the first search, local stack only: read the UTC day's `job_search` global
+      `consumed_count` (**Reading and setting a day cap**, above) and set the cap to exactly that
+      value, so the next search is refused, then refresh. Expect `503` with `refreshed: false`,
+      the global day `consumed_count` unchanged and `attempt_count` up by exactly 1 (the frontend
+      search never ran), no model call spent, `demo_result` unchanged, an info level Sentry event
+      naming `job_search` and `"backend engineer"`, a `refusedSearch` span attribute of
+      `"backend engineer"`, and a `demo.refresh` span that is not marked failed. Restore the cap
+      to 66 afterwards → AC-17
+- [ ] A refusal later in the run (the existing `ai_scoring` cap step above) answers `503`, not
+      `500`, and its span is not marked failed; a genuine failure (the existing `ai_check` step
+      above) answers `500` and its span is failed. These are the two rows of **Refresh outcomes**
+      that differ only in shape, so check both, not one → AC-17
+- [ ] The migration heading: confirm the `where true` comment in
+      `supabase/migrations/20260913120000_demo_result.sql` reads "BREAKS EVERY APPLICATION CALL TO
+      THIS FUNCTION, LOCAL OR HOSTED" and that no line in the file still says "PRODUCTION ONLY".
+      Then, on the local stack only, drop `where true` temporarily and `pnpm db:reset`, and call
+      `replace_demo_results()` through the secret key client (`supabase.rpc`, which goes through
+      PostgREST and so through the `authenticator` connection) with `p_results: []` and
+      `p_search_titles: ["backend engineer", "frontend engineer"]` (both are required, and a
+      missing or one element `p_search_titles` would error on its own check before the delete is
+      reached, failing for the wrong reason), so no search or model call is spent: expect
+      `DELETE requires a WHERE clause`. The same call from
+      `psql` as `postgres` should succeed, which is the difference the comment describes. This
+      proves the local half of the heading's claim rather than trusting it; restore the predicate
+      and reset afterwards
+- [ ] Grep `src/`, `supabase/` and `docs/observability/` for `one real search`, `one Adzuna
+      search`, `one real Adzuna search`, `whatever one search`, `DEMO_SEARCH_TITLE\b`,
+      `searchTitle\b` and `returned rank`, printing the exit status beside the output (never ending
+      in `|| echo`). Expect no match describing the demo, and confirm `KEPT_LISTING_COUNT` is `4`
+      → Build plan step 10

@@ -197,7 +197,9 @@ too, not only here.
 ### New decision: which and how many listings the refresh keeps
 
 **Option A: A fixed count in Adzuna's own returned order (chosen)**, 8 listings, both personas
-scored against the same 8. **Pros**: mechanical, never selected by how a score looks, which is
+scored against the same 8. *(Superseded in its detail 2026-09-15: the count is now up to 4 from
+each of two searches, kept by the walk in `index.md`, still 8 at most and still never selected by
+score. See "Revision, 2026-09-15" below.)* **Pros**: mechanical, never selected by how a score looks, which is
 what keeps "whatever a refresh returns gets published" true rather than aspirational. **Cons**: a
 run whose first 8 results happen to cluster on one band shows a less compelling spread than a
 curated set would.
@@ -211,6 +213,106 @@ of the five bands. **Pros**: closest to the fabricated version's curated feel. *
 itself a form of selecting by score outcome, the exact thing this rework exists to stop doing;
 rejected for the same reason a dedicated "largest band divergence" comparison listing was rejected
 in favor of the per card cross persona line (AC-16).
+
+## Revision, 2026-09-15: two opposed searches replace one broad search
+
+### What the first real refresh showed
+
+The first real refresh ran on the local stack (`demo_refresh.refreshed_at` 2026-09-15 00:08 UTC)
+and wrote 16 rows, 8 listings under each persona. Read directly from `public.demo_result` on
+2026-09-15:
+
+- **15 of the 16 rows carry zero matched skills.** The one exception is the frontend persona on
+  Mastercard's "Manager, Software Engineering", with one. A card with no matched skills cannot show
+  the skill matching this page exists to demonstrate.
+- **Three of the eight listings are roles neither persona fits**: "Embedded Software Engineer",
+  "Robotics Software Engineer (Industrial Automation)" and "FPGA Embedded Software Engineer".
+  `"software engineer"` was broader than the two personas it serves.
+- **Every stored `description_snippet` is exactly 500 characters.** The three read in full
+  (Mastercard, Everpure, Amazon Leo) are each the company's own introduction, cut off before any
+  requirement. The scorer said as much on Everpure's row: "the visible excerpt provides no
+  concrete technical requirements". Spec 0013's Consequences already records that Adzuna returns
+  only a snippet.
+
+**What that evidence does and does not settle.** It settles that the old query returned roles
+outside both personas. It does not settle that the query caused the missing skills: three of
+eight snippets were read, and all three would carry no stack terms under any query. The likelier
+cause is **inferred** to be the snippet. That is why the revision below carries a stopping rule
+rather than a promise that it fixes the cards.
+
+### Options for the queries
+
+**Option A: Two opposed searches, `"backend engineer"` and `"frontend engineer"`, four kept from
+each (chosen)**. Each matches one persona's own first desired title. **Pros**: each persona gets
+its own likely strong matches and its own likely mismatches, so AC-16's cross persona line can
+show differences in both directions; roles neither persona fits become less likely; the model
+call count is unchanged at up to 16 scoring calls. **Cons**: one extra Adzuna search per refresh
+(trivial, 2 against a global day cap of 66); a cross search duplicate needs a tie rule (the
+backend search, taking the first turn, keeps it); the snippet problem is not addressed.
+
+**Option B: One search for `"full stack engineer"`**, recommended in the design conversation as
+naming neither persona's stack. **Pros**: one search, no walk, no tie rule. **Cons** (inferred, not
+measured): a full stack posting tends to part match both personas, which pulls both columns toward
+the middle bands and leaves AC-16's line showing less difference than two opposed searches would.
+It also gives neither persona a guaranteed set of its own strong matches.
+
+**Option C: Keep `"software engineer"`**. **Pros**: no change after seeing a run, so the strictest
+reading of the no cherry picking rule. **Cons**: the cards keep showing no skill matching, and
+three in eight listings stay outside both personas.
+
+**Option D: A query naming stack technologies** (for example "react golang"). **Pros**: Adzuna
+matches the keywords against the full posting, so returned postings do mention those skills
+somewhere. **Cons**: Adzuna combines the keywords, which narrows results sharply, and the query
+leans toward whichever persona's stack it names, which is the bias this rework exists to remove.
+
+The engineer chose Option A: a single role query leans toward whichever persona it names, making
+the other persona's column mostly weak or not a match and its reasoning lopsided, and two opposed
+queries remove that lean rather than averaging it.
+
+### Why this is not the cherry picking the spec forbids
+
+`index.md` and `refresh.ts` both state the query is never adjusted after seeing what came back.
+This revision does adjust it after one run, so the difference is recorded rather than glossed:
+
+- **The trigger is about the cards' information, not their outcome.** The query changed because
+  neither persona's cards showed any matched skills and three listings fit neither persona, not
+  because any band came back unflattering. Nothing about which bands appeared entered the choice.
+- **The new queries are chosen by a rule fixed before they run**: each persona's own first desired
+  title, taken from `personas.ts` as it already stood.
+- **It is bounded.** The stopping rule in `index.md`'s `## Follow-up` says that if 5 or more of the
+  next refresh's own role rows (up to 8) still carry zero matched skills, the snippet is the cause
+  and the queries do not change again. A third query tuned to the results would be exactly the
+  selection this rework removed.
+
+### Two details the cross check left open, decided by the engineer
+
+- **Each `demo_result` row stores the `search_title` whose walk turn kept it.** Without it, nothing
+  stored says which search a listing came from, so a verify step claiming the listings alternate
+  could not fail, and the stopping rule could not be read per query. The runner up, per search
+  counts on the span with no column, was rejected because it leaves the stored result set unable
+  to explain itself. A posting both searches returned is kept once, under whichever search's turn
+  reaches it first.
+- **The stopping rule counts own role rows, not all 16.** The first proposal, "9 or more of 16
+  rows empty", was rejected by the engineer: each persona is also scored against the other role's
+  postings, where zero matched skills is often correct, so up to 8 rows can be empty by design and
+  that threshold would fire on almost any run, freezing the queries for the wrong reason. The rule
+  reads only rows where the persona's own query kept the listing, and fires at 5 or more of up to
+  8. Both counts, own role and cross role, are recorded on every completed run so the right one is
+  always the one read.
+
+### Two build decisions, ratified
+
+Both were made by `/develop` while building the refresh and are recorded in `index.md`, **Feature
+design**, "Refresh outcomes". Neither had an owning line in this spec before 2026-09-15.
+
+- **A gate refusal returns `success({ completed: false })`, reported at info level.** The
+  alternative, a `Failure` at `expected` severity, looks equivalent but is not: `failure()` fails
+  the active span whatever the severity, so a correct refusal would enter `demo.refresh`'s failure
+  ratio, which spec 0001 binding rule 3 forbids.
+- **A refresh that keeps zero listings aborts.** The alternative, publishing the empty set as the
+  "publish whatever comes back" rule literally reads, would delete real results and stamp a fresh
+  `refreshed_at` over nothing, a page state neither AC-12's nor AC-15's copy describes. Any total
+  from one upward still publishes as is, so the rule is narrowed at exactly one point.
 
 ## References
 
@@ -231,9 +333,10 @@ in favor of the per card cross persona line (AC-16).
 
 **Practices & standards**:
 - Store raw, format at render (this project's own rule, applied to `salary_currency`).
-- The atomic multi statement write via one `security definer` function, the same shape
-  `check_usage_gate()` already establishes in this codebase for "several statements, one
-  guarantee".
+- The atomic multi statement write via one ~~`security definer`~~ `security invoker` function
+  (corrected 2026-09-15; `index.md` and the migration both chose `security invoker` on 2026-09-14,
+  and this line was never updated), the same "several statements, one guarantee" shape
+  `check_usage_gate()` already establishes in this codebase.
 
 **Links** (web verified 2026-09-14, by `/scope` ahead of this spec, reused here rather than
 re-fetched):
