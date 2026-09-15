@@ -163,19 +163,19 @@ export type Database = {
           id: number
           refreshed_at: string | null
           search_location: string | null
-          search_title: string
+          search_titles: string[]
         }
         Insert: {
           id?: number
           refreshed_at?: string | null
           search_location?: string | null
-          search_title: string
+          search_titles: string[]
         }
         Update: {
           id?: number
           refreshed_at?: string | null
           search_location?: string | null
-          search_title?: string
+          search_titles?: string[]
         }
         Relationships: []
       }
@@ -195,6 +195,7 @@ export type Database = {
           salary_is_predicted: boolean
           salary_max: number | null
           salary_min: number | null
+          search_title: string
           sort_order: number
           source_job_id: string
           title: string
@@ -215,6 +216,7 @@ export type Database = {
           salary_is_predicted?: boolean
           salary_max?: number | null
           salary_min?: number | null
+          search_title: string
           sort_order: number
           source_job_id: string
           title: string
@@ -235,6 +237,7 @@ export type Database = {
           salary_is_predicted?: boolean
           salary_max?: number | null
           salary_min?: number | null
+          search_title?: string
           sort_order?: number
           source_job_id?: string
           title?: string
@@ -474,7 +477,7 @@ export type Database = {
         Args: {
           p_results: Json
           p_search_location?: string
-          p_search_title: string
+          p_search_titles: string[]
         }
         Returns: undefined
       }

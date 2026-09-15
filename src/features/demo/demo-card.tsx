@@ -20,7 +20,7 @@ import type { DemoScoredListing } from "./queries";
  * WHAT THIS CARD SHOWS IS REAL, WHICH IS THE REVERSE OF WHAT IT USED TO SHOW.
  * Before 2026-09-14 every value here was written by hand, and this comment said
  * so. The title, company, location, salary, description and every part of the
- * judgment now come from one real Adzuna search and one real scoring call. The
+ * judgment now come from a real Adzuna search and a real scoring call. The
  * candidate being scored is the only invented thing, and the page discloses it
  * in full.
  *

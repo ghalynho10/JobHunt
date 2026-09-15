@@ -16,7 +16,8 @@ import { isFailure } from "@/lib/result";
  * The public demo (spec 0021, AC-1, AC-5, AC-10 to AC-16, AC-19).
  *
  * WHAT IS ON THIS PAGE IS REAL, AND THAT IS THE POINT OF THE 2026-09-14 REWORK.
- * The listings are real Adzuna postings from one real search; the bands, skills
+ * The listings are real Adzuna postings from two real searches, one per
+ * candidate's own role; the bands, skills
  * and reasoning are real scoring calls, through the same `scoreListings()` a
  * signed in person's `/search` runs. The two candidates being scored are
  * invented, and the page shows both of them in full so a reader can check every
@@ -200,17 +201,17 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
           ) : (
             <>
               {/*
-               * AC-14. THE QUERY AND THE REFRESH TIME, TOGETHER, ABOVE THE
-               * RESULTS. The query is what stops the set reading as hand
-               * picked: these are the first results for a stated search, not a
-               * selection. The time is what keeps the page honest between
+               * AC-14. BOTH QUERIES AND THE REFRESH TIME, TOGETHER, ABOVE THE
+               * RESULTS. The queries are what stop the set reading as hand
+               * picked: these are the first results for two stated searches,
+               * not a selection. The time is what keeps the page honest between
                * refreshes, since a run that failed or was forgotten leaves
                * older real data here indefinitely and this line is the only
                * thing that says so.
                */}
               <Text variant="muted" className="mt-3">
                 {DEMO_COPY.searchedFor(
-                  page.value.refresh.searchTitle,
+                  page.value.refresh.searchTitles,
                   page.value.refresh.searchLocation,
                 )}
               </Text>

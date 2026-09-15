@@ -9,9 +9,9 @@
 -- a local or preview database, `pnpm db:reset` is required there.
 --
 -- WHAT IS HERE NOW: two empty tables and one function. Every row in
--- `demo_result` arrives from a refresh (AC-17) that runs one real Adzuna
--- search and scores every kept listing for real against both example
--- candidates. Nothing on `/demo` is hand written any more except the two
+-- `demo_result` arrives from a refresh (AC-17) that runs two real Adzuna
+-- searches, one per example candidate's own role, and scores every kept
+-- listing for real against both candidates. Nothing on `/demo` is hand written any more except the two
 -- candidate profiles themselves, which live in
 -- `src/features/demo/personas.ts` and are shown on the page in full.
 --
@@ -46,12 +46,25 @@ create table public.demo_result (
   -- title and company text, which is a join on prose.
   source_job_id text not null check (length(trim(source_job_id)) > 0),
 
-  -- THE TIEBREAK WITHIN ONE BAND (AC-7), and it is Adzuna's own returned rank
-  -- for this search after de-duplication, 1 based. Identical for both personas'
-  -- copies of the same listing, because both personas score the same kept set.
-  -- It has to be a column: every row is written by one transaction, so every
-  -- `created_at` below shares a single `now()` and cannot order anything.
+  -- THE TIEBREAK WITHIN ONE BAND (AC-7), and it is the order the refresh's kept
+  -- walk kept this listing, 1 based. The walk alternates between the two
+  -- searches, each in Adzuna's own order, so this interleaves them (backend 1,
+  -- frontend 1, backend 2, ...) and neither query's listings cluster at the
+  -- top of a band. Identical for both personas' copies of the same listing,
+  -- because both personas score the same kept set. It has to be a column: every
+  -- row is written by one transaction, so every `created_at` below shares a
+  -- single `now()` and cannot order anything.
   sort_order smallint not null check (sort_order > 0),
+
+  -- WHICH OF THE TWO FIXED QUERIES KEPT THIS LISTING (spec 0021, revised
+  -- 2026-09-15). A posting both searches returned is kept once, under whichever
+  -- search's turn reached it first. Without this column nothing stored says
+  -- where a listing came from, so the walk could not be checked from the data
+  -- and the stopping rule's own role count (a persona scored against its own
+  -- role's postings) could not be read at all.
+  search_title text not null check (
+    search_title in ('backend engineer', 'frontend engineer')
+  ),
 
   title text not null check (length(trim(title)) > 0),
 
@@ -170,12 +183,19 @@ create table public.demo_refresh (
   -- ambiguous, and the read would pick one.
   id smallint primary key default 1 check (id = 1),
 
-  -- The query the current results answer, shown on the page (AC-14) so a
-  -- reader knows what search these listings came back from rather than
-  -- assuming they were chosen.
-  search_title text not null check (length(trim(search_title)) > 0),
+  -- BOTH QUERIES THE CURRENT RESULTS ANSWER, in the order they ran, shown on
+  -- the page (AC-14) so a reader knows what searches these listings came back
+  -- from rather than assuming they were chosen. Exactly two, each non blank:
+  -- the same guarantee the single `search_title` column this replaced carried,
+  -- kept per element rather than dropped with the change to an array.
+  search_titles text[] not null check (
+    cardinality(search_titles) = 2
+    and length(trim(search_titles[1])) > 0
+    and length(trim(search_titles[2])) > 0
+  ),
 
-  -- Absent when the search was nationwide, which the fixed query is today.
+  -- The location both queries share. Absent when the searches were
+  -- nationwide, which both fixed queries are today.
   search_location text check (length(trim(search_location)) > 0),
 
   -- NULL UNTIL THE FIRST REFRESH EVER RUNS, which is exactly what AC-15's
@@ -187,7 +207,7 @@ create table public.demo_refresh (
 );
 
 comment on table public.demo_refresh is
-  'Spec 0021: one row describing the last /demo refresh, its search query and when it ran. refreshed_at null means no refresh has ever run.';
+  'Spec 0021: one row describing the last /demo refresh, its two search queries and when it ran. refreshed_at null means no refresh has ever run.';
 
 -- THE ATOMIC WRITE (AC-17). Every kept listing under both personas, plus the
 -- refresh metadata, replaced in one transaction or not at all.
@@ -213,7 +233,8 @@ comment on table public.demo_refresh is
 -- left untouched by a run that did not finish.
 create function public.replace_demo_results(
   p_results jsonb,
-  p_search_title text,
+  -- Both fixed queries' titles, in the order the searches ran.
+  p_search_titles text[],
   -- DEFAULTED, so the nationwide case is an omitted argument rather than an
   -- explicit null the caller has to type around. The generated TypeScript for a
   -- function argument carries no nullability, so without the default every
@@ -227,15 +248,16 @@ set search_path = ''
 as $$
 begin
   -- WHOLESALE REPLACEMENT, NEVER A PER ROW UPDATE. The result set is whatever
-  -- one search returned; merging a new run into an old one would leave the page
-  -- showing listings from two different searches under one stated query, and
-  -- would also accumulate rows indefinitely, which is the storage duration
-  -- question Adzuna's terms do not address.
+  -- one refresh's two searches returned; merging a new run into an old one
+  -- would leave the page showing listings from two different refreshes under
+  -- one stated pair of queries, and would also accumulate rows indefinitely,
+  -- which is the storage duration question Adzuna's terms do not address.
   --
-  -- `where true` IS NOT REDUNDANT HERE, AND REMOVING IT BREAKS THIS FUNCTION IN
-  -- PRODUCTION ONLY. Supabase enables the `safeupdate` guard on the connection
-  -- PostgREST serves requests over, which refuses any DELETE or UPDATE carrying
-  -- no WHERE clause outright: `ERROR: DELETE requires a WHERE clause`. A bare
+  -- `where true` IS NOT REDUNDANT HERE, AND REMOVING IT BREAKS EVERY APPLICATION
+  -- CALL TO THIS FUNCTION, LOCAL OR HOSTED. Supabase enables the `safeupdate`
+  -- guard on the connection PostgREST serves requests over, which refuses any
+  -- DELETE or UPDATE carrying no WHERE clause outright:
+  -- `ERROR: DELETE requires a WHERE clause`. A bare
   -- `delete from public.demo_result;` therefore runs fine from psql as the
   -- superuser and fails every time the application calls this function, which
   -- is exactly how it was found, on the first real refresh, after the search
@@ -247,6 +269,7 @@ begin
     persona_slug,
     source_job_id,
     sort_order,
+    search_title,
     title,
     company_name,
     location,
@@ -265,6 +288,7 @@ begin
     t.persona_slug,
     t.source_job_id,
     t.sort_order,
+    t.search_title,
     t.title,
     t.company_name,
     t.location,
@@ -282,6 +306,7 @@ begin
     persona_slug text,
     source_job_id text,
     sort_order smallint,
+    search_title text,
     title text,
     company_name text,
     location text,
@@ -302,17 +327,17 @@ begin
   -- would leave `refreshed_at` stuck null beside sixteen freshly written result
   -- rows: the page would show AC-15's "not available yet" state while holding a
   -- full set of real results, and nothing anywhere would have failed.
-  insert into public.demo_refresh (id, search_title, search_location, refreshed_at)
-  values (1, p_search_title, p_search_location, pg_catalog.now())
+  insert into public.demo_refresh (id, search_titles, search_location, refreshed_at)
+  values (1, p_search_titles, p_search_location, pg_catalog.now())
   on conflict (id) do update
   set
-    search_title = excluded.search_title,
+    search_titles = excluded.search_titles,
     search_location = excluded.search_location,
     refreshed_at = excluded.refreshed_at;
 end;
 $$;
 
-comment on function public.replace_demo_results(jsonb, text, text) is
+comment on function public.replace_demo_results(jsonb, text[], text) is
   'Spec 0021 AC-17: replaces every demo_result row and the demo_refresh singleton in one transaction. security invoker, so service_role own BYPASSRLS does the work rather than an elevated function owner.';
 
 -- THE INSERT COMES BEFORE ROW LEVEL SECURITY IS FORCED, DELIBERATELY, and this
@@ -323,13 +348,14 @@ comment on function public.replace_demo_results(jsonb, text, text) is
 -- confirm, so a migration that forced first and inserted second could pass
 -- locally and be refused on its first application to a hosted project.
 --
--- `search_title` CARRIES THE FIXED QUERY'S OWN TERM rather than a placeholder,
--- because the column is not nullable and the query is a constant this feature
--- already fixes (`src/features/demo/refresh.ts`). `refreshed_at` stays null,
--- which is the only field AC-15 reads, so this row says "the query we will run,
--- and no run has happened yet" rather than claiming results exist.
-insert into public.demo_refresh (id, search_title, search_location, refreshed_at)
-values (1, 'software engineer', null, null);
+-- `search_titles` CARRIES BOTH FIXED QUERIES' OWN TERMS rather than
+-- placeholders, because the column is not nullable and the queries are
+-- constants this feature already fixes (`src/features/demo/refresh.ts`).
+-- `refreshed_at` stays null, which is the only field AC-15 reads, so this row
+-- says "the queries we will run, and no run has happened yet" rather than
+-- claiming results exist.
+insert into public.demo_refresh (id, search_titles, search_location, refreshed_at)
+values (1, array['backend engineer', 'frontend engineer'], null, null);
 
 -- The database is the guarantee, not a check in application code.
 alter table public.demo_result enable row level security;
@@ -388,5 +414,5 @@ grant select, insert, update on public.demo_refresh to service_role;
 -- than a write; the revoke is written anyway, on the same reasoning the table
 -- revokes above carry, so the reachable surface matches the intended one
 -- instead of relying on a second check to refuse.
-revoke execute on function public.replace_demo_results(jsonb, text, text) from public;
-grant execute on function public.replace_demo_results(jsonb, text, text) to service_role;
+revoke execute on function public.replace_demo_results(jsonb, text[], text) from public;
+grant execute on function public.replace_demo_results(jsonb, text[], text) to service_role;

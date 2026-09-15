@@ -44,6 +44,8 @@ export interface DemoResult {
   readonly id: string;
   /** Adzuna's own listing id. What pairs this row with the other persona's. */
   readonly sourceJobId: string;
+  /** Which of the two fixed queries kept this listing. */
+  readonly searchTitle: string;
   readonly title: string;
   readonly companyName: string;
   readonly location: string | undefined;
@@ -81,7 +83,13 @@ export interface DemoScoredListing {
 
 /** What the last refresh searched for, and when it ran (AC-14, AC-15). */
 export interface DemoRefreshState {
-  readonly searchTitle: string;
+  /**
+   * BOTH QUERIES, IN THE ORDER THEY RAN, as a pair rather than an array. The
+   * table's own check guarantees exactly two, and the parse below checks it
+   * again, so the page can name both without an `undefined` branch that
+   * `noUncheckedIndexedAccess` would otherwise force on it.
+   */
+  readonly searchTitles: readonly [string, string];
   readonly searchLocation: string | undefined;
   /** `undefined` means no refresh has ever run, which is AC-15's state. */
   readonly refreshedAt: string | undefined;
@@ -121,6 +129,7 @@ const demoResultRowSchema = z.object({
   ),
   source_job_id: z.string().min(1),
   sort_order: z.number().int().positive(),
+  search_title: z.string().min(1),
   title: z.string().min(1),
   company_name: z.string().min(1),
   location: z.string().nullable(),
@@ -144,7 +153,7 @@ const demoResultRowSchema = z.object({
 
 /** What the singleton refresh row must actually be. */
 const demoRefreshRowSchema = z.object({
-  search_title: z.string().min(1),
+  search_titles: z.tuple([z.string().min(1), z.string().min(1)]),
   search_location: z.string().nullable(),
   refreshed_at: z.string().nullable(),
 });
@@ -156,8 +165,9 @@ const optional = <T>(value: T | null): T | undefined => value ?? undefined;
  *
  * THE ORDER IS THE ONE `/search` ALREADY USES, and it reuses `bandRank()`
  * rather than restating it, so the demo cannot show the reader an ordering the
- * real product does not use. `sort_order`, which is Adzuna's own returned rank
- * for the search, breaks a tie inside one band: every row in this table is
+ * real product does not use. `sort_order`, which is the order the refresh's
+ * walk kept each listing (it interleaves the two searches, each in Adzuna's own
+ * order), breaks a tie inside one band: every row in this table is
  * written by one transaction, so all of them share one `created_at` and it can
  * order nothing.
  *
@@ -200,7 +210,7 @@ export async function readDemoPage(
         async () =>
           await supabase
             .from("demo_refresh")
-            .select("search_title, search_location, refreshed_at")
+            .select("search_titles, search_location, refreshed_at")
             .eq("id", 1)
             .maybeSingle(),
       );
@@ -250,7 +260,7 @@ export async function readDemoPage(
       }
 
       const refresh: DemoRefreshState = {
-        searchTitle: parsedRefresh.data.search_title,
+        searchTitles: parsedRefresh.data.search_titles,
         searchLocation: optional(parsedRefresh.data.search_location),
         refreshedAt: optional(parsedRefresh.data.refreshed_at),
       };
@@ -288,7 +298,7 @@ export async function readDemoPage(
           await supabase
             .from("demo_result")
             .select(
-              "id, persona_slug, source_job_id, sort_order, title, company_name, location, salary_min, salary_max, salary_currency, salary_is_predicted, description_snippet, band, matched_skills, not_mentioned_skills, ungrounded_skills, reasoning",
+              "id, persona_slug, source_job_id, sort_order, search_title, title, company_name, location, salary_min, salary_max, salary_currency, salary_is_predicted, description_snippet, band, matched_skills, not_mentioned_skills, ungrounded_skills, reasoning",
             )
             .order("sort_order", { ascending: true }),
       );
@@ -441,6 +451,7 @@ function toDemoResult(row: DemoResultRow): DemoResult {
   return {
     id: row.id,
     sourceJobId: row.source_job_id,
+    searchTitle: row.search_title,
     title: row.title,
     companyName: row.company_name,
     location: optional(row.location),

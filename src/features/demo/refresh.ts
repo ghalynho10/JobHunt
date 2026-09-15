@@ -18,7 +18,7 @@ import { createSecretClient } from "@/lib/supabase/secret";
 import type { Json } from "@/lib/supabase/database.types";
 import type { UsageGateReason } from "@/lib/usage-gating/gate";
 
-import { DEMO_PERSONAS } from "./personas";
+import { DEMO_PERSONAS, type DemoPersonaSlug } from "./personas";
 import { mintRefreshSession } from "./refresh-session";
 
 /**
@@ -53,30 +53,75 @@ import { mintRefreshSession } from "./refresh-session";
  * scores are not even available at the point the set is chosen.
  */
 
-/**
- * The fixed query every refresh runs (spec 0021, **Feature design**).
- *
- * BROAD ON PURPOSE, so one search returns a mix of backend, frontend and full
- * stack postings and the two personas plausibly land on different bands. It is
- * fixed rather than tuned, and it is never adjusted after seeing what came
- * back: choosing the query by its results is the same cherry picking this
- * rework exists to remove, one step earlier in the pipe.
- */
-export const DEMO_SEARCH_TITLE = "software engineer";
+/** One fixed query, and the candidate whose own role it names. */
+interface DemoSearch {
+  readonly title: string;
+  readonly persona: DemoPersonaSlug;
+}
 
-/** Nationwide within the already configured `ADZUNA_COUNTRY`. */
+/**
+ * The two fixed queries every refresh runs, in the order they run (spec 0021,
+ * **Feature design**, "The fixed search queries", revised 2026-09-15).
+ *
+ * TWO OPPOSED ROLES, NOT ONE BROAD QUERY. The first real refresh searched
+ * "software engineer": 15 of its 16 rows carried zero matched skills, and three
+ * of its eight listings were roles neither candidate fits. Each query here is
+ * one candidate's own first desired title, so each candidate gets its own
+ * likely strong matches and its own likely mismatches, and AC-16's cross
+ * candidate line can show a difference in both directions. A single role query
+ * would lean toward whichever candidate it named.
+ *
+ * FIXED, AND NEVER RE-TUNED AFTER SEEING A RUN. Choosing a query by its results
+ * is the same cherry picking this rework removed, one step earlier in the pipe.
+ * The spec names one condition under which these are looked at again, its
+ * stopping rule, and that rule's answer is to leave them alone. `skillCounts`
+ * below is what it reads.
+ *
+ * `persona` IS WHICH CANDIDATE THE QUERY IS THE OWN ROLE FOR, which is what
+ * separates an own role row from a cross role one in `skillCounts`. The titles
+ * must stay in step with `demo_result.search_title`'s check constraint
+ * (`supabase/migrations/20260913120000_demo_result.sql`).
+ */
+export const DEMO_SEARCHES = [
+  { title: "backend engineer", persona: "backend-engineer" },
+  { title: "frontend engineer", persona: "frontend-engineer" },
+] as const satisfies readonly [DemoSearch, DemoSearch];
+
+/** One of the two fixed query titles. */
+export type DemoSearchTitle = (typeof DEMO_SEARCHES)[number]["title"];
+
+/** Nationwide within the already configured `ADZUNA_COUNTRY`, for both queries. */
 export const DEMO_SEARCH_LOCATION: string | undefined = undefined;
 
 /**
- * How many of Adzuna's own results a refresh keeps, at most.
+ * How many of ONE search's results a refresh keeps, at most.
  *
- * A CEILING AND NEVER A TARGET. If de-duplication or Adzuna's own response
- * leaves fewer, the refresh publishes however many remain rather than retrying,
- * widening the query or padding the set. Both personas score the same kept set,
- * so this is up to 16 `demo_result` rows and up to 16 scoring calls plus up to
- * 16 chained check calls per refresh.
+ * PER SEARCH, AND A CEILING RATHER THAN A TARGET. Two searches make this up to
+ * 8 listings in total, so still up to 16 `demo_result` rows, 16 scoring calls
+ * and 16 chained check calls, exactly what one search of 8 cost. A search that
+ * returns fewer publishes what it has: it is never topped up from the other
+ * search, retried, or widened.
  */
-export const KEPT_LISTING_COUNT = 8;
+export const KEPT_LISTING_COUNT = 4;
+
+/**
+ * The own role and cross role skill counts for the spec's stopping rule.
+ *
+ * TWO PAIRS, AND ONLY THE OWN ROLE PAIR ANSWERS THE RULE. An own role row is a
+ * candidate scored against a listing its own query kept; a cross role row is
+ * that candidate scored against the other role's listing, where zero matched
+ * skills is often the correct result. Counting empties across all rows would
+ * mix the two and fire on almost any run, so both pairs are recorded and kept
+ * apart. Computed from the rows about to be written, never from a later read.
+ */
+export interface DemoSkillCounts {
+  readonly ownRoleRows: number;
+  /** Own role rows whose stored `matched_skills` is empty. */
+  readonly ownRoleEmpty: number;
+  readonly crossRoleRows: number;
+  /** Cross role rows whose stored `matched_skills` is empty. */
+  readonly crossRoleEmpty: number;
+}
 
 /**
  * What one refresh did.
@@ -96,14 +141,16 @@ export type DemoRefreshOutcome =
       readonly completed: true;
       readonly listingCount: number;
       readonly rowCount: number;
+      readonly skillCounts: DemoSkillCounts;
     }
   | { readonly completed: false; readonly reason: UsageGateReason };
 
 /** One `demo_result` row, in the shape `replace_demo_results()` reads. */
 interface DemoResultRow {
-  readonly persona_slug: string;
+  readonly persona_slug: DemoPersonaSlug;
   readonly source_job_id: string;
   readonly sort_order: number;
+  readonly search_title: DemoSearchTitle;
   readonly title: string;
   readonly company_name: string;
   readonly location: string | null;
@@ -142,23 +189,42 @@ export async function refreshDemoResults(): Promise<
 
       if (isFailure(session)) return session;
 
-      const searched = await searchListings(
-        {
-          title: DEMO_SEARCH_TITLE,
-          ...(DEMO_SEARCH_LOCATION === undefined
-            ? {}
-            : { location: DEMO_SEARCH_LOCATION }),
-        },
-        session.value,
-      );
+      const [backendSearch, frontendSearch] = DEMO_SEARCHES;
 
-      if (isFailure(searched)) return searched;
+      const backend = await runSearch(backendSearch, session.value);
 
-      if (!searched.value.allowed) {
-        return refused(span, searched.value.reason, "job_search");
+      if (isFailure(backend)) return backend;
+
+      if (!backend.value.allowed) {
+        return refused(
+          span,
+          backend.value.reason,
+          "job_search",
+          backendSearch.title,
+        );
       }
 
-      const kept = keepListings(searched.value.value);
+      /**
+       * THE SECOND SEARCH RUNS ONLY ONCE THE FIRST HAS COMPLETED, and a refused
+       * or failed second search aborts even though the first succeeded. Only a
+       * search that succeeds and returns nothing is the "publish the other
+       * search's listings" case the walk handles; a search that did not
+       * complete is never read as an empty one.
+       */
+      const frontend = await runSearch(frontendSearch, session.value);
+
+      if (isFailure(frontend)) return frontend;
+
+      if (!frontend.value.allowed) {
+        return refused(
+          span,
+          frontend.value.reason,
+          "job_search",
+          frontendSearch.title,
+        );
+      }
+
+      const kept = keepListings(backend.value.value, frontend.value.value);
 
       /**
        * ZERO IS THE ONE SHORT RESULT SET THIS ABORTS ON, and it is not a
@@ -167,19 +233,21 @@ export async function refreshDemoResults(): Promise<
        * leaving the page in a state the spec designs no copy for: not AC-15's
        * "no refresh has ever run", because one just did, and not AC-12's
        * failure, because nothing failed. Aborting leaves the page in a state
-       * the spec does describe. Any count from one upward publishes as is.
+       * the spec does describe. Any count from one upward publishes as is,
+       * including one search keeping none while the other keeps some.
        */
       if (kept.length === 0) {
         return failure({
           kind: "record_not_found",
           severity: "unexpected",
-          message: "The demo refresh search returned no usable listings.",
-          context: { title: DEMO_SEARCH_TITLE },
+          message: "The demo refresh searches returned no usable listings.",
+          context: { titles: DEMO_SEARCHES.map((search) => search.title) },
         });
       }
 
       span.setAttribute("listings", kept.length);
 
+      const listings = kept.map((entry) => entry.listing);
       const rows: DemoResultRow[] = [];
 
       for (const persona of DEMO_PERSONAS) {
@@ -191,12 +259,13 @@ export async function refreshDemoResults(): Promise<
          */
         const outcomes = await scoreListings(
           persona.profile,
-          kept,
+          listings,
           session.value,
         );
 
-        for (const [index, listing] of kept.entries()) {
+        for (const [index, entry] of kept.entries()) {
           const outcome = outcomes[index];
+          const { listing } = entry;
 
           /**
            * `noUncheckedIndexedAccess` makes this reachable to the compiler
@@ -230,7 +299,7 @@ export async function refreshDemoResults(): Promise<
           }
 
           if (resolved.kind === "refused") {
-            return refused(span, resolved.reason, resolved.step);
+            return refused(span, resolved.reason, resolved.step, undefined);
           }
 
           /**
@@ -246,7 +315,8 @@ export async function refreshDemoResults(): Promise<
           rows.push({
             persona_slug: persona.slug,
             source_job_id: listing.sourceJobId,
-            sort_order: index + 1,
+            sort_order: entry.sortOrder,
+            search_title: entry.searchTitle,
             title: listing.title,
             company_name: listing.companyName,
             location: listing.location ?? null,
@@ -266,41 +336,181 @@ export async function refreshDemoResults(): Promise<
         }
       }
 
+      const skillCounts = countSkills(rows);
+
       const written = await writeDemoResults(rows);
 
       if (isFailure(written)) return written;
 
-      span.setAttributes({ rows: rows.length, outcome: "completed" });
+      span.setAttributes({
+        rows: rows.length,
+        outcome: "completed",
+        ...skillCounts,
+      });
 
       return success({
         completed: true,
         listingCount: kept.length,
         rowCount: rows.length,
+        skillCounts,
       });
     },
   );
 }
 
 /**
- * Adzuna's own order, de-duplicated, cut to the ceiling (AC-17).
+ * One fixed search, with its title on the Sentry scope while it runs.
  *
- * FIRST OCCURRENCE WINS, AND THE ORDER IS NEVER TOUCHED. Adzuna can return the
- * same advert twice; keeping the first occurrence in place preserves the rank
- * `sort_order` records. Sorting or re-ranking here would be this feature
- * choosing which real listings a reader sees, which is exactly what it must not
- * do.
+ * THE TITLE GOES ON THE SCOPE, NOT INTO A COPY OF THE FAILURE. `searchListings()`
+ * builds its own `Failure` through `failure()`, which reports the moment it is
+ * built, so by the time one reaches this function its report has already been
+ * sent. Rebuilding it here with a `title` added would either report the same
+ * fault twice or mean writing a failure object by hand, which binding rule 2
+ * forbids. Setting the context on the current scope first means that one report
+ * already says which of the two searches broke. It is cleared afterwards, so a
+ * later scoring failure is not reported as though it belonged to a search.
  */
-function keepListings(listings: readonly Listing[]): readonly Listing[] {
-  const seen = new Set<string>();
-  const unique: Listing[] = [];
+async function runSearch(
+  search: DemoSearch,
+  cookieAdapter: Parameters<typeof searchListings>[1],
+): ReturnType<typeof searchListings> {
+  const scope = Sentry.getCurrentScope();
 
-  for (const listing of listings) {
-    if (seen.has(listing.sourceJobId)) continue;
-    seen.add(listing.sourceJobId);
-    unique.push(listing);
+  scope.setContext("demo_search", { title: search.title });
+
+  const searched = await searchListings(
+    {
+      title: search.title,
+      ...(DEMO_SEARCH_LOCATION === undefined
+        ? {}
+        : { location: DEMO_SEARCH_LOCATION }),
+    },
+    cookieAdapter,
+  );
+
+  scope.setContext("demo_search", null);
+
+  return searched;
+}
+
+/** One listing the walk kept, with where it came from and where it sits. */
+export interface KeptListing {
+  readonly listing: Listing;
+  /** The search whose turn kept it, stored as `demo_result.search_title`. */
+  readonly searchTitle: DemoSearchTitle;
+  /** The walk's keep order, 1 based, stored as `demo_result.sort_order`. */
+  readonly sortOrder: number;
+}
+
+/**
+ * Both searches' own Adzuna order, walked in alternating turns (AC-7, AC-17).
+ *
+ * THE RULE, AS THE SPEC STATES IT. Backend takes the first turn, then frontend,
+ * and so on. On its turn a search keeps its next listing, in its own order,
+ * whose `sourceJobId` neither search has kept yet, skipping any that has been,
+ * so a duplicate costs that search nothing. A search stops taking turns once it
+ * has kept `KEPT_LISTING_COUNT` or its own results run out, and the other
+ * carries on alone. A short search is never topped up from the other.
+ *
+ * A LISTING BOTH SEARCHES RETURNED IS KEPT ONCE, by whichever search reaches it
+ * first, which at equal rank is the backend search because it moves first. That
+ * tie rule is fixed before any score exists, so it cannot be a selection by
+ * outcome.
+ *
+ * PURE AND EXPORTED, so it is tested directly over plain listing arrays with
+ * nothing mocked, and the zero case (two empty lists give an empty result) is
+ * provable without a session or a search.
+ */
+export function keepListings(
+  backend: readonly Listing[],
+  frontend: readonly Listing[],
+): readonly KeptListing[] {
+  const [backendSearch, frontendSearch] = DEMO_SEARCHES;
+
+  /**
+   * EACH LANE'S ITERATOR IS THE ONE PIECE OF STATE THE WALK NEEDS, and it is
+   * local to this call. An iterator remembers how far through its own results a
+   * search has read, which is exactly "its next listing" in the rule above.
+   */
+  const lanes = [
+    { title: backendSearch.title, remaining: backend.values() },
+    { title: frontendSearch.title, remaining: frontend.values() },
+  ] as const;
+
+  const seen = new Set<string>();
+  const kept: KeptListing[] = [];
+  const finished = new Set<DemoSearchTitle>();
+
+  while (finished.size < lanes.length) {
+    for (const lane of lanes) {
+      if (finished.has(lane.title)) continue;
+
+      const next = nextUnseen(lane.remaining, seen);
+
+      if (next === undefined) {
+        finished.add(lane.title);
+        continue;
+      }
+
+      seen.add(next.sourceJobId);
+      kept.push({
+        listing: next,
+        searchTitle: lane.title,
+        sortOrder: kept.length + 1,
+      });
+
+      const keptByLane = kept.filter(
+        (entry) => entry.searchTitle === lane.title,
+      ).length;
+
+      if (keptByLane >= KEPT_LISTING_COUNT) finished.add(lane.title);
+    }
   }
 
-  return unique.slice(0, KEPT_LISTING_COUNT);
+  return kept;
+}
+
+/** The next listing an iterator yields whose id has not been kept yet. */
+function nextUnseen(
+  remaining: Iterator<Listing>,
+  seen: ReadonlySet<string>,
+): Listing | undefined {
+  while (true) {
+    const step = remaining.next();
+
+    if (step.done === true) return undefined;
+    if (!seen.has(step.value.sourceJobId)) return step.value;
+  }
+}
+
+/**
+ * The stopping rule's counts, from the rows about to be written.
+ *
+ * AN OWN ROLE ROW IS ONE WHERE THE ROW'S PERSONA IS THE PERSONA ITS SEARCH WAS
+ * FOR: the backend candidate on a listing the "backend engineer" search kept,
+ * the frontend candidate on one "frontend engineer" kept. Every other row is
+ * cross role. Empty means the stored `matched_skills`, after the grounding
+ * check removed anything it flagged, because that is what the card shows.
+ */
+function countSkills(rows: readonly DemoResultRow[]): DemoSkillCounts {
+  const isOwnRole = (row: DemoResultRow): boolean =>
+    DEMO_SEARCHES.some(
+      (search) =>
+        search.title === row.search_title &&
+        search.persona === row.persona_slug,
+    );
+
+  const own = rows.filter(isOwnRole);
+  const cross = rows.filter((row) => !isOwnRole(row));
+  const empty = (subset: readonly DemoResultRow[]): number =>
+    subset.filter((row) => row.matched_skills.length === 0).length;
+
+  return {
+    ownRoleRows: own.length,
+    ownRoleEmpty: empty(own),
+    crossRoleRows: cross.length,
+    crossRoleEmpty: empty(cross),
+  };
 }
 
 /** Which call a refusal or failure came from, for the report and the span. */
@@ -401,20 +611,28 @@ function resolveOutcome(outcome: ListingOutcome): ResolvedOutcome {
  * `expected` severity, so this reports the same way without the span side
  * effect the binding rule forbids. The same shape `ApplyControl` uses for the
  * one failure that structurally cannot go through `failure()`.
+ *
+ * @param search The refused search's title when the step is `job_search`, so
+ * the report says which of the two searches the budget declined; `undefined`
+ * for a scoring or check refusal, which belongs to no one search.
  */
 function refused(
   span: Span,
   reason: UsageGateReason,
   step: RefreshStep,
+  search: DemoSearchTitle | undefined,
 ): Result<DemoRefreshOutcome> {
   span.setAttributes({
     outcome: "refused",
     refusedReason: reason,
     refusedStep: step,
+    ...(search === undefined ? {} : { refusedSearch: search }),
   });
 
   Sentry.captureMessage(
-    `The demo refresh was refused by the usage gate at ${step}: ${reason}. Nothing was written.`,
+    search === undefined
+      ? `The demo refresh was refused by the usage gate at ${step}: ${reason}. Nothing was written.`
+      : `The demo refresh was refused by the usage gate at ${step} for "${search}": ${reason}. Nothing was written.`,
     "info",
   );
 
@@ -452,7 +670,11 @@ async function writeDemoResults(
          * chance to leave the page holding half a refresh.
          */
         p_results: rows as unknown as Json,
-        p_search_title: DEMO_SEARCH_TITLE,
+        /**
+         * BOTH TITLES, IN THE ORDER THE SEARCHES RAN, which is the order the
+         * page names them in. The table's own check requires exactly two.
+         */
+        p_search_titles: DEMO_SEARCHES.map((search) => search.title),
         ...(DEMO_SEARCH_LOCATION === undefined
           ? {}
           : { p_search_location: DEMO_SEARCH_LOCATION }),

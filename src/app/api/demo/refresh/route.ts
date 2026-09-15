@@ -105,9 +105,16 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  /**
+   * THE FOUR SKILL COUNTS ARE IN THE BODY so whoever triggered the refresh can
+   * read the spec's stopping rule straight off this answer: it reads
+   * `ownRoleEmpty` against `ownRoleRows`, never an empty count over every row
+   * (spec 0021, `## Follow-up`).
+   */
   return Response.json({
     refreshed: true,
     listings: outcome.value.listingCount,
     rows: outcome.value.rowCount,
+    ...outcome.value.skillCounts,
   });
 }

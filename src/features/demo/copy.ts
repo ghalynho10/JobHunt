@@ -81,9 +81,20 @@ export const DEMO_COPY = {
   otherPersonaBand: (label: string, band: string): string =>
     `${label}: ${band}`,
 
-  /** AC-14's line naming the search these listings answer. */
-  searchedFor: (title: string, location: string | undefined): string =>
+  /**
+   * AC-14's line naming both searches these listings answer (spec 0021,
+   * revised 2026-09-15).
+   *
+   * "UP TO FOUR FROM EACH" AND NOT "THE FIRST FOUR". A search can come back
+   * short, or lose a listing to the other search's duplicate, and the refresh
+   * publishes what it kept rather than topping it up, so a sentence promising
+   * four from each would be false on exactly the runs it describes least well.
+   */
+  searchedFor: (
+    titles: readonly [string, string],
+    location: string | undefined,
+  ): string =>
     location === undefined
-      ? `These are the first results for a search for "${title}".`
-      : `These are the first results for a search for "${title}" in ${location}.`,
+      ? `These are the first results from two searches, up to four from each: "${titles[0]}" and "${titles[1]}".`
+      : `These are the first results from two searches, up to four from each: "${titles[0]}" and "${titles[1]}" in ${location}.`,
 } as const;

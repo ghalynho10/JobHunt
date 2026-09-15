@@ -47,12 +47,17 @@ export interface DemoPersona {
  *
  * TWO ENGINEERS WITH CONTRASTING STACKS, CHANGED FROM AN ENGINEER AND A
  * DESIGNER ON 2026-09-14. Both are now scored for real against the same real
- * listings from one "software engineer" search, and a designer scored against
- * that set would land at the bottom of every band on every listing, which
- * demonstrates nothing except that a designer is not a software engineer. Two
- * engineers whose skills barely overlap produce a genuine per candidate
- * difference on the same posting, which is the claim AC-6 and AC-16 exist to
- * show.
+ * listings, and a designer scored against engineering postings would land at
+ * the bottom of every band on every listing, which demonstrates nothing except
+ * that a designer is not an engineer. Two engineers whose skills barely overlap
+ * produce a genuine per candidate difference on the same posting, which is the
+ * claim AC-6 and AC-16 exist to show.
+ *
+ * EACH ONE'S FIRST DESIRED TITLE IS ALSO ITS OWN ROLE'S SEARCH (revised
+ * 2026-09-15). The refresh runs "backend engineer" and "frontend engineer",
+ * `DEMO_SEARCHES` in `refresh.ts`, and both candidates score the listings from
+ * both. Changing a candidate's first desired title here does not change the
+ * query that runs; the two are kept in step by hand.
  *
  * The first is the default, which is stated once below rather than left as an
  * unwritten property of this array's order.
