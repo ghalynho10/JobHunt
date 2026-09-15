@@ -439,20 +439,35 @@ Company level facts only, one fetch plus one summarize call, cached with a long 
 - [ ] Design it (spec): `/architect company research, lite`
 
 ### 31. Seeded demo account
-A public page at `/demo` showing a fixed, already scored set of fake job listings under two
+~~A public page at `/demo` showing a fixed, already scored set of fake job listings under two
 example candidate profiles, so a visitor can see the product's ranking output without signing
-up and without the app spending a real search or scoring call. A richer version (a real seeded
-account with applications and a dashboard) was considered and deferred; see Deferred below.
-**Done when:** a visitor reaches it without signing up, every seeded value is obviously fake, a visitor cannot corrupt it for the next visitor, and it makes no external paid call.
-- [x] Design it (spec): [0021](../specs/0021-seeded-demo-account/index.md)
-- [ ] Build it: `/develop seeded demo account`
-  - [x] Seed the data: the `demo_result` migration, row level security, the load bearing grant, and all twelve seeded rows, satisfies AC-3, AC-6, AC-7
-  - [x] Read path: the secret key query, its Zod parse, and the `demo.read` span, satisfies AC-2, AC-12
-  - [x] Render one profile end to end: the demo card component, the `/demo` page, the banner, and the failure state, satisfies AC-1, AC-8, AC-9, AC-10, AC-11, AC-12
-  - [x] Persona switching: the second profile's rows and the switcher links, satisfies AC-5
-  - [ ] Entry page integration: the hero link and the about section copy move, in the same pass as marking this feature done, satisfies AC-13
+up and without the app spending a real search or scoring call.~~ · **SUPERSEDED 2026-09-14.**
+A fabricated demo cannot serve as evidence the ranking works, since a reader can reasonably
+assume the examples were picked to flatter it, and a "sample data" label does not fix that.
+The replacement keeps the same public, no sign in `/demo` page but scores real Adzuna listings
+for real, under two fictional candidate profiles that are now the only fabricated element and
+are shown on the page as the whole disclosure. Rows come from a manually triggered refresh (one
+Adzuna search, scored for real against each persona, written to the demo table), not a build
+time migration, so the result set is periodically real rather than hand picked. A richer version
+(a real seeded account with applications and a dashboard) is a separate, still deferred idea; see
+Deferred below.
+**Done when:** ~~a visitor reaches it without signing up, every seeded value is obviously fake, a visitor cannot corrupt it for the next visitor, and it makes no external paid call.~~ · **SUPERSEDED 2026-09-14**, replaced by: a visitor reaches `/demo` without signing up; the listings and their scores are real, the two candidate profiles are clearly labeled fictional, and the search query they answer is shown; a visitor cannot corrupt it for the next visitor or trigger a refresh themselves; no external paid call happens on render, only at the manually triggered refresh; and one listing is shown scored under both personas side by side.
+- [x] Design it (spec): [0021](../specs/0021-seeded-demo-account/index.md) — revised in place 2026-09-14, same spec number. Reversed decisions are struck through and annotated `SUPERSEDED` rather than deleted, per this repo's own spec [0006](../specs/0006-entry-page-and-link-metadata/index.md) AC-7 precedent: AC-2, AC-3, AC-4, AC-6, AC-9, AC-10, and the security model's "no write path exists at all" invariant. A cross model check ran against the first draft and found real gaps (an unaccounted `ai_check` call chain, an underspecified atomic write, a few artifacts the rework left quietly false); all are fixed in the accepted spec
+- [ ] Build it: `/develop seeded demo account` — four of the five milestones landed 2026-09-14, code in `src/features/demo/`, `src/app/(marketing)/demo/`, `src/app/api/demo/refresh/` and `supabase/migrations/20260913120000_demo_result.sql`. The box stays open because the fifth (entry page integration, AC-13) is deliberately held until this version ships, not because anything is unfinished. One real refresh was run end to end on the local stack: one Adzuna search, 16 scoring calls, one grounding check, 16 rows written atomically, and both personas rendered against real employers
+  - [x] Schema and legal registry: the `demo_result` migration edited in place (new columns, `security invoker` atomic write function, `demo_refresh` table), `pnpm db:types`, and reclassifying `demo_result`/`demo_refresh` in the legal registry, satisfies AC-3, AC-6, AC-8, AC-9, AC-14, AC-15, AC-17, AC-18
+  - [x] Persona content: the two `ScoringProfile` shaped fictional candidates (a backend engineer and a frontend engineer, contrasting stacks) in `personas.ts`, satisfies AC-3, AC-5, AC-14
+  - [x] The refresh and its route: the dedicated refresh identity, the admin session mint, one real search plus real scoring (including the grounding check) against both personas with an all or nothing abort, the atomic write, and the protected route that triggers it, satisfies AC-2, AC-17, AC-18
+  - [x] Read path and rendering: both personas read in one pass, the cross persona band line, ungrounded skill rendering, real Adzuna/Jobsworth attribution, and the wording pass removing every claim that the page is fabricated, satisfies AC-1, AC-7, AC-10 through AC-16, AC-19
+  - [ ] Entry page integration: the hero link and the about section copy move, satisfies AC-13 — **stays held**, unchanged from before: wiring it to a demo already decided to be insufficient would advertise exactly what this rework exists to fix
 - [ ] Verify it: `/check verify seeded demo account`
 - [ ] Test it: `/test seeded demo account`
+
+_Rework decided 2026-09-14, superseding the build above before anything went live (AC-13 was already deliberately held). Three structural calls, each explicitly reversible by a later `/scope` pass if it stops holding:_
+_**Feature identity**: stays feature 31, spec 0021 revised in place rather than closed and re-opened as a new row, since nothing fabricated ever shipped to a real visitor._
+_**Branch handling**: `feat/seeded-demo-account` is superseded in place, not merged. Work continues on it (or a branch off it); the fabricated seed migration and its twelve hand written rows do not land on `main`, even unlinked from the entry page, so no fabricated `/demo` route is ever reachable on the production branch._
+_**AC-13 timing**: stays held until this version ships._
+_**Verified terms position** (checked 2026-09-14 at https://developer.adzuna.com/docs/terms_of_service, the same source spec 0013 cites): "Publishing Adzuna ad listings" is a named permissible use with no authenticated-visitor restriction; obligations are the existing "Jobs by Adzuna" attribution (116×23px minimum, both halves hyperlinked) and, where a Jobsworth estimate is shown, its icon/label/mouseover text; rate limits (25/min, 250/day, 1000/week, 2500/month) make a weekly refresh negligible; storage duration is not addressed, a gap rather than a permission, hence replacing the table on each refresh rather than accumulating; terms may change, so `/architect` should add a re-verification Follow-up as spec 0013 already carries._
+_**Resolved by spec 0021's revision, 2026-09-14** (was left to `/architect`, not decided in this pass): the refresh shares the existing `job_search`/`ai_scoring`/`ai_check` caps rather than getting its own call type, but authenticates as a dedicated internal identity so its account scope budget is separate from any real user's regardless; a named real employer's posting always shows its real name and content whatever band it receives, including `weak_match` and `not_a_match` (spec 0021 AC-19); the "no view posting link" decision stands unchanged; and "whatever a refresh returns gets published, unedited and unre-rolled" is recorded as a stated rule in the spec's Feature design, load bearing enough that the kept listing count, de-duplication, and even a short result set all follow it rather than any selection by score._
 
 ## Deferred
 
