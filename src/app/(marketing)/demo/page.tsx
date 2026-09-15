@@ -7,21 +7,33 @@ import { Text } from "@/components/ui/text";
 import { DEMO_COPY } from "@/features/demo/copy";
 import { DemoCard } from "@/features/demo/demo-card";
 import { DEMO_PERSONAS, parseDemoPersona } from "@/features/demo/personas";
-import { readDemoResults } from "@/features/demo/queries";
+import { PersonaProfile } from "@/features/demo/persona-profile";
+import { readDemoPage } from "@/features/demo/queries";
 import { EntryHeader } from "@/features/entry-page/entry-header";
 import { isFailure } from "@/lib/result";
 
 /**
- * The public demo (spec 0021, AC-1, AC-5, AC-10, AC-11, AC-12).
+ * The public demo (spec 0021, AC-1, AC-5, AC-10 to AC-16, AC-19).
+ *
+ * WHAT IS ON THIS PAGE IS REAL, AND THAT IS THE POINT OF THE 2026-09-14 REWORK.
+ * The listings are real Adzuna postings from one real search; the bands, skills
+ * and reasoning are real scoring calls, through the same `scoreListings()` a
+ * signed in person's `/search` runs. The two candidates being scored are
+ * invented, and the page shows both of them in full so a reader can check every
+ * judgment against exactly what the scorer was told. A demo built out of made
+ * up listings could never be evidence the ranking works, because a reader can
+ * reasonably assume the examples were picked to flatter it, and a "sample data"
+ * label does not fix that.
  *
  * NO SIGN IN, NO SESSION READ, NO REDIRECT (AC-1). This page never asks who is
  * reading it. It sits under `(marketing)` rather than `(app)` precisely so the
  * protected layout's session check is nowhere above it.
  *
- * IT SPENDS NOTHING (AC-2). One Postgres select against twelve fixed rows. No
- * Adzuna call, no model call, no usage gate, because there is no metered call
- * here to gate. A link to this page can be shared as widely as anyone likes and
- * the cost does not move.
+ * IT STILL SPENDS NOTHING ON A RENDER (AC-2). Two Postgres selects. No Adzuna
+ * call, no model call, no usage gate, because there is no metered call here to
+ * gate. Every paid call happens in the refresh, behind a secret no visitor
+ * holds, on a cadence no visitor controls. A link to this page can be shared as
+ * widely as anyone likes and the cost does not move.
  *
  * IT SHIPS NO CLIENT JAVASCRIPT. The profile switcher is two ordinary links and
  * everything else is server rendered, so this page keeps the contract `/` and
@@ -35,7 +47,7 @@ import { isFailure } from "@/lib/result";
 export const metadata: Metadata = {
   title: "Demo",
   description:
-    "See how JobHunt ranks openings, on a fixed set of sample listings, with no sign up. The same listing scored for two different candidates.",
+    "See how JobHunt ranks real job postings, with no sign up. The same real listings scored for two different example candidates.",
   /**
    * AC-11, STATED HERE RATHER THAN INHERITED, and the duplication is on
    * purpose. The root layout already sets `index: false` site wide, so this
@@ -62,7 +74,7 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
   const activeLabel =
     DEMO_PERSONAS.find((entry) => entry.slug === active)?.label ?? active;
 
-  const results = await readDemoResults(active);
+  const page = await readDemoPage(active);
 
   return (
     <>
@@ -70,27 +82,27 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
 
       <main className="flex-1">
         <Section weight="standard">
-          <Heading level={1}>See it on sample results</Heading>
+          <Heading level={1}>See it on real job postings</Heading>
 
           <Text className="mt-3">
             This is what JobHunt shows after a search: each opening ranked
             against one candidate, with the skills that matched and the
-            reasoning behind the band. Two listings below appear under both
-            profiles, scored differently, because the score is about the person
+            reasoning behind the band. Every listing below is scored twice, once
+            for each example candidate, because the score is about the person
             and not just the posting.
           </Text>
 
           {/*
-           * AC-10, ABOVE THE RESULTS RATHER THAN BELOW THEM. A reader who
-           * scrolls, reads three cards and leaves must have already passed
-           * this sentence; a disclaimer under the fold is a disclaimer for
+           * AC-10 AND AC-14, ABOVE THE RESULTS RATHER THAN BELOW THEM. A reader
+           * who scrolls, reads three cards and leaves must have already passed
+           * this sentence; a disclosure under the fold is a disclosure for
            * whoever was going to read the whole page anyway.
            *
-           * A LEFT RULE AND NO BOX. A rounded, bordered container composed
-           * here by hand is what `eslint.config.mjs`'s `no-restricted-syntax`
-           * rule catches outside `src/components/ui/`, per spec 0005's
-           * standard definition, and this note does not warrant a new design
-           * system primitive of its own.
+           * A LEFT RULE AND NO BOX. A rounded, bordered container composed here
+           * by hand is what `eslint.config.mjs`'s `no-restricted-syntax` rule
+           * catches outside `src/components/ui/`, per spec 0005's standard
+           * definition, and this note does not warrant a new design system
+           * primitive of its own.
            *
            * NOT `role="alert"`. Nothing has gone wrong and nothing changed
            * after load; it is a standing fact about the page, so it reads in
@@ -154,7 +166,7 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
             {`Ranked for the ${activeLabel.toLowerCase()} profile`}
           </Heading>
 
-          {isFailure(results) ? (
+          {isFailure(page) ? (
             /*
              * AC-12. A NORMAL 200 AND A VISIBLE SENTENCE, never an empty list
              * and never a thrown error. An empty list would read as a working
@@ -172,17 +184,110 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
             <div role="alert" className="mt-6 border-l-4 border-red-700 pl-4">
               <Text>{DEMO_COPY.readFailed}</Text>
             </div>
+          ) : page.value.refresh.refreshedAt === undefined ? (
+            /*
+             * AC-15, AND DELIBERATELY NOT `role="alert"`. This is not a
+             * failure: the read succeeded and the honest answer is that no
+             * refresh has run yet. It is worded apart from AC-12's sentence
+             * because a reader who is told something broke when nothing did
+             * learns something false about the product, and because an
+             * engineer looking at a fresh deployment needs to tell the two
+             * apart at a glance.
+             */
+            <div className="mt-6 border-l-4 border-line pl-4">
+              <Text>{DEMO_COPY.notRefreshedYet}</Text>
+            </div>
           ) : (
-            <ul className="mt-6 space-y-4">
-              {results.value.map((result) => (
-                <li key={result.id}>
-                  <DemoCard result={result} />
-                </li>
-              ))}
-            </ul>
+            <>
+              {/*
+               * AC-14. THE QUERY AND THE REFRESH TIME, TOGETHER, ABOVE THE
+               * RESULTS. The query is what stops the set reading as hand
+               * picked: these are the first results for a stated search, not a
+               * selection. The time is what keeps the page honest between
+               * refreshes, since a run that failed or was forgotten leaves
+               * older real data here indefinitely and this line is the only
+               * thing that says so.
+               */}
+              <Text variant="muted" className="mt-3">
+                {DEMO_COPY.searchedFor(
+                  page.value.refresh.searchTitle,
+                  page.value.refresh.searchLocation,
+                )}
+              </Text>
+
+              <Text variant="muted" className="mt-1">
+                {/*
+                 * A `time` ELEMENT CARRYING THE RAW TIMESTAMP, so the machine
+                 * readable value is the stored one while the visible text is
+                 * formatted (`AGENTS.md`: store raw, format at render).
+                 */}
+                Last refreshed{" "}
+                <time dateTime={page.value.refresh.refreshedAt}>
+                  {refreshedOnText(page.value.refresh.refreshedAt)}
+                </time>
+                .
+              </Text>
+
+              <ul className="mt-6 space-y-4">
+                {page.value.results.map((listing) => (
+                  <li key={listing.own.id}>
+                    <DemoCard listing={listing} />
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
+
+          {/*
+           * AC-14's disclosure, AND IT RENDERS IN EVERY STATE, including the
+           * two above where there are no results. It is the answer to "what
+           * was made up here", and that answer does not depend on whether a
+           * refresh happened to succeed.
+           *
+           * BELOW THE RESULTS RATHER THAN ABOVE THEM, on the same reasoning
+           * the cards put the judgment below the posting: the banner already
+           * told the reader at the top that the candidates are invented, and a
+           * reader who wants to check a band against a profile is a reader who
+           * has already read some bands.
+           */}
+          <Heading level={2} className="mt-12">
+            {DEMO_COPY.profilesHeading}
+          </Heading>
+
+          <Text className="mt-3">{DEMO_COPY.profilesCaption}</Text>
+
+          <ul className="mt-6 space-y-4">
+            {DEMO_PERSONAS.map((entry) => (
+              <li key={entry.slug}>
+                <PersonaProfile persona={entry} />
+              </li>
+            ))}
+          </ul>
         </Section>
       </main>
     </>
   );
+}
+
+/**
+ * The refresh time, as an absolute date.
+ *
+ * DELIBERATELY NOT RELATIVE, on `appliedOnText()`'s own reasoning: "refreshed 3
+ * days ago" is useful for about a week and misleading afterwards, and this page
+ * can sit unrefreshed for a long time. An absolute date ages honestly.
+ *
+ * Returns the raw value on an unparseable timestamp rather than hiding the
+ * line, because the line is what keeps the page's freshness claim checkable and
+ * a silently missing one would read as a page with no staleness to declare.
+ */
+function refreshedOnText(refreshedAt: string): string {
+  const refreshed = new Date(refreshedAt);
+
+  if (Number.isNaN(refreshed.getTime())) return refreshedAt;
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(refreshed);
 }
