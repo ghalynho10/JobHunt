@@ -179,6 +179,10 @@ export const ENV_KEYS_WITH_NO_RECIPIENT: readonly NonRecipientEnvKey[] = [
     why: "A local switch deciding whether the design system preview renders. It leaves no request.",
   },
   {
+    key: "DEMO_REFRESH_SECRET",
+    why: "The shared secret the demo refresh route compares an incoming caller against, on this server. It is only ever read here and never sent anywhere.",
+  },
+  {
     key: "NEXT_PUBLIC_SITE_URL",
     why: "This site's own canonical address, used to build links. It is a destination, not a recipient.",
   },

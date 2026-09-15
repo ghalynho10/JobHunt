@@ -73,7 +73,11 @@ export const NON_PERSONAL_TABLES: readonly NonPersonalTable[] = [
   },
   {
     table: "demo_result",
-    why: "The fixed set of invented job listings and example scores shown on the public demo page. Every value in it was made up in advance and is the same for everyone. It describes no real person, no real employer, and no real job posting.",
+    why: "The job listings and scores shown on the public demo page. The listings are real openings from Adzuna and the scores are real, but they are scored against two made up example candidates rather than against anybody, and the same rows are shown to everyone. It describes no real person.",
+  },
+  {
+    table: "demo_refresh",
+    why: "One row saying which search the public demo page's listings came from and when they were last refreshed. It holds a search term and a time, with no person attached to it.",
   },
   {
     table: "usage_cap",
