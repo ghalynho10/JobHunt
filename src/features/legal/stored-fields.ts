@@ -77,7 +77,7 @@ export const NON_PERSONAL_TABLES: readonly NonPersonalTable[] = [
   },
   {
     table: "demo_refresh",
-    why: "One row saying which search the public demo page's listings came from and when they were last refreshed. It holds a search term and a time, with no person attached to it.",
+    why: "One row saying which two searches the public demo page's listings came from and when they were last refreshed. It holds two search terms and a time, with no person attached to it.",
   },
   {
     table: "usage_cap",
