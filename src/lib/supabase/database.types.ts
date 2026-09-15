@@ -158,6 +158,27 @@ export type Database = {
           },
         ]
       }
+      demo_refresh: {
+        Row: {
+          id: number
+          refreshed_at: string | null
+          search_location: string | null
+          search_title: string
+        }
+        Insert: {
+          id?: number
+          refreshed_at?: string | null
+          search_location?: string | null
+          search_title: string
+        }
+        Update: {
+          id?: number
+          refreshed_at?: string | null
+          search_location?: string | null
+          search_title?: string
+        }
+        Relationships: []
+      }
       demo_result: {
         Row: {
           band: string
@@ -170,10 +191,14 @@ export type Database = {
           not_mentioned_skills: string[]
           persona_slug: string
           reasoning: string
+          salary_currency: string | null
+          salary_is_predicted: boolean
           salary_max: number | null
           salary_min: number | null
           sort_order: number
+          source_job_id: string
           title: string
+          ungrounded_skills: string[]
         }
         Insert: {
           band: string
@@ -186,10 +211,14 @@ export type Database = {
           not_mentioned_skills?: string[]
           persona_slug: string
           reasoning: string
+          salary_currency?: string | null
+          salary_is_predicted?: boolean
           salary_max?: number | null
           salary_min?: number | null
           sort_order: number
+          source_job_id: string
           title: string
+          ungrounded_skills?: string[]
         }
         Update: {
           band?: string
@@ -202,10 +231,14 @@ export type Database = {
           not_mentioned_skills?: string[]
           persona_slug?: string
           reasoning?: string
+          salary_currency?: string | null
+          salary_is_predicted?: boolean
           salary_max?: number | null
           salary_min?: number | null
           sort_order?: number
+          source_job_id?: string
           title?: string
+          ungrounded_skills?: string[]
         }
         Relationships: []
       }
@@ -437,6 +470,14 @@ export type Database = {
         }[]
       }
       provider_display_name: { Args: { provider: string }; Returns: string }
+      replace_demo_results: {
+        Args: {
+          p_results: Json
+          p_search_location?: string
+          p_search_title: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

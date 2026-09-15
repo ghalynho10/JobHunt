@@ -1,16 +1,25 @@
--- Spec 0021: the seeded demo results behind the public `/demo` page.
+-- Spec 0021: the tables behind the public `/demo` page.
 --
--- Twelve fixed rows, six per example profile, written here rather than fetched
--- or scored. Nothing on `/demo` costs an Adzuna call or an AI call (AC-2),
--- because every value it shows was prepared in advance and lives in this file.
+-- EDITED IN PLACE ON 2026-09-14, NOT SUPERSEDED BY A SECOND MIGRATION. The
+-- original version of this file created a table and seeded twelve fabricated
+-- rows into it. That design was reversed: a fabricated demo cannot be evidence
+-- the ranking works, because a reader can reasonably assume the examples were
+-- picked to flatter it. This file never applied to a hosted project, so there
+-- is no live data to transform and nothing to roll back. If it ever applied to
+-- a local or preview database, `pnpm db:reset` is required there.
 --
--- THIS IS A MIGRATION AND NOT `supabase/seed.sql`, deliberately. That file
--- applies only on a local `db reset` and never on a hosted project, and the
--- whole point of this feature is a link somebody can be sent, which means the
--- rows have to exist in production.
+-- WHAT IS HERE NOW: two empty tables and one function. Every row in
+-- `demo_result` arrives from a refresh (AC-17) that runs one real Adzuna
+-- search and scores every kept listing for real against both example
+-- candidates. Nothing on `/demo` is hand written any more except the two
+-- candidate profiles themselves, which live in
+-- `src/features/demo/personas.ts` and are shown on the page in full.
 --
 -- NO FOREIGN KEY AND NO RELATIONSHIP TO ANY OTHER TABLE. This data belongs to
--- nobody, describes nobody, and is never joined to a real row.
+-- nobody and is never joined to a real row. `demo_refresh` is metadata about
+-- the last run rather than a parent of the result rows, so the two are not
+-- related either; they are only ever written together, by the one function
+-- below, in one transaction.
 --
 -- THE STATEMENT ORDER BELOW IS THE CORRECTNESS, not a style, and it is the same
 -- order `20260821120000_app_settings.sql` uses for the same reasons. Each block
@@ -22,36 +31,72 @@ create table public.demo_result (
   -- Exactly two example profiles, checked by the database rather than by
   -- convention. A third slug arriving here would render on a page whose
   -- switcher does not know it exists.
+  --
+  -- `product-designer` became `frontend-engineer` on 2026-09-14: both personas
+  -- are now scored for real against the same listings, and a contrasting pair
+  -- of engineers gives a cleaner signal than an engineer against a designer.
   persona_slug text not null check (
-    persona_slug in ('backend-engineer', 'product-designer')
+    persona_slug in ('backend-engineer', 'frontend-engineer')
   ),
 
-  -- THE TIEBREAK WITHIN ONE BAND, AND IT HAS TO BE A COLUMN. Every row in this
-  -- table is inserted by this one migration, inside one transaction, so every
+  -- Adzuna's own listing id (`Listing.sourceJobId`). IT IS WHAT PAIRS THE SAME
+  -- REAL LISTING ACROSS BOTH PERSONAS' ROWS, which is the whole mechanism
+  -- behind AC-16's compact "the other candidate scored this" line. Without it
+  -- the two rows describing one posting could only be matched by comparing
+  -- title and company text, which is a join on prose.
+  source_job_id text not null check (length(trim(source_job_id)) > 0),
+
+  -- THE TIEBREAK WITHIN ONE BAND (AC-7), and it is Adzuna's own returned rank
+  -- for this search after de-duplication, 1 based. Identical for both personas'
+  -- copies of the same listing, because both personas score the same kept set.
+  -- It has to be a column: every row is written by one transaction, so every
   -- `created_at` below shares a single `now()` and cannot order anything.
   sort_order smallint not null check (sort_order > 0),
 
   title text not null check (length(trim(title)) > 0),
+
+  -- THE REAL EMPLOYER NAME, NEVER A FICTIONAL ONE (AC-3, AC-19), which is the
+  -- exact reverse of what this column held before 2026-09-14. It renders
+  -- unhidden and unaltered whatever band either persona gave the listing,
+  -- `weak_match` and `not_a_match` included.
   company_name text not null check (length(trim(company_name)) > 0),
+
   location text,
 
-  -- A PLAIN STATED FIGURE, NEVER A PREDICTED ONE. `/search` has to tell those
-  -- two apart because Adzuna predicts some of them (spec 0013 AC-7); here the
-  -- distinction cannot arise, since nothing predicted anything. There is no
-  -- currency column: every row would carry the same `USD`, so the read path
-  -- passes it as a constant instead of storing twelve copies of it.
-  salary_min integer check (salary_min > 0),
-  salary_max integer check (salary_max > 0),
+  -- `numeric(12, 2)` AND NOT `integer`, matching `application.salary_min` and
+  -- `salary_max` (`20260825162457_data_model.sql`). Adzuna returns a JSON
+  -- number that is not guaranteed to be whole, and these figures are now
+  -- Adzuna's own rather than hand written round numbers. Stored raw, with no
+  -- rounding, and formatted at render.
+  salary_min numeric(12, 2) check (salary_min > 0),
+  salary_max numeric(12, 2) check (salary_max > 0),
   check (salary_min is null or salary_max is null or salary_max >= salary_min),
 
-  -- A GENUINELY TRUNCATED EXCERPT ON EVERY ROW, never a whole description, and
-  -- this is load bearing rather than a style rule. The card reuses
-  -- `SCORING_COPY.notMentionedCaption` verbatim ("This posting only shows part
-  -- of the description, so this is not a confirmed gap."). On `/search` that
-  -- sentence is true because Adzuna returns an excerpt of a real posting. Here
-  -- the demo authors wrote the whole fake description themselves, so it is true
-  -- only by construction, and a complete one would make the reused caption
-  -- false on the one page whose entire premise is that nothing on it misleads.
+  -- THE CURRENCY IS A COLUMN NOW, not a constant in the read path. It used to
+  -- be safe to assume one value because every row was hand written; a real
+  -- Adzuna response carries whatever `CURRENCY_BY_COUNTRY[ADZUNA_COUNTRY]`
+  -- resolved to at fetch time, and `salaryText()` returns `undefined` without
+  -- it, so a figure with no currency would silently render no salary at all.
+  salary_currency text check (length(trim(salary_currency)) > 0),
+
+  -- The same pairing `application` already enforces: a figure without its
+  -- currency, or a currency without a figure, is a half stored value.
+  check ((salary_min is null and salary_max is null) = (salary_currency is null)),
+
+  -- FROM `Listing.salaryIsPredicted`. It drives whether the `(estimated)`
+  -- label and the Jobsworth attribution render together (AC-9). Spec 0013
+  -- AC-7 exists because a predicted figure must never read like a stated one,
+  -- and that distinction now applies here too: these figures are real Adzuna
+  -- figures, and some of them are Adzuna's own estimates.
+  salary_is_predicted boolean not null default false,
+
+  -- ADZUNA'S OWN EXCERPT, EXACTLY AS RETURNED, truncated or not. Whether it is
+  -- truncated is derived at render the same way `buildListingBlock()` derives
+  -- it, so `SCORING_COPY.notMentionedCaption` ("This posting only shows part of
+  -- the description...") is shown only when the stored snippet actually is
+  -- partial. Before 2026-09-14 every snippet was hand written as a cut off
+  -- excerpt to make that caption true by construction; now it is true or false
+  -- per row and the render decides.
   description_snippet text,
 
   -- The same five values `src/features/scoring/rubric.ts`'s `BANDS` declares,
@@ -68,6 +113,9 @@ create table public.demo_result (
     )
   ),
 
+  -- AFTER THE GROUNDING CHECK HAS ALREADY REMOVED ANY NAME IT FLAGGED. The
+  -- flagged names go to `ungrounded_skills` below, so the card can render both
+  -- the shortened list and the sentence explaining why it is shorter.
   matched_skills text[] not null default '{}',
 
   -- NAMED FOR THE PRODUCT'S OWN FIELD (`notMentionedSkills` in `rubric.ts`),
@@ -75,21 +123,197 @@ create table public.demo_result (
   -- real card uses this wording is that an excerpt cannot prove a gap.
   not_mentioned_skills text[] not null default '{}',
 
+  -- Spec 0019's `checkFitScore()` verdict, carried through so the demo card
+  -- renders the flagged state the real card renders (`SCORING_COPY.removedSkills`
+  -- and `.reasoningCaveat`, both reused verbatim).
+  --
+  -- A ROW REACHES THIS TABLE ONLY ONCE ITS CHECK HAS COME BACK CLEAN. A check
+  -- that failed or was refused aborts the whole refresh (AC-17) rather than
+  -- being written as if it had passed, so this column never has to represent an
+  -- unfinished check, and an empty array here always means "checked, nothing
+  -- flagged" rather than "never checked".
+  ungrounded_skills text[] not null default '{}',
+
   -- The same 600 character ceiling the real reasoning field carries.
   reasoning text not null check (
     length(trim(reasoning)) > 0 and length(reasoning) <= 600
   ),
 
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+
+  -- ONE ROW PER LISTING PER PERSONA. It is what makes AC-16's pairing lookup
+  -- unambiguous: a duplicated `source_job_id` under one persona would give the
+  -- other persona's card two candidate bands to name and no rule for choosing.
+  -- The refresh de-duplicates Adzuna's response by this id before scoring, and
+  -- this constraint is what makes that de-duplication a guarantee rather than
+  -- an intention.
+  unique (persona_slug, source_job_id)
 );
 
--- The read path always asks for one profile's rows in display order, so the
--- index carries the sort as well as the filter.
+-- The read path asks for every row of both personas in one query, ordered by
+-- `sort_order`, then groups in application code. The index carries the sort as
+-- well as the filter, so the per persona subset is already in order.
 create index demo_result_persona_sort_idx
   on public.demo_result (persona_slug, sort_order);
 
 comment on table public.demo_result is
-  'Spec 0021: fixed, fabricated, already scored results for the public /demo page. Read by the secret key client only. Never written to after this migration.';
+  'Spec 0021: real Adzuna listings scored for real against two fictional example candidates, for the public /demo page. Written only by replace_demo_results(), read by the secret key client only.';
+
+-- The single row of metadata about the last refresh (AC-14, AC-15).
+--
+-- A SEPARATE TABLE RATHER THAN A COLUMN REPEATED ON EVERY RESULT ROW. The
+-- search query and the refresh time are facts about the run, not about any one
+-- listing, and repeating them sixteen times would let sixteen copies disagree.
+create table public.demo_refresh (
+  -- One row, enforced by the database rather than by convention, the same
+  -- shape `app_settings` uses. A second row would make "the last refresh"
+  -- ambiguous, and the read would pick one.
+  id smallint primary key default 1 check (id = 1),
+
+  -- The query the current results answer, shown on the page (AC-14) so a
+  -- reader knows what search these listings came back from rather than
+  -- assuming they were chosen.
+  search_title text not null check (length(trim(search_title)) > 0),
+
+  -- Absent when the search was nationwide, which the fixed query is today.
+  search_location text check (length(trim(search_location)) > 0),
+
+  -- NULL UNTIL THE FIRST REFRESH EVER RUNS, which is exactly what AC-15's
+  -- "results are not available yet" state reads. That state is a successful
+  -- read of an expected emptiness, never a failure, and this nullable column
+  -- is what lets the read path tell the two apart structurally instead of by
+  -- inspecting an error.
+  refreshed_at timestamptz
+);
+
+comment on table public.demo_refresh is
+  'Spec 0021: one row describing the last /demo refresh, its search query and when it ran. refreshed_at null means no refresh has ever run.';
+
+-- THE ATOMIC WRITE (AC-17). Every kept listing under both personas, plus the
+-- refresh metadata, replaced in one transaction or not at all.
+--
+-- `security invoker`, DELIBERATELY, AND THIS IS A CHANGE FROM AN EARLIER DRAFT
+-- THAT SAID `security definer`. These tables carry row level security enabled
+-- and forced with zero policies. Whether a `security definer` function's owning
+-- role carries BYPASSRLS in a hosted project is exactly the question
+-- `20260821120000_app_settings.sql`'s own comment says this repository cannot
+-- confirm, and betting on the answer is how a migration passes locally and is
+-- refused on its first hosted application. `security invoker` sidesteps the
+-- question: the only caller is the secret key client authenticating as
+-- `service_role`, which already carries BYPASSRLS, so the caller's own
+-- privilege is what does the work and this function needs nothing but the
+-- ordinary table grants below.
+--
+-- An empty `search_path` means an object named inside can never be resolved out
+-- of a schema someone else controls, so every name here is fully qualified.
+--
+-- IT IS CALLED ONLY AFTER EVERY SCORE AND EVERY GROUNDING CHECK FOR THE WHOLE
+-- REFRESH HAS ALREADY COME BACK CLEAN AND ALLOWED, in application code. A mid
+-- refresh failure never reaches this function at all, so the existing data is
+-- left untouched by a run that did not finish.
+create function public.replace_demo_results(
+  p_results jsonb,
+  p_search_title text,
+  -- DEFAULTED, so the nationwide case is an omitted argument rather than an
+  -- explicit null the caller has to type around. The generated TypeScript for a
+  -- function argument carries no nullability, so without the default every
+  -- caller would have to assert a null past a parameter typed `string`.
+  p_search_location text default null
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  -- WHOLESALE REPLACEMENT, NEVER A PER ROW UPDATE. The result set is whatever
+  -- one search returned; merging a new run into an old one would leave the page
+  -- showing listings from two different searches under one stated query, and
+  -- would also accumulate rows indefinitely, which is the storage duration
+  -- question Adzuna's terms do not address.
+  --
+  -- `where true` IS NOT REDUNDANT HERE, AND REMOVING IT BREAKS THIS FUNCTION IN
+  -- PRODUCTION ONLY. Supabase enables the `safeupdate` guard on the connection
+  -- PostgREST serves requests over, which refuses any DELETE or UPDATE carrying
+  -- no WHERE clause outright: `ERROR: DELETE requires a WHERE clause`. A bare
+  -- `delete from public.demo_result;` therefore runs fine from psql as the
+  -- superuser and fails every time the application calls this function, which
+  -- is exactly how it was found, on the first real refresh, after the search
+  -- and all 32 model calls had already been paid for. The predicate satisfies
+  -- the guard without narrowing anything.
+  delete from public.demo_result where true;
+
+  insert into public.demo_result (
+    persona_slug,
+    source_job_id,
+    sort_order,
+    title,
+    company_name,
+    location,
+    salary_min,
+    salary_max,
+    salary_currency,
+    salary_is_predicted,
+    description_snippet,
+    band,
+    matched_skills,
+    not_mentioned_skills,
+    ungrounded_skills,
+    reasoning
+  )
+  select
+    t.persona_slug,
+    t.source_job_id,
+    t.sort_order,
+    t.title,
+    t.company_name,
+    t.location,
+    t.salary_min,
+    t.salary_max,
+    t.salary_currency,
+    t.salary_is_predicted,
+    t.description_snippet,
+    t.band,
+    t.matched_skills,
+    t.not_mentioned_skills,
+    t.ungrounded_skills,
+    t.reasoning
+  from jsonb_to_recordset(p_results) as t(
+    persona_slug text,
+    source_job_id text,
+    sort_order smallint,
+    title text,
+    company_name text,
+    location text,
+    salary_min numeric(12, 2),
+    salary_max numeric(12, 2),
+    salary_currency text,
+    salary_is_predicted boolean,
+    description_snippet text,
+    band text,
+    matched_skills text[],
+    not_mentioned_skills text[],
+    ungrounded_skills text[],
+    reasoning text
+  );
+
+  -- `insert ... on conflict do update` AND NEVER A BARE `update`. A bare update
+  -- against a missing singleton row affects zero rows and reports nothing, which
+  -- would leave `refreshed_at` stuck null beside sixteen freshly written result
+  -- rows: the page would show AC-15's "not available yet" state while holding a
+  -- full set of real results, and nothing anywhere would have failed.
+  insert into public.demo_refresh (id, search_title, search_location, refreshed_at)
+  values (1, p_search_title, p_search_location, pg_catalog.now())
+  on conflict (id) do update
+  set
+    search_title = excluded.search_title,
+    search_location = excluded.search_location,
+    refreshed_at = excluded.refreshed_at;
+end;
+$$;
+
+comment on function public.replace_demo_results(jsonb, text, text) is
+  'Spec 0021 AC-17: replaces every demo_result row and the demo_refresh singleton in one transaction. security invoker, so service_role own BYPASSRLS does the work rather than an elevated function owner.';
 
 -- THE INSERT COMES BEFORE ROW LEVEL SECURITY IS FORCED, DELIBERATELY, and this
 -- is `app_settings`'s reasoning applied unchanged: forced row level security
@@ -99,223 +323,31 @@ comment on table public.demo_result is
 -- confirm, so a migration that forced first and inserted second could pass
 -- locally and be refused on its first application to a hosted project.
 --
--- TWO POSTINGS APPEAR UNDER BOTH PROFILES ON PURPOSE (AC-6): "Platform
--- Engineer" at "Fictional Fintech Co" and "Founding Product Engineer" at
--- "Faux Systems Inc". Same title, same company, same location, same salary,
--- same description, different band and different reasoning. That repetition is
--- the feature, not a duplicate to tidy away: it is the only thing on the page
--- that demonstrates the product's actual claim, which is that the score depends
--- on the person rather than on the posting.
---
--- EVERY COMPANY NAME READS AS FICTIONAL (AC-3). No real employer appears here.
-insert into public.demo_result (
-  persona_slug,
-  sort_order,
-  title,
-  company_name,
-  location,
-  salary_min,
-  salary_max,
-  description_snippet,
-  band,
-  matched_skills,
-  not_mentioned_skills,
-  reasoning
-) values
-
--- ---------------------------------------------------------------------------
--- backend-engineer: six rows spanning all five bands, `possible_match` twice.
--- ---------------------------------------------------------------------------
-
-(
-  'backend-engineer',
-  1,
-  'Platform Engineer',
-  'Fictional Fintech Co',
-  'Remote (US)',
-  165000,
-  195000,
-  'Fictional Fintech Co is hiring a Platform Engineer to own the services our payments teams build on. You will work in Go against PostgreSQL, run workloads on Kubernetes, and manage the infrastructure underneath them in Terraform. The team is four engineers and owns its own on call rotation. We care more about how you reason through a failure than about…',
-  'strong_match',
-  '{"Go","PostgreSQL","Kubernetes","Terraform"}',
-  '{"gRPC"}',
-  'Backend engineer, this is about as clean a match as postings get: your Go, PostgreSQL, Kubernetes and Terraform experience covers everything this platform team lists as required. gRPC isn''t mentioned here, so there''s nothing to weigh it against, but nothing suggests it matters for this role.'
-),
-(
-  'backend-engineer',
-  2,
-  'Senior Backend Engineer',
-  'Imaginary Logistics Group',
-  'Chicago, IL',
-  150000,
-  175000,
-  'Imaginary Logistics Group runs the routing services behind several thousand deliveries a day, and we are adding a senior backend engineer to the team that owns them. The work is Go and PostgreSQL, exposed over REST APIs our partner integrations depend on, with a CI/CD pipeline you will help keep fast. We want somebody who has carried a service…',
-  'good_match',
-  '{"Go","PostgreSQL","REST APIs","CI/CD"}',
-  '{"Kubernetes","gRPC"}',
-  'Backend engineer, your Go and PostgreSQL work lines up directly with the routing services this team owns, and the posting''s emphasis on REST APIs and delivery pipelines covers ground you have already worked. The one stretch is the scale it describes, which is a step up from what your history shows, though nothing here reads as out of reach.'
-),
-(
-  'backend-engineer',
-  3,
-  'Founding Product Engineer',
-  'Faux Systems Inc',
-  'Austin, TX',
-  140000,
-  null,
-  'Faux Systems Inc is looking for a founding product engineer to build the first version of our scheduling product end to end. You will design the data model in PostgreSQL, write the application in TypeScript, own the CI/CD pipeline that ships it, and open Figma when a screen needs drawing before it is built. Design taste counts for as much here as…',
-  'possible_match',
-  '{"PostgreSQL","TypeScript","CI/CD"}',
-  '{"Kubernetes","Terraform"}',
-  'Backend engineer, this founding role wants someone comfortable across the stack, and your PostgreSQL, TypeScript and CI/CD experience covers real ground here. It reads more full stack than pure backend though, and your Kubernetes and Terraform depth isn''t mentioned as something this posting is looking for.'
-),
-(
-  'backend-engineer',
-  4,
-  'Backend Engineer, Data Platform',
-  'Notional Retail Partners',
-  'Remote (US)',
-  null,
-  null,
-  'Notional Retail Partners is building out the data platform every other team here reports from. The role covers ingestion from our store systems, the Go services that move that data, and the PostgreSQL models the analytics team queries against. Experience with streaming ingestion is the part we most want to talk about, and we are happy to…',
-  'possible_match',
-  '{"Go","PostgreSQL"}',
-  '{"Terraform","CI/CD"}',
-  'Backend engineer, the Go and PostgreSQL experience you have carries into the ingestion work described here, but a real part of this role is the streaming and warehouse side, which your history does not cover. Applying would mean arguing that your database depth transfers rather than pointing at somewhere you have already done it.'
-),
-(
-  'backend-engineer',
-  5,
-  'Site Reliability Engineer',
-  'Placeholder Health Systems',
-  'Boston, MA',
-  158000,
-  158000,
-  'Placeholder Health Systems is hiring a site reliability engineer to hold the line on availability for our clinical scheduling platform. Day to day is incident response, observability, capacity planning, and the Kubernetes and Terraform work that supports all three. You will share an on call rotation with five others and own the postmortem process for…',
-  'weak_match',
-  '{"Kubernetes","Terraform"}',
-  '{"Go","PostgreSQL"}',
-  'Backend engineer, your Kubernetes and Terraform work is real overlap with the platform half of this role, but most of what the posting describes is incident response, observability and capacity planning rather than building services. That is a different day to day from the one your history shows.'
-),
-(
-  'backend-engineer',
-  6,
-  'Enterprise Sales Engineer',
-  'Invented Analytics Ltd',
-  'New York, NY',
-  null,
-  210000,
-  'Invented Analytics Ltd is looking for an enterprise sales engineer to sit between our account executives and the customers evaluating us. You will run technical demos, scope pilot deployments, and answer the security questionnaires that arrive with a six figure contract. A background close enough to engineering to be credible in the room matters, but this…',
-  'not_a_match',
-  '{}',
-  '{"Go","PostgreSQL","Kubernetes"}',
-  'Backend engineer, this is a customer facing sales role: the posting is about running demos, scoping pilots and closing enterprise contracts, and none of your Go, PostgreSQL or Kubernetes work appears anywhere in what it asks for. There is no real overlap here to build a case on.'
-),
-
--- ---------------------------------------------------------------------------
--- product-designer: six rows spanning all five bands, `possible_match` twice.
--- The two shared postings repeat verbatim except for the judgment (AC-6).
--- ---------------------------------------------------------------------------
-
-(
-  'product-designer',
-  1,
-  'Senior Product Designer',
-  'Fabricated Software Studio',
-  'Remote (US)',
-  145000,
-  170000,
-  'Fabricated Software Studio is hiring a senior product designer to own the design systems work behind our whole product surface. You will be in Figma every day, take ideas from a rough prototyping stage through to shipped screens, and set the patterns three other designers build on. We work in short cycles and expect a designer to sit with the…',
-  'strong_match',
-  '{"Figma","design systems","prototyping"}',
-  '{"user research"}',
-  'Product designer, this is about as clean a match as postings get: the design systems work, the Figma fluency and the prototyping this team asks for are all things your profile already covers. User research isn''t mentioned in what they published, so there''s nothing to weigh it against, but nothing here suggests it would count against you.'
-),
-(
-  'product-designer',
-  2,
-  'Product Designer, Growth',
-  'Hypothetical Media Co',
-  'Los Angeles, CA',
-  null,
-  null,
-  'Hypothetical Media Co is adding a product designer to the growth team. The work is fast: you will run user research to find where readers drop off, design the fix in Figma, and ship it behind an experiment the same week. Comfort reading a results dashboard and arguing for the next test matters as much as the craft, and we will expect you to…',
-  'good_match',
-  '{"Figma","user research"}',
-  '{"design systems"}',
-  'Product designer, the Figma work and the user research this growth team runs are both things you have done, and the posting''s focus on testing an idea in a week matches how your history reads. The stretch is the experimentation and metrics side, which is a real part of this role and not something your profile shows yet.'
-),
-(
-  'product-designer',
-  3,
-  'Brand and Product Designer',
-  'Make Believe Consumer Goods',
-  'Portland, OR',
-  110000,
-  135000,
-  'Make Believe Consumer Goods wants a designer who can hold both halves of our identity: the packaging and brand work that goes on a shelf, and the app our customers use once they get home. You will spend part of the week in Figma prototyping screens and part of it with the brand team. We are small and would rather hire somebody who…',
-  'possible_match',
-  '{"Figma","prototyping"}',
-  '{"design systems","user research"}',
-  'Product designer, the Figma and prototyping side of this role is squarely within what you have done, and there is real ground to stand on there. The other half is brand and packaging work, which your profile does not cover, so applying would mean arguing that your product craft transfers rather than pointing at it.'
-),
-(
-  'product-designer',
-  4,
-  'UX Designer, Internal Tools',
-  'Pretend Manufacturing Corp',
-  'Detroit, MI',
-  null,
-  null,
-  'Pretend Manufacturing Corp runs its plants on internal tools nobody has redesigned in a decade, and we want a UX designer to change that. You will spend real time on the factory floor doing user research, then work in Figma to rebuild the screens our operators stare at for eight hours a day. Density and speed matter more than polish here, and…',
-  'possible_match',
-  '{"user research","Figma"}',
-  '{"design systems","prototyping"}',
-  'Product designer, the user research and Figma work here overlaps with what you have done, and the posting''s interest in watching people work is a real part of your history. The rest is dense internal tooling for factory floor staff, which is a different kind of problem from the consumer work your profile shows.'
-),
-(
-  'product-designer',
-  5,
-  'Founding Product Engineer',
-  'Faux Systems Inc',
-  'Austin, TX',
-  140000,
-  null,
-  'Faux Systems Inc is looking for a founding product engineer to build the first version of our scheduling product end to end. You will design the data model in PostgreSQL, write the application in TypeScript, own the CI/CD pipeline that ships it, and open Figma when a screen needs drawing before it is built. Design taste counts for as much here as…',
-  'weak_match',
-  '{"Figma"}',
-  '{"user research","design systems"}',
-  'Product designer, this posting mentions design taste and product sense alongside heavy engineering ownership, and Figma is the one thing here that lines up with what you''ve listed. User research and design systems work aren''t mentioned, and most of what the posting asks for reads like engineering skills rather than design ones.'
-),
-(
-  'product-designer',
-  6,
-  'Platform Engineer',
-  'Fictional Fintech Co',
-  'Remote (US)',
-  165000,
-  195000,
-  'Fictional Fintech Co is hiring a Platform Engineer to own the services our payments teams build on. You will work in Go against PostgreSQL, run workloads on Kubernetes, and manage the infrastructure underneath them in Terraform. The team is four engineers and owns its own on call rotation. We care more about how you reason through a failure than about…',
-  'not_a_match',
-  '{}',
-  '{"Figma","user research","design systems"}',
-  'Product designer, this platform engineering role asks for infrastructure and backend skills that don''t appear anywhere in your profile, and it doesn''t mention Figma, user research, or design systems work at all. There''s no real overlap here to build a case on.'
-);
+-- `search_title` CARRIES THE FIXED QUERY'S OWN TERM rather than a placeholder,
+-- because the column is not nullable and the query is a constant this feature
+-- already fixes (`src/features/demo/refresh.ts`). `refreshed_at` stays null,
+-- which is the only field AC-15 reads, so this row says "the query we will run,
+-- and no run has happened yet" rather than claiming results exist.
+insert into public.demo_refresh (id, search_title, search_location, refreshed_at)
+values (1, 'software engineer', null, null);
 
 -- The database is the guarantee, not a check in application code.
 alter table public.demo_result enable row level security;
+alter table public.demo_refresh enable row level security;
 
 -- Policies apply to the table owner too, so a bug running as the owner cannot
 -- quietly read or change these rows.
 alter table public.demo_result force row level security;
+alter table public.demo_refresh force row level security;
 
--- NO POLICIES EXIST ON THIS TABLE, deliberately, the same shape `app_settings`
+-- NO POLICIES EXIST ON EITHER TABLE, deliberately, the same shape `app_settings`
 -- uses. Row level security on with no policy denies every action to every role
 -- that respects policies, which is every role except one carrying BYPASSRLS.
 --
--- THIS IS WHAT ACTUALLY SATISFIES AC-4. A visitor cannot corrupt `/demo` for
--- the next visitor because no write path exists for them to reach, not because
--- a check in the application happens to catch them.
+-- THIS IS WHAT SATISFIES AC-4 NOW THAT A WRITE PATH EXISTS. Before 2026-09-14
+-- the guarantee was that no writer existed at all; the refresh is a writer, so
+-- the guarantee is instead that a visitor holds no key which can reach these
+-- tables, and no route a visitor's browser can reach triggers the refresh.
 
 -- Two independent gates, the same pattern `app_settings` uses. No grant to
 -- `anon` and none to `authenticated`, so a query carrying a user's token is
@@ -325,17 +357,36 @@ alter table public.demo_result force row level security;
 -- automatically, because "it holds nothing by default" is a setting somebody
 -- can change later.
 revoke all on public.demo_result from anon, authenticated;
+revoke all on public.demo_refresh from anon, authenticated;
 
--- THE ONE GRANT, AND IT IS LOAD BEARING.
+-- THE GRANTS, AND THEY ARE LOAD BEARING.
 --
 -- BYPASSRLS bypasses policies but NOT table privileges. Those are two separate
--- checks in Postgres and only the first is bypassed, so the one intended reader
+-- checks in Postgres and only the first is bypassed, so the one intended caller
 -- still has to be named here.
 --
--- Without this grant the read is refused and `/demo` renders its failure state
--- (AC-12) on every request, in a deployed application, looking exactly as
--- designed. `select` only: nothing in this feature ever writes.
+-- Without the `select` grants the read is refused and `/demo` renders its
+-- failure state (AC-12) on every request, in a deployed application, looking
+-- exactly as designed.
+--
+-- `insert` AND `delete` ON `demo_result` ARE NEW, for the refresh's wholesale
+-- replace. `demo_refresh` needs `insert` as well as `update`, because
+-- `replace_demo_results()` writes it with `insert ... on conflict do update`
+-- rather than a bare update, for the reason stated at that statement: the
+-- insert half is the branch that fires when the singleton row is missing, so
+-- granting only `update` would make exactly the failure the `on conflict` shape
+-- exists to prevent unreachable in one direction and a privilege error in the
+-- other.
 --
 -- `service_role` is the role the secret key authenticates as, and the client
 -- built with that key is constructible in exactly one file (binding rule 1).
-grant select on public.demo_result to service_role;
+grant select, insert, delete on public.demo_result to service_role;
+grant select, insert, update on public.demo_refresh to service_role;
+
+-- Execute is granted to PUBLIC by default. This function is `security invoker`,
+-- so a caller without the table privileges above gets a privilege error rather
+-- than a write; the revoke is written anyway, on the same reasoning the table
+-- revokes above carry, so the reachable surface matches the intended one
+-- instead of relying on a second check to refuse.
+revoke execute on function public.replace_demo_results(jsonb, text, text) from public;
+grant execute on function public.replace_demo_results(jsonb, text, text) to service_role;
