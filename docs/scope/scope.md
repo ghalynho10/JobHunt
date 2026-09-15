@@ -458,6 +458,7 @@ Deferred below.
   - [x] Persona content: the two `ScoringProfile` shaped fictional candidates (a backend engineer and a frontend engineer, contrasting stacks) in `personas.ts`, satisfies AC-3, AC-5, AC-14
   - [x] The refresh and its route: the dedicated refresh identity, the admin session mint, one real search plus real scoring (including the grounding check) against both personas with an all or nothing abort, the atomic write, and the protected route that triggers it, satisfies AC-2, AC-17, AC-18
   - [x] Read path and rendering: both personas read in one pass, the cross persona band line, ungrounded skill rendering, real Adzuna/Jobsworth attribution, and the wording pass removing every claim that the page is fabricated, satisfies AC-1, AC-7, AC-10 through AC-16, AC-19
+  - [ ] The 2026-09-15 revision (spec 0021 Build plan step 10): two searches, "backend engineer" and "frontend engineer", replacing the one "software engineer" search after the first real refresh left 15 of 16 rows with zero matched skills; the per search kept walk with a `search_title` on each row; own role and cross role skill counts for the stopping rule; the query line naming both titles; and the migration's `where true` comment heading corrected to "local or hosted", satisfies AC-2, AC-6, AC-7, AC-14, AC-17
   - [ ] Entry page integration: the hero link and the about section copy move, satisfies AC-13 — **stays held**, unchanged from before: wiring it to a demo already decided to be insufficient would advertise exactly what this rework exists to fix
 - [ ] Verify it: `/check verify seeded demo account`
 - [ ] Test it: `/test seeded demo account`
@@ -474,7 +475,6 @@ _**Resolved by spec 0021's revision, 2026-09-14** (was left to `/architect`, not
 Out of scope for this build pass, kept so the plan stays honest.
 
 - **Richer seeded demo account**: a fuller version of feature 31 with applications across every status, discard history and a populated dashboard, instead of the no sign in read only demo. Needs feature 23 (applications dashboard) and likely feature 22 (discard with reason) to exist first, since it seeds both. `from spec 0021`
-- **Demo reasoning text drift**: the seeded `/demo` reasoning text is hand written and does not automatically track a future change to the real rubric (spec 0018 style band anchor work). Revisit its wording whenever the anchors change, so the demo does not quietly drift from the real product's voice. `from spec 0021`
 - **Tailoring and discard trends**: tailoring activity over time and discard reason patterns, the most honest signal about what the ranking is getting wrong · needs a decision
 - **Company research, full**: role specific synthesis tied to the listing being viewed, an adaptive extraction loop, a grounding check, and the browser automation choice made against pricing real at that time · needs a decision
 - **Fuller tailoring verification**: verification beyond the numeral only pattern · needs a decision
