@@ -71,7 +71,7 @@ The prepared results are a plain constant module, a list of objects with the sam
   use.
 - Stretches the feature's own name: nothing is "seeded" if it never touches the database.
 
-### Option 3: A real seeded Supabase Auth user with profile and application rows
+### Option 3 (original): A real seeded Supabase Auth user with profile and application rows
 
 A genuine `auth.users` row for a fixed demo identity, with real `profile`, `job_preference`, and
 `application` rows attached, read either through an impersonated session or through the secret
@@ -102,8 +102,148 @@ it is the mechanism spec 0001 already committed to when it reserved this feature
 so choosing it costs nothing new architecturally. Option 2 would work and would be simpler to
 build, but it leaves that reservation meaningless and stretches what "seeded" means for no real
 benefit, since the extra machinery option 1 needs (one small table, one migration) is not much
-machinery. Option 3 is what the row's original prose actually described, and it is rejected here
-specifically because it pulls in schema and dependencies (feature 23's dashboard, the real
-`application` table's meaning) that the done when clause never required and that this spec is
-deliberately not building yet; `## Consequences` in `index.md` records that fuller version as a
-deferred possibility rather than as something this decision closes off.
+machinery. Option 3 (original) is what the row's original prose actually described, and it is
+rejected here specifically because it pulls in schema and dependencies (feature 23's dashboard,
+the real `application` table's meaning) that the done when clause never required and that this
+spec is deliberately not building yet; `## Consequences` in `index.md` records that fuller version
+as a deferred possibility rather than as something this decision closes off.
+
+## Rework, 2026-09-14: real data replaces fabricated data
+
+The fabricated design above (Option 1, still the right storage mechanism) is superseded in its
+content, not its shape: a fabricated demo cannot be evidence the ranking works, since a reader can
+reasonably assume the examples were picked to flatter it, and a "sample data" label does not fix
+that. `docs/scope/scope.md`'s feature 31 entry, updated the same day, records the decision to keep
+this the same feature and spec rather than opening a new one, and to supersede
+`feat/seeded-demo-account` in place rather than merge its fabricated migration to `main`. Two new
+decisions this rework required, beyond the reversed acceptance criteria `index.md` already
+tracks with strikethrough:
+
+### New decision: how the refresh authenticates to spend real budget
+
+`checkUsageGate()` (spec 0011) calls `getClaims()` and refuses with `session_missing` when no
+verified session exists; there is no anonymous or service role path through it. A script or an
+externally triggered route has no interactive login, so reusing the real `searchListings()` and
+`scoreListings()` unchanged (the whole point, since a parallel unggated implementation would be a
+second, undertested vendor call path) requires deciding how the refresh gets a session at all.
+
+**Option A: A dedicated demo refresh identity (chosen)**. A permanent `auth.users` row, holding no
+`profile` or `application` row, created once via the admin API. The refresh mints it a session
+per run with `admin.generateLink()` plus `verifyOtp()`, the technique `test/helpers/session.ts`
+already established for tests, reimplemented under `src/` since that file itself cannot be
+imported. **Pros**: reuses `searchListings()`/`scoreListings()`/`checkUsageGate()` completely
+unchanged; the identity's own weekly account scope budget is separate from any real user's by
+construction, without inventing a new call type. **Cons**: introduces a production session minting
+path where the only prior one (`test/helpers/admin.ts`'s `devOnlyAdminClient()`) is hard blocked
+outside development; the identity, however narrow, is a new kind of thing in this codebase to
+reason about.
+
+**Option B: Trigger under the engineer's own session**. A protected route the engineer visits
+while signed in as themselves. **Pros**: no new identity, no new minting code. **Cons**: spends the
+engineer's own personal weekly caps, and only works at the moment they happen to be signed in,
+which sits badly with "manually triggered whenever convenient" and worse with a future cron.
+
+**Option C: Bypass the usage gate entirely**. Call the underlying Adzuna fetch and model call
+directly, no cap check. **Pros**: simplest to build, no auth question at all. **Cons**: removes the
+one safety net against a mistakenly repeated or looped trigger, and the calls would never appear
+in feature 20's spend dashboard, which is the same objection that keeps every other real vendor
+call in this app gated.
+
+Option A was chosen: it is the only one that reuses every existing gated code path unchanged
+while keeping the refresh's budget structurally separate from real users', at the cost of a
+narrow, well bounded new production capability rather than a workaround.
+
+### New decision: how the refresh is triggered, and whether a route handler may write
+
+`docs/scope/scope.md`'s feature 31 entry names both a script and a protected route as v1
+candidates. A cross model check on 2026-09-14 asked whether a local script should be preferred
+instead, since it would leave spec 0001's already development-only test mint (caller 1) exactly as
+blocked as it is today and would avoid the route's own mechanics risk (secret comparison, request
+duration, concurrency) entirely.
+
+**Option A: A protected route handler (chosen)**. `POST /api/demo/refresh`, authorized by a shared
+secret. **Pros**: callable today and by a future cron with no code change; the production secret
+key stays on the server, never on a personal machine. **Cons**: it is the first route handler
+under `src/app/api/` to write anything, and introduces a production session minting path (see the
+decision above) that a local script would not need.
+
+**Option B: A local script**, run by the engineer from their own machine against production
+credentials. **Pros**: no route to secure, no new environment variable. **Cons, checked against
+this repository rather than assumed**: it is not a continuation of an existing practice.
+`pnpm eval` runs against `test/eval`'s fixture-minting harness and `pnpm db:reset` runs against the
+local Supabase stack; `test/helpers/database.ts` refuses any host other than `127.0.0.1` or
+`localhost` outright. A local refresh script would be the first routine handling of
+`SUPABASE_SECRET_KEY`, the BYPASSRLS credential over every user's table, on a personal machine, for
+a task run every week. It also does not touch spec 0001 caller 1 either way: caller 1 is the
+unrelated development-only test session mint, and the refresh's own mint is caller 3 (this
+feature) whichever mechanism triggers it, so "keeps caller 1 blocked" is not a real point of
+difference between the two options.
+
+Option A was chosen. The real trade is a deployed, narrowly scoped session-minting endpoint
+against `SUPABASE_SECRET_KEY` itself living on a laptop for a routine chore: a compromised refresh
+endpoint's worst case is spending this feature's own capped, dedicated budget, while a compromised
+laptop holding the secret key's worst case is every user's data. `index.md`'s Security model
+records this as a deliberately accepted risk rather than an unremarked one.
+
+A related, smaller decision: whether a Route Handler under `src/app/api/` may write
+`demo_result`/`demo_refresh` at all, given root `AGENTS.md`'s "Server Components read, Server
+Actions write" and its separate restriction on route handlers touching user data. `index.md`'s
+Feature design records this as a scope clarification rather than an exception: both rules, read
+by what they actually say, were never written with a sessionless, non personal data, externally
+triggered operational endpoint in mind. This is the first route handler under `src/app/api/`, and
+the first that writes anything, which is why the reasoning is recorded in the route file itself
+too, not only here.
+
+### New decision: which and how many listings the refresh keeps
+
+**Option A: A fixed count in Adzuna's own returned order (chosen)**, 8 listings, both personas
+scored against the same 8. **Pros**: mechanical, never selected by how a score looks, which is
+what keeps "whatever a refresh returns gets published" true rather than aspirational. **Cons**: a
+run whose first 8 results happen to cluster on one band shows a less compelling spread than a
+curated set would.
+
+**Option B: All returned listings (20, `RESULTS_PER_PAGE`)**. **Pros**: the most complete picture.
+**Cons**: a long page for a demo, and 40 scoring calls per refresh instead of 16, for a benefit
+this page does not need.
+
+**Option C: One per band, best effort**, keeping whichever returned listings land closest to each
+of the five bands. **Pros**: closest to the fabricated version's curated feel. **Cons**: this is
+itself a form of selecting by score outcome, the exact thing this rework exists to stop doing;
+rejected for the same reason a dedicated "largest band divergence" comparison listing was rejected
+in favor of the per card cross persona line (AC-16).
+
+## References
+
+**Project sources** (verifiable, in this repo):
+- Root `AGENTS.md`'s rules on route handlers under `src/app/api/` and on "Server Components read,
+  Server Actions write", read closely in the route write scope clarification above.
+- Spec 0001 binding rule 1, the closed secret key caller allow list, naming "the seeded demo
+  account (feature 31)" as caller 3, which the refresh's admin mint reuses rather than extends.
+- Spec 0011's `checkUsageGate()`, whose `getClaims()` requirement is what makes the refresh
+  authentication decision load bearing, and whose optional `cookieAdapter` parameter is the seam
+  the refresh uses to supply a session with no HTTP request behind it.
+- Spec 0013's `AdzunaAttribution`/`JobsworthAttribution` components and its `CURRENCY_BY_COUNTRY`
+  derived salary currency, both reused unchanged rather than rebuilt.
+- Spec 0015's `notMentionedSkills` invariant and `ScoringProfile` shape (`src/features/scoring/
+  rubric.ts`), which the two persona constants are written to satisfy exactly.
+- `docs/scope/scope.md`, feature 31, updated 2026-09-14 with the three structural decisions (stays
+  the same feature, supersedes the branch in place, AC-13 stays held) this spec builds under.
+
+**Practices & standards**:
+- Store raw, format at render (this project's own rule, applied to `salary_currency`).
+- The atomic multi statement write via one `security definer` function, the same shape
+  `check_usage_gate()` already establishes in this codebase for "several statements, one
+  guarantee".
+
+**Links** (web verified 2026-09-14, by `/scope` ahead of this spec, reused here rather than
+re-fetched):
+- Adzuna Terms of Service: https://developer.adzuna.com/docs/terms_of_service — confirmed:
+  "Publishing Adzuna ad listings" is a named permissible use with no authenticated visitor
+  restriction; each displayed advert requires the "Jobs by Adzuna" attribution (minimum 116 by 23
+  pixels, both "Jobs" and the logo hyperlinked) and, where a Jobsworth estimate is shown, its icon,
+  label, and mouseover text; rate limits are 25 per minute, 250 per day, 1000 per week, 2500 per
+  month, against which one weekly refresh is negligible; on termination all data must be removed
+  from the site, implying storage and display are contemplated; storage duration itself is not
+  addressed, a gap rather than a permission, which is why a refresh replaces the table rather than
+  accumulating rows. These terms may change at any time (`## Follow-up`), the same reason spec
+  0013 carries a standing re-verification item.
