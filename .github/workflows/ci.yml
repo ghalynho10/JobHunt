@@ -93,6 +93,7 @@ jobs:
           ADZUNA_APP_KEY: ci-placeholder-adzuna-app-key
           OPENAI_API_KEY: ci-placeholder-openai-api-key
           GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder-google-generative-ai-api-key
+          DEMO_REFRESH_SECRET: ci-placeholder-demo-refresh-secret-at-least-32-chars
 
       # Pinned to the same version as the `supabase` devDependency in
       # package.json and as db-migrate.yml, so nothing applies migrations with a
@@ -156,6 +157,7 @@ jobs:
           ADZUNA_APP_KEY: ci-placeholder-adzuna-app-key
           OPENAI_API_KEY: ci-placeholder-openai-api-key
           GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder-google-generative-ai-api-key
+          DEMO_REFRESH_SECRET: ci-placeholder-demo-refresh-secret-at-least-32-chars
 
       # `supabase start` applies migrations and the seed, so a seed that broke
       # would already have failed the step above. This says so out loud, because
