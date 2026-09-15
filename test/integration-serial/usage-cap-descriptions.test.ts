@@ -36,6 +36,24 @@ import { devOnlyAdminClient } from "../helpers/admin";
  *
  * `usage_cap` IS READ AS `service_role`, the one role spec 0011 granted
  * `select` on it for this kind of inspection.
+ *
+ * WHY IT LIVES IN `test/integration-serial/`, NOT `test/integration/`. It
+ * reads EVERY row of `usage_cap`, which is global state, and demands that
+ * every call type it finds is one this file knows. `test/integration/**` files
+ * run in parallel by default, and `test/integration/usage-gating.test.ts`
+ * legitimately inserts its own `gate_test` call type into that same table for
+ * about two seconds across four of its tests, then deletes it. A read landing
+ * in that window saw `gate_test` and failed with this file's own "a new gated
+ * call type" message, for a call type that was never real. It failed 3 runs in
+ * 10 on one branch and 0 in 10 on another with these test files byte for byte
+ * identical, because whether the two overlap depends only on how workers
+ * happen to be scheduled, and it was pinned down on 2026-09-15 by starting
+ * this file one second after that one, which failed 3 times out of 3. Placed
+ * here, `groupOrder: 1` plus this project's `fileParallelism: false`
+ * (`vitest.config.mts`) mean the read happens only once every `integration`
+ * file, and its cleanup, has finished. Same reasoning, and the same table, as
+ * the moves made for `usage-summary.test.ts` and
+ * `model-client-router-usage-cap.test.ts`.
  */
 
 /**
