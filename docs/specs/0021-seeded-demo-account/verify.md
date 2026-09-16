@@ -131,72 +131,72 @@ once and check everything against that one run rather than re-running per step.
 
 ## UI / manual
 
-- [ ] Open `/demo` in a browser with no session at all (a private window). Expect the results,
+- [x] Open `/demo` in a browser with no session at all (a private window). Expect the results,
       with no redirect and no sign in prompt anywhere → AC-1
-- [ ] With the network tab open, reload `/demo` several times. Expect no request to Adzuna and no
+- [x] With the network tab open, reload `/demo` several times. Expect no request to Adzuna and no
       model call, and expect `usage_gate_counter` to be unchanged (read it through
       `test/helpers/database.ts` or `psql`, never the Data API, which cannot see that table at
       all) → AC-2
-- [ ] Pick any card and search the real employer's name on Adzuna or the open web. Expect a real
+- [x] Pick any card and search the real employer's name on Adzuna or the open web. Expect a real
       company and a real posting, not an invented one → AC-3, AC-19
-- [ ] Confirm no control anywhere on `/demo` submits anything: no form, no button that posts, no
+- [x] Confirm no control anywhere on `/demo` submits anything: no form, no button that posts, no
       Server Action. The only interactive elements are the two profile links → AC-4
-- [ ] Visit `/demo`, `/demo?persona=backend-engineer`, `/demo?persona=frontend-engineer`,
+- [x] Visit `/demo`, `/demo?persona=backend-engineer`, `/demo?persona=frontend-engineer`,
       `/demo?persona=`, `/demo?persona=nonsense` and
       `/demo?persona=backend-engineer&persona=frontend-engineer`. Expect the named profile for
       the two valid slugs and the backend engineer for every other case, never an error → AC-5
-- [ ] Read the served HTML (not the accessibility tree) and confirm the active profile carries
+- [x] Read the served HTML (not the accessibility tree) and confirm the active profile carries
       `aria-current="page"`. `Text` silently drops `aria-*` props and TypeScript cannot catch it,
       so this has to be read off the wire → AC-5
-- [ ] Count the cards under each profile. Expect the same count and the same listings under both,
+- [x] Count the cards under each profile. Expect the same count and the same listings under both,
       with the bands differing → AC-6
-- [ ] Check the card order under one profile against `demo_result`'s own rows: best band first,
+- [x] Check the card order under one profile against `demo_result`'s own rows: best band first,
       and within one band ascending `sort_order` → AC-7
-- [ ] On one card confirm every element AC-8 names is present, and confirm there is no "view the
+- [x] On one card confirm every element AC-8 names is present, and confirm there is no "view the
       posting" link and no apply button of any kind, disabled or otherwise, only the plain
       sentence → AC-8
-- [ ] Confirm every card carries the "Jobs by Adzuna" attribution (the word "Jobs" and the
+- [x] Confirm every card carries the "Jobs by Adzuna" attribution (the word "Jobs" and the
       wordmark, both hyperlinked). On a card whose `salary_is_predicted` is true, confirm the
       `(estimated)` label and the Jobsworth attribution appear together; on one where it is
       false, confirm neither does → AC-9
-- [ ] Read every sentence on the page and confirm none claims the listings are samples,
+- [x] Read every sentence on the page and confirm none claims the listings are samples,
       fabricated, or prepared in advance. Check the page metadata description and the `<h1>` too,
       not only the visible prose → AC-10
-- [ ] Confirm the served HTML carries `noindex` for this page specifically, not only from the
+- [x] Confirm the served HTML carries `noindex` for this page specifically, not only from the
       site wide default → AC-11
-- [ ] Break the read deliberately (revoke `select` on `demo_result` from `service_role`, or point
+- [x] Break the read deliberately (revoke `select` on `demo_result` from `service_role`, or point
       the app at an unreachable database). Expect a 200 with the failure sentence, never a 500 or
       an empty list, and expect wording distinct from AC-15's → AC-12
-- [ ] Confirm the entry page hero still does NOT link to `/demo` and the status card still shows
+- [x] Confirm the entry page hero still does NOT link to `/demo` and the status card still shows
       the demo as planned. This is deliberately unbuilt in this pass → AC-13
-- [ ] Confirm the page shows ~~the search query~~ both search queries (revised 2026-09-15) the
+- [x] Confirm the page shows ~~the search query~~ both search queries (revised 2026-09-15) the
       results answer and the date of the last refresh, and that both match `demo_refresh`'s own
       row → AC-14
-- [ ] Confirm both candidates' full profiles render: summary, every skill, every work history
+- [x] Confirm both candidates' full profiles render: summary, every skill, every work history
       entry with its dates, and the preferences. Compare against `DEMO_PERSONAS` in
       `personas.ts` field by field, since that constant is what the scorer was actually given →
       AC-14
-- [ ] On a database where the migration is applied and no refresh has ever run
+- [x] On a database where the migration is applied and no refresh has ever run
       (`demo_refresh.refreshed_at is null`), expect the "not refreshed yet" state, worded
       distinctly from AC-12's failure, on a normal 200, with the candidate profiles still shown →
       AC-15
-- [ ] On every card confirm the compact line naming the other candidate and their band for the
+- [x] On every card confirm the compact line naming the other candidate and their band for the
       same listing, and confirm it matches what switching `?persona=` actually shows → AC-16
-- [ ] Find a card whose band is `weak_match` or `not_a_match` and confirm the employer name,
+- [x] Find a card whose band is `weak_match` or `not_a_match` and confirm the employer name,
       title and description render exactly as on any other card, unhidden and unaltered → AC-19
 
 ## Commands
 
-- [ ] `curl -X POST http://localhost:3000/api/demo/refresh` with no header, and again with a wrong
+- [x] `curl -X POST http://localhost:3000/api/demo/refresh` with no header, and again with a wrong
       secret. Expect 401 both times, and expect `usage_gate_counter` unchanged, proving nothing
       was spent before the refusal → AC-18
-- [ ] `curl -X POST -H "Authorization: Bearer $DEMO_REFRESH_SECRET" .../api/demo/refresh`. Expect
+- [x] `curl -X POST -H "Authorization: Bearer $DEMO_REFRESH_SECRET" .../api/demo/refresh`. Expect
       200 with `{"refreshed":true,...}`, and expect `job_search` up by exactly ~~1~~ 2 (revised
       2026-09-15, two searches) and `ai_scoring` up by exactly the row count → AC-2, AC-17, AC-18
-- [ ] Immediately after that refresh, read `demo_result` and confirm every `source_job_id` appears
+- [x] Immediately after that refresh, read `demo_result` and confirm every `source_job_id` appears
       under both personas and nowhere twice under one, and that `demo_refresh.refreshed_at` moved
       in the same moment → AC-6, AC-17
-- [ ] Force a refusal: set the `ai_scoring` global day cap in `usage_cap` to ~~a value below the row
+- [x] Force a refusal: set the `ai_scoring` global day cap in `usage_cap` to ~~a value below the row
       count~~ the UTC day's `ai_scoring` global `consumed_count` plus a number smaller than the row
       count, read exactly as the 2026-09-15 section's **Reading and setting a day cap** describes
       (with `call_type = 'ai_scoring'`; revised 2026-09-15, since a cap below the row count is
@@ -204,13 +204,13 @@ once and check everything against that one run rather than re-running per step.
       of one mid run), then refresh. Expect a non 200 naming the gate, `demo_result` byte for byte
       unchanged, `refreshed_at` unmoved, and the Sentry event at info level rather than error →
       AC-17
-- [ ] Force a check failure: make the `ai_check` vendor unreachable (a bad key, or an unroutable
+- [x] Force a check failure: make the `ai_check` vendor unreachable (a bad key, or an unroutable
       base URL) while `ai_scoring` still works, then refresh. Expect the same all or nothing
       abort with nothing written → AC-17
-- [ ] Confirm `demo_result` and `demo_refresh` both report `relrowsecurity` and
+- [x] Confirm `demo_result` and `demo_refresh` both report `relrowsecurity` and
       `relforcerowsecurity` true with zero policies, and that neither `anon` nor `authenticated`
       holds any privilege on either → AC-4
-- [ ] Query `demo_result` with the publishable key through the Data API. Expect a permission
+- [x] Query `demo_result` with the publishable key through the Data API. Expect a permission
       denial, not an empty result → AC-4
 
 ## Value sourcing
@@ -218,7 +218,7 @@ once and check everything against that one run rather than re-running per step.
 One step per row of `index.md`'s **Value sourcing** table, each varying the input so a wrong
 source shows up rather than reading the same as a right one.
 
-- [ ] Which profile's rows show: request each of the six `?persona=` cases above and confirm the
+- [x] Which profile's rows show: request each of the six `?persona=` cases above and confirm the
       rendered rows change with the slug, not with anything else
 - [x] The switcher links and both profiles: edit a skill in `personas.ts`, reload, and confirm the
       page changes without any database write. It is a constant, not a read · **covered by a test
@@ -226,24 +226,24 @@ source shows up rather than reading the same as a right one.
       an edited copy and compares two whole renders, which is this step run mechanically, and
       proves the no database half the reload could not: with `readDemoPage()` returning a
       `Failure`, both candidates still render in full
-- [ ] Card facts: change one `demo_result` row's `title`, `location`, `salary_currency` and
+- [x] Card facts: change one `demo_result` row's `title`, `location`, `salary_currency` and
       `salary_is_predicted` directly in the database, reload, and confirm each change appears
-- [ ] Snippet truncation: set one row's `description_snippet` to a complete sentence with no
+- [x] Snippet truncation: set one row's `description_snippet` to a complete sentence with no
       trailing ellipsis and confirm the "only shows part of the description" caption disappears
       for that card while the "Not mentioned" heading stays. Restore it and confirm the caption
       returns. This is derived at render, never assumed
-- [ ] Ungrounded skills: set one row's `ungrounded_skills` to a name that is NOT in its
+- [x] Ungrounded skills: set one row's `ungrounded_skills` to a name that is NOT in its
       `matched_skills`, reload, and confirm the removed skills sentence names it and the reasoning
       caveat appears. Set it back to empty and confirm both disappear
-- [ ] The other candidate's band: change the sibling row's `band` directly and confirm only the
+- [x] The other candidate's band: change the sibling row's `band` directly and confirm only the
       compact line moves, not the card's own badge. Then delete the sibling row entirely and
       confirm the page shows AC-12's failure rather than silently hiding the line
-- [ ] Attributions: flip one row's `salary_is_predicted` and confirm the `(estimated)` label and
+- [x] Attributions: flip one row's `salary_is_predicted` and confirm the `(estimated)` label and
       the Jobsworth attribution appear and disappear TOGETHER, never one without the other
-- [ ] Query line and refresh time: change `demo_refresh.~~search_title~~ search_titles` (both
+- [x] Query line and refresh time: change `demo_refresh.~~search_title~~ search_titles` (both
       elements, revised 2026-09-15) and `search_location` directly and confirm every part of the
       sentence follows, including the nationwide wording when `search_location` is null
-- [ ] The two empty states: set `refreshed_at` to null with rows still present and confirm AC-15's
+- [x] The two empty states: set `refreshed_at` to null with rows still present and confirm AC-15's
       state; then restore it and delete every row and confirm AC-12's failure instead. The two
       must not be reachable from each other
 - [ ] ~~Which listings the refresh keeps: run a refresh and compare the stored `sort_order` against
@@ -256,9 +256,9 @@ source shows up rather than reading the same as a right one.
       `scoreListings()` chain for each persona, and compares the captured prompt byte for byte
       against `buildScoringPrompt(persona.profile, listing)`. It does NOT pin `refresh.ts`'s own
       `scoreListings(persona.profile, ...)` argument, which stays a review concern
-- [ ] The refresh's own session: confirm the `ai_scoring` and `job_search` account scope counters
+- [x] The refresh's own session: confirm the `ai_scoring` and `job_search` account scope counters
       move under `demo-refresh@example.test`'s own profile id and not under any real user's
-- [ ] The route's authorisation: confirm a secret differing only in length is refused with a 401
+- [x] The route's authorisation: confirm a secret differing only in length is refused with a 401
       and not a 500, which is what the SHA-256 digest comparison exists to guarantee
 
 ## Acceptance-criteria coverage
@@ -298,9 +298,9 @@ own `job_search` account week row the same way first, and confirm its `consumed_
 global day cap does. Before driving the refresh, read the UTC date again; if it changed, start
 over.
 
-- [ ] Read `src/features/demo/refresh.ts` and confirm exactly two searches run, titles
+- [x] Read `src/features/demo/refresh.ts` and confirm exactly two searches run, titles
       `"backend engineer"` then `"frontend engineer"`, both with no location → AC-17
-- [ ] The kept walk, as a unit test over fixture result lists rather than a live refresh, since a
+- [x] The kept walk, as a unit test over fixture result lists rather than a live refresh, since a
       live search cannot be made to return a duplicate or a short list on demand: a backend list
       of 2 and a frontend list of 6 whose first entry repeats backend's first id. Expect kept
       order backend 1, frontend 2, backend 2, frontend 3, frontend 4, frontend 5 (frontend's repeat
@@ -309,17 +309,17 @@ over.
       `keepListings()` directly, with no mock of `searchListings()`. Break the walk on purpose (let
       frontend borrow backend's unused share, which keeps a seventh listing) and confirm the test
       fails → AC-7, AC-17
-- [ ] After a real refresh, read `demo_result` for one persona ordered by `sort_order` with its
+- [x] After a real refresh, read `demo_result` for one persona ordered by `sort_order` with its
       `search_title` column, and confirm the titles alternate (`backend engineer`, `frontend
       engineer`, ...) until one search stops, that neither title appears more than 4 times, and
       that the other persona's rows carry the same `search_title` for each `source_job_id` →
       AC-17
-- [ ] After that refresh, confirm `demo_refresh.search_titles` is exactly
+- [x] After that refresh, confirm `demo_refresh.search_titles` is exactly
       `{"backend engineer","frontend engineer"}` and that `/demo` renders exactly `These are the
       first results from two searches, up to four from each: "backend engineer" and "frontend
       engineer".` Then set `search_location` to a city directly and confirm ` in <city>` appears
       before the final period → AC-14
-- [ ] The skill counts: the route's `200` body carries `ownRoleRows`, `ownRoleEmpty`,
+- [x] The skill counts: the route's `200` body carries `ownRoleRows`, `ownRoleEmpty`,
       `crossRoleRows` and `crossRoleEmpty`, and `ownRoleRows + crossRoleRows` equals `rows`.
       Recompute all four from `demo_result` with SQL, own role meaning
       `persona_slug = 'backend-engineer' and search_title = 'backend engineer'` or
@@ -327,11 +327,11 @@ over.
       `cardinality(matched_skills) = 0` for empty, and confirm they match the body. This is the
       number the Follow-up stopping rule reads, so confirm it moves: set one own role row's
       `matched_skills` to `'{}'` and recompute → Follow-up stopping rule
-- [ ] The zero kept abort: `keepListings([], [])` returns an empty result (a unit test), and
+- [x] The zero kept abort: `keepListings([], [])` returns an empty result (a unit test), and
       reading `refreshDemoResults()` shows that an empty result returns a `Failure` of kind
       `record_not_found`, whose context names both titles, before `replace_demo_results()` is
       reached → AC-17
-- [ ] A refused second search, driven live on the local stack. The two searches are not identical
+- [x] A refused second search, driven live on the local stack. The two searches are not identical
       calls: they are two separate gate checks, so the cap can let the first through and refuse
       the second. Record `demo_result` (row count and every `source_job_id`) and
       `demo_refresh.refreshed_at`. Read the UTC day's `job_search` global `consumed_count` (**Reading
@@ -349,7 +349,7 @@ over.
       `Failure` returns before `keepListings()` and before `replace_demo_results()`, and carries
       `"frontend engineer"` in its context. If `/develop` adds a seam that lets a test supply the
       two search results, prefer that test and record it here instead → AC-17
-- [ ] A refusal at the first search, local stack only: read the UTC day's `job_search` global
+- [x] A refusal at the first search, local stack only: read the UTC day's `job_search` global
       `consumed_count` (**Reading and setting a day cap**, above) and set the cap to exactly that
       value, so the next search is refused, then refresh. Expect `503` with `refreshed: false`,
       the global day `consumed_count` unchanged and `attempt_count` up by exactly 1 (the frontend
@@ -357,11 +357,11 @@ over.
       naming `job_search` and `"backend engineer"`, a `refusedSearch` span attribute of
       `"backend engineer"`, and a `demo.refresh` span that is not marked failed. Restore the cap
       to 66 afterwards → AC-17
-- [ ] A refusal later in the run (the existing `ai_scoring` cap step above) answers `503`, not
+- [x] A refusal later in the run (the existing `ai_scoring` cap step above) answers `503`, not
       `500`, and its span is not marked failed; a genuine failure (the existing `ai_check` step
       above) answers `500` and its span is failed. These are the two rows of **Refresh outcomes**
       that differ only in shape, so check both, not one → AC-17
-- [ ] The migration heading: confirm the `where true` comment in
+- [x] The migration heading: confirm the `where true` comment in
       `supabase/migrations/20260913120000_demo_result.sql` reads "BREAKS EVERY APPLICATION CALL TO
       THIS FUNCTION, LOCAL OR HOSTED" and that no line in the file still says "PRODUCTION ONLY".
       Then, on the local stack only, drop `where true` temporarily and `pnpm db:reset`, and call
@@ -374,7 +374,7 @@ over.
       `psql` as `postgres` should succeed, which is the difference the comment describes. This
       proves the local half of the heading's claim rather than trusting it; restore the predicate
       and reset afterwards
-- [ ] Grep `src/`, `supabase/` and `docs/observability/` for `one real search`, `one Adzuna
+- [x] Grep `src/`, `supabase/` and `docs/observability/` for `one real search`, `one Adzuna
       search`, `one real Adzuna search`, `whatever one search`, `DEMO_SEARCH_TITLE\b`,
       `searchTitle\b` and `returned rank`, printing the exit status beside the output (never ending
       in `|| echo`). Expect no match describing the demo, and confirm `KEPT_LISTING_COUNT` is `4`
