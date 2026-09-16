@@ -771,7 +771,7 @@ there is no meaningful single persona thin thread here.
       names**: after one refresh, not a few, because 15 of 16 rows carried zero matched skills.
       The query and the count were both revised (**Feature design**). The band differential this
       item watched for is now covered by the stopping rule below and by AC-16.
-- [ ] **The stopping rule for the queries** (2026-09-15): read the next completed refresh's
+- [x] **The stopping rule for the queries** (2026-09-15): read the next completed refresh's
       `skillCounts` (**Feature design**, "Refresh outcomes"). If **5 or more of its own role rows**
       (`ownRoleEmpty` of up to 8 `ownRoleRows`) carry zero matched skills, the cause is Adzuna's
       500 character snippet, which the three first run snippets read on 2026-09-15 suggest (each
@@ -782,16 +782,33 @@ there is no meaningful single persona thin thread here.
       any run and freeze the queries for the wrong reason. `crossRoleEmpty` is recorded beside it
       so the two are never confused. The snippet limitation is already recorded in spec 0013's
       Consequences, and any fix belongs there, not in a third query.
+      **Fired twice, on two environments and two different sets of real postings, 2026-09-16.**
+      The rule asked for one completed refresh's `skillCounts` and got two, both above its
+      threshold of 5: **6 of 8 own role rows empty** on the local stack on 2026-09-15, and **7 of
+      8** on production (`https://usejobhunt.dev`) on 2026-09-16, with `crossRoleEmpty` at 8 of 8
+      in both. Both runs are written up in `docs/experiments/0021-seeded-demo-account.md`, the
+      local one in section 1 and the production one in section 4, each with the response body it
+      is read from. So **the cause is Adzuna's 500 character snippet and the two queries do not
+      change again**, which is what this item said it would conclude. A single run left open that
+      the postings happened to be unusual; two independent runs closing the same way, more
+      strongly the second time, does not. This ticks what the rule concluded, it does not decide
+      anything new: the fix still belongs to spec 0013's Consequences and to
+      `docs/scope/scope.md`'s deferred full posting text item, which now carries both numbers.
 - [ ] **Two listing data defects the first real refresh put on this public page, both feature
       19's** (`docs/scope/scope.md`, "Listing data quality"), recorded here because `/demo` is
       where a visitor sees them: (1) Everpure, Inc. appears twice under Adzuna ids `5883839578`
       and `5883870504`, byte identical snippets with different titles ("Software Engineering
       Manager, Platform" and "Software Engineer"). That different title is exactly the risk
       feature 19's row names for a dedup key. (2) PNC Financial Services Group's snippet (id
-      `5854960477`) carries literal `\n` character sequences, rendered as text. Feature 19's scope
+      `5854960477`) carries literal `\n` character sequences, rendered as text. ~~Feature 19's scope
       row does not yet name this second defect (its row covers duplicates, the equal salary range
       and outliers; `docs/session-notes.md` is the only other place it is mentioned), so this
-      pointer is not a claim that it is already scoped; adding it there is `/scope`'s. This spec fixes
+      pointer is not a claim that it is already scoped; adding it there is `/scope`'s.~~
+      **No longer true as of 2026-09-16**: the `/scope` pass this sentence was waiting on has run,
+      and feature 19's row now names the escaped character defect in both its intent and its
+      **Done when**, with an evidence paragraph for each of the two defects. It also widened that
+      feature in the process, from de-duplicating incoming listings to **normalising** their text
+      as well, which is the change this defect forced and which the row now states outright. This spec fixes
       neither: `/demo` renders listings exactly as returned (AC-19), and a demo only cleanup would
       make `/demo` differ from `/search`.
 - [ ] Automating the refresh on a schedule (a cron calling `/api/demo/refresh`) is a later
@@ -807,3 +824,29 @@ there is no meaningful single persona thin thread here.
 - [ ] If check failures turn out to abort refreshes often enough to matter in practice, revisit
       whether `ai_check` should become best effort here after all (as it is on `/search`), against
       the reasoning that ruled that out this pass (**Feature design**, AC-17).
+- [ ] **Open question, not a decision: is one failed call worth discarding about thirty paid ones?**
+      Raised by the **first production refresh, 2026-09-16**, whose first attempt returned HTTP 500
+      with `"A demo refresh score or grounding check did not come back clean, so nothing was
+      written."` Nothing was written, which is AC-17 behaving exactly as specified. What the run
+      added is the other half of that trade, which this spec chose without a number against it:
+      **the calls already made when the run aborts are still billed.** `scoreListings()` fires one
+      persona's listings concurrently, so by the time a single bad outcome is noticed at least that
+      persona's eight `ai_scoring` calls and their chained `ai_check` calls have been made and paid
+      for, and if the failure landed in the second persona the whole set had. A run makes up to 32
+      vendor calls and one failure discards all of them. The question this leaves open, deliberately
+      unanswered here: **should the one failed call be retried before the run aborts**, rather than
+      the choice being only between aborting everything and writing an unchecked row? A retry is a
+      third option this spec never considered; it does not weaken AC-17's guarantee, because a
+      retry that also fails still aborts and still writes nothing. Costs to weigh against it: a
+      retry doubles the worst case latency of the slowest call, spends more money on a vendor
+      already failing, and needs a bound so a persistently broken vendor cannot loop. **Related but
+      not the same as the `ai_check` best effort item above**, which asks whether a failed check
+      should be ignored and the row written anyway; this asks whether the call should be tried
+      again first, and the two could be decided independently or together. **This run is also the
+      first real datum for that neighbouring item's own trigger** ("if check failures turn out to
+      abort refreshes often enough to matter in practice"), though one abort is an observation and
+      not yet a rate. Evidence, including what the abort cost and why the retry after it was not a
+      re roll, is in `docs/experiments/0021-seeded-demo-account.md`, section 4. Which of the two
+      steps failed, `ai_scoring` or `ai_check`, is carried on the failure event's `step` context
+      and was not read: Sentry was unreachable from this repository during that run, recorded in
+      the same section.
