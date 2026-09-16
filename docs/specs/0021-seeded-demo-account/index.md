@@ -807,3 +807,29 @@ there is no meaningful single persona thin thread here.
 - [ ] If check failures turn out to abort refreshes often enough to matter in practice, revisit
       whether `ai_check` should become best effort here after all (as it is on `/search`), against
       the reasoning that ruled that out this pass (**Feature design**, AC-17).
+- [ ] **Open question, not a decision: is one failed call worth discarding about thirty paid ones?**
+      Raised by the **first production refresh, 2026-09-16**, whose first attempt returned HTTP 500
+      with `"A demo refresh score or grounding check did not come back clean, so nothing was
+      written."` Nothing was written, which is AC-17 behaving exactly as specified. What the run
+      added is the other half of that trade, which this spec chose without a number against it:
+      **the calls already made when the run aborts are still billed.** `scoreListings()` fires one
+      persona's listings concurrently, so by the time a single bad outcome is noticed at least that
+      persona's eight `ai_scoring` calls and their chained `ai_check` calls have been made and paid
+      for, and if the failure landed in the second persona the whole set had. A run makes up to 32
+      vendor calls and one failure discards all of them. The question this leaves open, deliberately
+      unanswered here: **should the one failed call be retried before the run aborts**, rather than
+      the choice being only between aborting everything and writing an unchecked row? A retry is a
+      third option this spec never considered; it does not weaken AC-17's guarantee, because a
+      retry that also fails still aborts and still writes nothing. Costs to weigh against it: a
+      retry doubles the worst case latency of the slowest call, spends more money on a vendor
+      already failing, and needs a bound so a persistently broken vendor cannot loop. **Related but
+      not the same as the `ai_check` best effort item above**, which asks whether a failed check
+      should be ignored and the row written anyway; this asks whether the call should be tried
+      again first, and the two could be decided independently or together. **This run is also the
+      first real datum for that neighbouring item's own trigger** ("if check failures turn out to
+      abort refreshes often enough to matter in practice"), though one abort is an observation and
+      not yet a rate. Evidence, including what the abort cost and why the retry after it was not a
+      re roll, is in `docs/experiments/0021-seeded-demo-account.md`, section 4. Which of the two
+      steps failed, `ai_scoring` or `ai_check`, is carried on the failure event's `step` context
+      and was not read: Sentry was unreachable from this repository during that run, recorded in
+      the same section.
