@@ -72,6 +72,14 @@ export const NON_PERSONAL_TABLES: readonly NonPersonalTable[] = [
     why: "One row of operator settings, holding the global kill switch. It has no person attached to it.",
   },
   {
+    table: "demo_result",
+    why: "The job listings and scores shown on the public demo page. The listings are real openings from Adzuna and the scores are real, but they are scored against two made up example candidates rather than against anybody, and the same rows are shown to everyone. It describes no real person.",
+  },
+  {
+    table: "demo_refresh",
+    why: "One row saying which two searches the public demo page's listings came from and when they were last refreshed. It holds two search terms and a time, with no person attached to it.",
+  },
+  {
     table: "usage_cap",
     why: "The limits checked before the app makes an outside call on your behalf, whether that is a job search or one of the AI steps that scores and checks a listing. These are fixed configuration values, the same for everyone, with no person attached to any row.",
   },

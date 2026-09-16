@@ -83,6 +83,23 @@ export const env = createEnv({
      * left to the provider package's own implicit environment read.
      */
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
+
+    /**
+     * Feature 31, spec 0021 AC-18. The shared secret `POST /api/demo/refresh`
+     * compares its caller against, as a SHA-256 digest, before it spends a
+     * single Adzuna or model call.
+     *
+     * REQUIRED RATHER THAN OPTIONAL, AND THAT IS THE POINT. An optional secret
+     * would let an environment that simply never set it fall through to some
+     * default and leave the one write path in this feature reachable by anyone
+     * who guessed the URL. Absent means the build fails by name, which is the
+     * loud version of the same fact.
+     *
+     * A MINIMUM LENGTH, NOT JUST NON EMPTY. This is the entire authorisation
+     * for a route that spends real money, so a one character value being
+     * technically valid is not a tradeoff worth having.
+     */
+    DEMO_REFRESH_SECRET: z.string().min(32),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -139,6 +156,7 @@ export const env = createEnv({
     ADZUNA_APP_KEY: process.env.ADZUNA_APP_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    DEMO_REFRESH_SECRET: process.env.DEMO_REFRESH_SECRET,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,

@@ -25,3 +25,4 @@ failure mode this project has already met once and recorded below.
 | [0002-deployment-and-environments.md](0002-deployment-and-environments.md) | Deployment and environments |
 | [0011-usage-gating-and-kill-switch.md](0011-usage-gating-and-kill-switch.md) | Usage gating and kill switch |
 | [0016-eval-ground-truth-set.md](0016-eval-ground-truth-set.md) | Eval ground truth set |
+| [0021-seeded-demo-account.md](0021-seeded-demo-account.md) | Seeded demo account |

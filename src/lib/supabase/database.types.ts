@@ -158,6 +158,93 @@ export type Database = {
           },
         ]
       }
+      demo_refresh: {
+        Row: {
+          id: number
+          refreshed_at: string | null
+          search_location: string | null
+          search_titles: string[]
+        }
+        Insert: {
+          id?: number
+          refreshed_at?: string | null
+          search_location?: string | null
+          search_titles: string[]
+        }
+        Update: {
+          id?: number
+          refreshed_at?: string | null
+          search_location?: string | null
+          search_titles?: string[]
+        }
+        Relationships: []
+      }
+      demo_result: {
+        Row: {
+          band: string
+          company_name: string
+          created_at: string
+          description_snippet: string | null
+          id: string
+          location: string | null
+          matched_skills: string[]
+          not_mentioned_skills: string[]
+          persona_slug: string
+          reasoning: string
+          salary_currency: string | null
+          salary_is_predicted: boolean
+          salary_max: number | null
+          salary_min: number | null
+          search_title: string
+          sort_order: number
+          source_job_id: string
+          title: string
+          ungrounded_skills: string[]
+        }
+        Insert: {
+          band: string
+          company_name: string
+          created_at?: string
+          description_snippet?: string | null
+          id?: string
+          location?: string | null
+          matched_skills?: string[]
+          not_mentioned_skills?: string[]
+          persona_slug: string
+          reasoning: string
+          salary_currency?: string | null
+          salary_is_predicted?: boolean
+          salary_max?: number | null
+          salary_min?: number | null
+          search_title: string
+          sort_order: number
+          source_job_id: string
+          title: string
+          ungrounded_skills?: string[]
+        }
+        Update: {
+          band?: string
+          company_name?: string
+          created_at?: string
+          description_snippet?: string | null
+          id?: string
+          location?: string | null
+          matched_skills?: string[]
+          not_mentioned_skills?: string[]
+          persona_slug?: string
+          reasoning?: string
+          salary_currency?: string | null
+          salary_is_predicted?: boolean
+          salary_max?: number | null
+          salary_min?: number | null
+          search_title?: string
+          sort_order?: number
+          source_job_id?: string
+          title?: string
+          ungrounded_skills?: string[]
+        }
+        Relationships: []
+      }
       job_preference: {
         Row: {
           created_at: string
@@ -386,6 +473,14 @@ export type Database = {
         }[]
       }
       provider_display_name: { Args: { provider: string }; Returns: string }
+      replace_demo_results: {
+        Args: {
+          p_results: Json
+          p_search_location?: string
+          p_search_titles: string[]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
