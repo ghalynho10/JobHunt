@@ -220,8 +220,12 @@ source shows up rather than reading the same as a right one.
 
 - [ ] Which profile's rows show: request each of the six `?persona=` cases above and confirm the
       rendered rows change with the slug, not with anything else
-- [ ] The switcher links and both profiles: edit a skill in `personas.ts`, reload, and confirm the
-      page changes without any database write. It is a constant, not a read
+- [x] The switcher links and both profiles: edit a skill in `personas.ts`, reload, and confirm the
+      page changes without any database write. It is a constant, not a read · **covered by a test
+      instead, 2026-09-16**: `src/app/(marketing)/demo/page.test.ts` replaces `DEMO_PERSONAS` with
+      an edited copy and compares two whole renders, which is this step run mechanically, and
+      proves the no database half the reload could not: with `readDemoPage()` returning a
+      `Failure`, both candidates still render in full
 - [ ] Card facts: change one `demo_result` row's `title`, `location`, `salary_currency` and
       `salary_is_predicted` directly in the database, reload, and confirm each change appears
 - [ ] Snippet truncation: set one row's `description_snippet` to a complete sentence with no
@@ -246,8 +250,12 @@ source shows up rather than reading the same as a right one.
       Adzuna's own returned order for the same query, confirming no reordering and no gap where a
       duplicate was dropped~~ · **SUPERSEDED 2026-09-15** by the kept walk step in the section
       below
-- [ ] The scoring inputs: confirm the prompt the refresh sends carries the persona constant
-      unchanged, not a re-derived or re-bounded copy
+- [x] The scoring inputs: confirm the prompt the refresh sends carries the persona constant
+      unchanged, not a re-derived or re-bounded copy · **covered by a test instead, 2026-09-16**:
+      `src/features/demo/scoring-prompt.test.ts` replaces `callTier()` alone, drives the real
+      `scoreListings()` chain for each persona, and compares the captured prompt byte for byte
+      against `buildScoringPrompt(persona.profile, listing)`. It does NOT pin `refresh.ts`'s own
+      `scoreListings(persona.profile, ...)` argument, which stays a review concern
 - [ ] The refresh's own session: confirm the `ai_scoring` and `job_search` account scope counters
       move under `demo-refresh@example.test`'s own profile id and not under any real user's
 - [ ] The route's authorisation: confirm a secret differing only in length is refused with a 401
