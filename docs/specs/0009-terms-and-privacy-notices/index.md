@@ -3,6 +3,16 @@
 **Date**: 2026-09-01
 **Status**: Accepted
 
+**Revision 2, 2026-09-18, itself corrected the same day after a cross check.** AC-14's cookie
+disclosure was found false on the deployed site: the privacy notice claimed one cookie is set, when
+the codebase sets several. A second AC (AC-24) adds the drift guard that the recipient list (AC-5)
+and the stored field list (AC-23) already have, which this claim never got; its primary check is
+against real response cookies, not source text, after the first draft of this same correction
+under-named the cookies and nearly registered something that was not a cookie at all. See the
+corrected AC-14, the new AC-24, invariant 5, the Feature design section, and the Follow-up entry
+dated 2026-09-18 below; reversed text is struck through and annotated SUPERSEDED rather than
+deleted, per this repo's own precedent (spec 0006 AC-7, spec 0021).
+
 ## Summary
 
 Two public pages, `/terms` and `/privacy`, written against what this codebase actually stores and
@@ -71,9 +81,31 @@ from quietly going stale when features 11, 13 and 14 add their own.
 - **AC-13**: The privacy notice discloses how data received from Google is accessed, used, stored
   and shared, and states plainly that data is not sold, not used for advertising, not shared with
   data brokers, and not used to train models. It carries no Limited Use affirmation.
-- **AC-14**: The privacy notice discloses the session cookie as strictly necessary to sign in, and
+- **AC-14**: ~~The privacy notice discloses the session cookie as strictly necessary to sign in, and
   states there is no analytics and no tracking today. A test fails if an analytics dependency or a
-  third party script tag is introduced, so the claim cannot become false in silence.
+  third party script tag is introduced, so the claim cannot become false in silence.~~ ·
+  **SUPERSEDED 2026-09-18, corrected further after a cross check the same day.** Found false on the
+  deployed site: the notice claimed one cookie is set when the codebase sets, in three kinds, more
+  than that. Replaced by: the privacy notice discloses every cookie the codebase sets, each
+  described as strictly necessary and none used for tracking:
+  - The Supabase session cookie, possibly split into numbered chunks (name and count chosen by
+    `@supabase/ssr`, `sb-<project-ref>-auth-token`), written by `src/lib/supabase/server.ts` and
+    refreshed by `src/proxy.ts`.
+  - The short lived PKCE verifier cookies `@supabase/ssr` writes during the OAuth handshake itself
+    (`<storageKey>-code-verifier` and, per flow, `<storageKey>-flow-<flowId>-code-verifier` plus a
+    `<storageKey>-flows-code-verifier` index). **This fact was already known in this repository**:
+    `src/features/auth/AGENTS.md:29` documents the verifier as a host only cookie that breaks sign
+    in across a preview URL, and names it as documented expected behaviour. It simply never reached
+    the page a visitor actually reads, which is the strongest argument for AC-24's registry being
+    the one source both the code's own behaviour and the notice's prose read from.
+  - `jobhunt_return_path` (spec 0008 AC-5b), a short lived, first party, `httpOnly` cookie written
+    by `rememberReturnPath()` in `src/features/auth/actions.ts` only when a signed out visitor
+    follows a protected deep link, and cleared by the callback
+    (`src/app/auth/callback/route.ts:73`).
+
+  It also still states there is no analytics and no tracking today. A test fails if an analytics
+  dependency or a third party script tag is introduced, so that half of the claim cannot become
+  false in silence; the cookie half now has its own guard, AC-24.
 - **AC-15**: The terms page states what the service is, that it is free with no guarantee of
   availability, and that it may change or stop. Four clauses are settled here rather than left to
   the build:
@@ -113,6 +145,52 @@ from quietly going stale when features 11, 13 and 14 add their own.
   `src/lib/supabase/database.types.ts`, which is generated from the applied schema, shows a column
   in a personal data table that no registry entry names. A migration that adds a column the notice
   does not mention fails the suite rather than quietly making the notice incomplete.
+- **AC-24** (added 2026-09-18, revised the same day after a cross check): The cookie disclosure is
+  enforced against the code and, primarily, against what a real visitor's browser actually
+  receives, the same way AC-5 enforces the recipient list and AC-23 enforces the field list. A
+  typed cookie registry names every cookie the codebase can set, whether by a literal name
+  (`jobhunt_return_path`) or a documented pattern for one a library names at runtime (the Supabase
+  session and PKCE verifier cookies). Two guards, not one:
+  - **Primary: an integration test drives three real steps and asserts each step's own
+    `Set-Cookie` names against the registry, not the combined set.** This measures what a visitor
+    experiences rather than what the source text appears to do, per this project's own standing
+    rule that a system level guarantee must be proved at the outcome, not at the code
+    (`docs/reflexes.md`, added 2026-08-28). The three steps produce different cookies, and the test
+    names each expectation so an absent cookie reads as a wrong assertion rather than a missing
+    disclosure:
+    1. **Starting sign in** (the provider Server Action, `src/features/auth/actions.ts`) is where
+       the PKCE verifier cookie is actually written, verified against the installed
+       `@supabase/auth-js` 2.112.3: `signInWithOAuth()` calls `_getCodeChallengeAndMethod()`
+       (`GoTrueClient.js:4816`), which writes the verifier through the storage adapter
+       synchronously, before the function returns the provider's authorization URL the action
+       redirects to. There is no real provider round trip in CI (no browser, no Google or GitHub
+       exchange, which is why `test/helpers/session.ts` mints sessions through the admin API
+       instead), so this step only reaches as far as that response; it does not complete a sign in.
+    2. **The callback** (`src/app/auth/callback/route.ts`) is driven against a session minted
+       through the local stack rather than a real provider round trip, and is where the return
+       path cookie is cleared.
+    3. **An ordinary signed in navigation** is where the Supabase session cookie itself is present
+       and refreshed.
+
+    The exact response on which the verifier cookie appears is inferred from the library's source
+    above rather than traced end to end through a live request; confirm it against a real response
+    during the build, before the assertion is written, and correct this note if the live behaviour
+    differs.
+  - **Secondary, cheap net: a unit test walks every non-test `.ts`/`.tsx` file under `src/` for a
+    call that could set a cookie** (`cookieStore.set(`, `request.cookies.set(`,
+    `response.cookies.set(`, `.setAll(`) and fails when a call site is found that no registry
+    entry names, or when a registry entry names a call site that no longer exists. This is a known
+    incomplete blacklist, the same accepted shape `no-tracking.test.ts`'s script tag scan and
+    `recipients.test.ts`'s `RECIPIENT_CONFIG_MODULES` list already carry: a wrapper function or a
+    direct `Set-Cookie` response header write would pass it silently. It exists because it is cheap
+    and catches the ordinary case; the integration test above is what actually backs the claim on
+    the page.
+
+  Nothing in the source tree is registered as a cookie unless it can put a `Set-Cookie` header on a
+  real response. A call site that only ever writes to an in memory store never reaches a browser
+  and is not a cookie at all; the first draft of this criterion nearly listed one on the public
+  page (`src/features/demo/refresh-session.ts`'s session jar, a plain `Map`), caught only because
+  the cross check verified the claim against the response, not the source text.
 
 ## Decision
 
@@ -183,6 +261,57 @@ The AC-23 test reads `src/lib/supabase/database.types.ts`, which is regenerated 
 schema by `pnpm db:types`, and fails when a personal data table holds a column no entry names. This
 is the same guard as AC-5, pointed at the other half of the notice.
 
+**Added 2026-09-18 (AC-24), revised the same day after a cross check.** A third registry, for the
+same reason invariant 2's asymmetry was closed for fields in AC-23: the cookie claim had no drift
+guard at all, and it went stale the moment spec 0008 added a second cookie.
+
+```
+CookieDisclosure = {
+  readonly id: string             // stable key, e.g. "supabase-session", "pkce-verifier", "return-path"
+  readonly namePattern: string    // a literal cookie name, or a documented pattern for one chosen
+                                   // at runtime by a library (the Supabase cookies carry the
+                                   // project ref and may be chunked or per OAuth flow). Descriptive
+                                   // prose only, like DataRecipient's `receives`/`why`: asserted
+                                   // non-empty, never fact checked against a name by either guard
+  readonly setBy: readonly string[]  // every call site that can produce this cookie's Set-Cookie
+                                      // header, file path with :line. A list because one cookie can
+                                      // be written from more than one place (the session cookie
+                                      // from both src/proxy.ts and src/lib/supabase/server.ts), and
+                                      // because a single call site can differ in kind, per entry,
+                                      // from another (src/proxy.ts's request.cookies.set never
+                                      // reaches a browser; its response.cookies.set is what does,
+                                      // so the two are named as separate registry entries sharing
+                                      // one namePattern rather than one entry with mixed visibility)
+  readonly purpose: string        // plain words, why it exists. Descriptive prose, not fact checked
+  readonly lifetime: string       // plain words, e.g. "for as long as you are signed in", "10 minutes".
+                                   // Descriptive prose; the session cookie's real expiry is Supabase
+                                   // project configuration, outside src/, so this names what is
+                                   // known rather than a value any test can read
+  readonly visibleToVisitor: true // every entry in this registry reaches a real visitor's browser,
+                                   // by construction: nothing that cannot produce a Set-Cookie
+                                   // header on a real response belongs here at all (see below)
+}
+```
+
+**Not every cookie setting call site is a cookie, and the registry only names the ones that are.**
+The first draft of this criterion carried a `visibleToVisitor: false` entry for
+`src/features/demo/refresh-session.ts`, the demo refresh's own dedicated internal identity, on the
+theory that it "sets a cookie" internally but never for a visitor. The cross check that reviewed
+this correction verified the claim against the code rather than trusting it, and found that module
+never touches an HTTP cookie store at all: `createCookieJar()` (`refresh-session.ts:77`) holds its
+state in a plain `Map`, and its `.set(name, value)` at line 100 is `Map.prototype.set`, not a
+cookie API. Nothing there can ever put a `Set-Cookie` header on a response. It is not a cookie the
+guard has to watch and not a fact the page has to omit; it is not in scope at all, and naming it in
+a legal document, even marked undisclosed, would have been the exact kind of unchecked claim this
+whole correction exists to stop making. It is not in the registry. The lesson is in `rationale.md`:
+a guard built only on scanning source text is what proposed listing it; the primary guard below,
+built on the response instead, could not have made that mistake.
+
+`src/lib/supabase/read-only-cookies.ts`'s `setAll() {}` is a second, different non cookie: a
+deliberate no-op adapter for a context where Next.js forbids mutating cookies at all. The secondary
+source scan below names it explicitly as a known zero-effect match, rather than letting it read as
+an unaccounted-for call site.
+
 **State transitions**: none. Both pages are static.
 
 **API surface**
@@ -212,7 +341,8 @@ one would add a client boundary these pages must not have.
 | render `/privacy` | the lawful basis per purpose | decided here: contract necessity for identity, profile and application data; legitimate interest for error monitoring |
 | render `/privacy` | the stored field list | the typed field registry, which the AC-23 test binds to `src/lib/supabase/database.types.ts` |
 | render `/privacy` | what Vercel receives | Vercel's own Privacy Notice: IP address and IP derived location data. User agent is deliberately not claimed, because that notice does not confirm it |
-| render `/privacy` | the cookie disclosure | the Supabase session cookie the proxy refreshes, `src/proxy.ts` |
+| render `/privacy` | ~~the cookie disclosure~~ · **SUPERSEDED 2026-09-18**, this row named only one of two real sources | ~~the Supabase session cookie the proxy refreshes, `src/proxy.ts`~~ |
+| render `/privacy` | the cookie disclosure | the `CookieDisclosure` registry (AC-24), which names the Supabase session cookie and PKCE verifier cookies (`src/lib/supabase/server.ts`, refreshed by `src/proxy.ts`) and `jobhunt_return_path` (`src/features/auth/actions.ts`, cleared by `src/app/auth/callback/route.ts`), and is itself checked against real `Set-Cookie` headers rather than trusted |
 | render `/terms` | acceptable use, and what "removed for abuse" means | decided here, AC-15: no scraping, no applying on another person's behalf, no reaching another user's data |
 | render `/terms` | the content licence granted | decided here, AC-15: non exclusive, limited to operating the service, revoked on deletion, not sublicensable, not for training |
 | render `/terms` | the warranty and liability position | decided here, AC-15: as is, limited to the fullest extent the law allows, no cap figure because the service is free |
@@ -258,6 +388,19 @@ one would add a client boundary these pages must not have.
    a silent failure, which this project's rules forbid. Verified on 2026-09-01; it is the kind of
    thing that breaks later without telling anyone, so verify checks it again rather than trusting
    the date.
+5. **Added 2026-09-18 (AC-24), revised the same day after a cross check.** The `Set-Cookie` names a
+   real visitor's browser receives, driven through a real sign in, the real callback, and an
+   ordinary signed in navigation, match the cookie registry exactly, or the suite fails. This is the
+   claim's real guarantee. A secondary, cheaper unit test also maps every cookie setting call site
+   under `src/` to a registry entry, but it is a known incomplete net, not the source of truth: it
+   would miss a wrapper function or a direct `Set-Cookie` header write, and it cannot by itself tell
+   a real cookie store from something that merely resembles one in source text, which is exactly
+   what nearly happened when this criterion's own first draft proposed disclosing an in memory
+   `Map` as a cookie (see the Feature design section above). Invariants 1, 2 and 2b protect the
+   recipient and field lists; this one protects the cookie claim, which had no such protection when
+   spec 0008 added a second cookie and the privacy notice went stale without any test noticing. The
+   asymmetry is the same shape invariant 2b closed for fields: a notice guarded on some of its
+   claims and not others is a notice whose unguarded half nobody is watching.
 
 **Security model**
 
@@ -291,6 +434,16 @@ No new environment variable. Two prerequisites outside the code:
   fails the unit suite, verifies **AC-23**.
 - Tracking drift: adding an analytics dependency or a third party script tag fails the unit suite,
   verifies **AC-14**.
+- Cookie drift, real response (added 2026-09-18, revised after cross check): the integration
+  suite drives sign in start, the callback, and an ordinary signed in navigation as three separate
+  steps, and asserts each step's own `Set-Cookie` names against the registry, so a cookie added to
+  what a visitor actually receives, at the step it actually appears, cannot quietly leave
+  `/privacy` incomplete the way it already did once, verifies **AC-24**.
+- Cookie drift, source scan (secondary net): a new cookie setting call site under `src/` with no
+  matching registry entry fails the unit suite, and a registry entry naming a call site that no
+  longer exists also fails. A known non cookie in source text (an in memory jar, a deliberate no-op
+  adapter) is explicitly excluded rather than silently matched, so the scan does not propose
+  disclosing something that is not a cookie, verifies **AC-24**.
 - Metadata: the two pages are indexable while the root layout's robots assertions still pass,
   verifies **AC-17**.
 - No client boundary: `/sign-in` still ships zero client JavaScript with the acceptance line added,
@@ -325,6 +478,18 @@ URLs, not finished prose. The words thicken after the thread is proved.
 6. Re confirm delivery to the published address, then do the console work: authorized domain, the
    two URLs, publish out of Testing, and submit brand verification, satisfies **AC-9**, **AC-21**,
    **AC-22**. The address is already configured and verified, so this step is a check, not setup.
+7. **Added 2026-09-18, revised the same day after a cross check. Two separate steps rather than
+   one, because a false claim is live on `/privacy` today and should not wait on the guard's
+   design.**
+   - **7a.** Ship a corrected, hand written `COOKIES` array in `privacy-notice.tsx` promptly:
+     disclose the Supabase session cookie, the PKCE verifier cookies, and `jobhunt_return_path`
+     truthfully. This is an interim, manually verified fix, not yet enforced by a test, satisfies
+     the corrected **AC-14** on its own. Ships first and alone.
+   - **7b.** Build the `CookieDisclosure` registry, then replace 7a's hand written array with
+     `COOKIES` rendered FROM the registry the same way `RECIPIENTS_INTRO`'s list renders from
+     `DATA_RECIPIENTS` (invariant 1's shape, extended to cookies), then add the primary integration
+     level `Set-Cookie` assertion and the secondary source scan guard, satisfies **AC-24** and
+     closes the two-lists gap 7a's stopgap otherwise leaves open.
 
 ## Consequences
 
@@ -424,3 +589,40 @@ URLs, not finished prose. The words thicken after the thread is proved.
 - [ ] A lawyer's review is the only thing here that manages legal risk rather than reducing factual
       error. Deferred as a reasonable call for a free portfolio project, recorded so the deferral is
       visible.
+- [ ] **AC-14's cookie disclosure was found false on the live site, 2026-09-18.** The privacy notice
+      stated "One cookie is set, and it is the session cookie that keeps you signed in", which was
+      wrong: `rememberReturnPath()` in `src/features/auth/actions.ts` writes a second cookie,
+      `jobhunt_return_path` (spec 0008 AC-5b), whenever a signed out visitor follows a protected
+      deep link, cleared by the callback at `src/app/auth/callback/route.ts:73`. It is first party,
+      `httpOnly`, short lived (600 seconds) and strictly necessary, so the fix is accuracy rather
+      than a consent question.
+
+      **Why nobody noticed is the more important half.** The recipient list, the field list, the
+      Sentry configuration and the no analytics claim are each pinned by a test that fails when
+      reality drifts (AC-5, AC-23, AC-4, AC-14's tracking half). The cookie claim had no such guard:
+      the only legal test mentioning cookies, `sentry-claim.test.ts`, is about Sentry's own
+      configuration, not the page's cookie disclosure. Spec 0008 added a cookie in review, correctly,
+      and the privacy page silently went stale the same day, because nothing compared what the page
+      claimed against what the code actually does.
+
+      **A cross check the same day found the first draft of this correction still wrong, twice.**
+      First, AC-14's replacement text named only two cookie kinds; `@supabase/ssr` also writes
+      short lived PKCE verifier cookies during the OAuth handshake, a fact already documented in
+      this repo (`src/features/auth/AGENTS.md:29`, "the PKCE code verifier is a host only cookie")
+      but never carried to the page a visitor reads, which is itself the clearest argument for
+      AC-24's registry being the one place both the code's real behaviour and the notice's prose
+      draw from. Second, AC-24's first draft proposed registering `src/features/demo/refresh-session.ts`
+      as a cookie that reaches nobody: verified against the actual code, that module never touches
+      an HTTP cookie store at all, `createCookieJar()` holds its state in a plain `Map`, so it was
+      about to be named, even as an undisclosed one, in a legal document it has nothing to do with.
+      A guard built by scanning source text is exactly what proposed that; it is why AC-24's primary
+      guard asserts the real `Set-Cookie` names a browser receives rather than trusting what the
+      source appears to do, with the source scan kept only as a cheap secondary net.
+
+      **Resolved in this revision.** AC-14 now names three cookie kinds (struck through above,
+      replaced), and AC-24 adds the drift guard: a `CookieDisclosure` registry, an integration test
+      asserting real response cookies against it (primary), and a unit level source scan (secondary,
+      explicitly excluding the two things in this codebase that resemble a cookie setting call in
+      source text but are not one). The prose correction (Build plan 7a) ships promptly and alone,
+      since the false claim is live on `/privacy` today; the registry, the render from it, and both
+      guards (7b) follow separately.
