@@ -487,11 +487,37 @@ URLs, not finished prose. The words thicken after the thread is proved.
      exposing internal names. This is an interim, manually verified fix, not yet enforced by a
      test, satisfies the corrected **AC-14** on its own. 1284 unit tests pass; nothing pinned the
      old text.
-   - **7b.** Build the `CookieDisclosure` registry, then replace 7a's hand written array with
-     `COOKIES` rendered FROM the registry the same way `RECIPIENTS_INTRO`'s list renders from
-     `DATA_RECIPIENTS` (invariant 1's shape, extended to cookies), then add the primary integration
-     level `Set-Cookie` assertion and the secondary source scan guard, satisfies **AC-24** and
-     closes the two-lists gap 7a's stopgap otherwise leaves open.
+   - **7b. Landed 2026-09-18.** Built the `CookieDisclosure` registry (`src/features/legal/cookies.ts`),
+     replaced 7a's hand written array with `COOKIES` rendered FROM it the same way `RECIPIENTS_INTRO`'s
+     list renders from `DATA_RECIPIENTS` (invariant 1's shape, extended to cookies), and added both
+     guards, satisfies **AC-24**. Both directions of non vacuity were proved by deliberately breaking
+     the registry and confirming each guard fails: an entry for a cookie nothing sets, and a missing
+     entry for one that is. Two things found during the build, corrected rather than assumed:
+     - A fourth field, `nameRegex`, was added to `CookieDisclosure` alongside `namePattern`: the
+       prose field alone cannot be tested by a guard, so the primary integration test would have
+       hardcoded its own expectations instead of reading the registry, which a first draft of it
+       did and which a later pass caught and fixed. `nameRegex` is machine checked; `namePattern`
+       stays human prose.
+     - The primary guard's third step could not be built as designed. A freshly minted session, not
+       near its access token's expiry, produces no `Set-Cookie` on an ordinary navigation at all;
+       `@supabase/auth-js` only rewrites the cookie when it actually rotates the token. The session
+       cookie's real name is instead proved through `mintSession()`'s own adapter call, a real
+       network exchange with the local Supabase auth server, not a parallel implementation built for
+       this test. Forcing a real rotation over HTTP as well is recorded in Follow-up rather than
+       built here.
+
+     Building the primary guard also found and fixed a real, pre-existing bug in
+     `test/helpers/app-server.ts`, shared test infrastructure this correction does not own but had
+     to touch to make AC-24 buildable at all: two test files calling `startAppServer()` at the same
+     time raced for `next dev`'s single `<distDir>/lock`, and the loser's `next dev`/`next-server`
+     process was left orphaned, still alive and still holding the directory open, rather than
+     actually failing loudly. Fixed with a lock race retry (the shared `distDir` name stays fixed,
+     matching the entry already pre-declared in `tsconfig.json`, since a unique name per call was
+     tried first and reverted: `next typegen` appends a literal, uncollapsible entry to that
+     committed file for every distinct name it sees, which would have grown it by two lines on every
+     single test run, forever) and a process group kill in `stop()` (`detached: true` plus a negative
+     PID signal, since killing only the immediate `pnpm` child left `next`'s own Turbopack workers
+     running).
 
 ## Consequences
 
@@ -628,3 +654,12 @@ URLs, not finished prose. The words thicken after the thread is proved.
       source text but are not one). The prose correction (Build plan 7a) ships promptly and alone,
       since the false claim is live on `/privacy` today; the registry, the render from it, and both
       guards (7b) follow separately.
+- [ ] **The primary guard's session cookie step proves the name through `mintSession()`'s own real
+      network exchange, not through an HTTP response from this app, recorded 2026-09-18.** A freshly
+      minted session does not get its cookie rewritten on an ordinary navigation, measured rather
+      than assumed while building AC-24: only an actual token rotation triggers
+      `@supabase/auth-js` to write one, and a fresh mint has nothing to rotate. Forcing a real
+      rotation and observing it over HTTP as well would need either a near-expiry session (no
+      control over token lifetime from a test) or a second local Supabase project configured with a
+      short one. Worth doing if this guard ever needs to prove the outward HTTP half of the session
+      cookie specifically, not just its real name.
