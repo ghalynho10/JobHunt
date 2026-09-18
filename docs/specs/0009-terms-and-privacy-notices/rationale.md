@@ -156,6 +156,84 @@ adding a company to the first. The lesson worth keeping is narrower than the fix
 phrased as a total mapping onto one list is a bet that the second category will never exist, and
 here it already did on the day it was written.
 
+**On AC-14 and the cookie guard, corrected 2026-09-18.** The privacy notice's cookie claim was the
+one factual sentence on either page with no drift guard behind it. Every other checkable claim had
+one by the time this spec first shipped: the recipient list (AC-5), the field list (AC-23), and the
+Sentry configuration (AC-4, `sentry-claim.test.ts`). The cookie claim was written once, from a
+correct reading of the code at the time, and then nothing watched it. Spec 0008 added a second
+cookie, `jobhunt_return_path`, in a review that was about the return path mechanism, not about this
+notice, and the notice went stale the same day without anything failing.
+
+Two designs were weighed for the guard.
+
+**A literal name registry, checked against a fixed list of expected cookie names.** The simplest
+version of the pattern the recipient and field registries already use: list every cookie name the
+codebase should set, and fail if a `Set-Cookie` the app produces carries a name not on the list.
+Rejected on a fact the recipient and field registries do not have to deal with: the Supabase session
+cookie's name is not a literal string anywhere in this codebase. `@supabase/ssr` builds it at
+runtime from the project reference (`sb-<project-ref>-auth-token`), and splits it into numbered
+chunks when the session value is large enough. A registry entry that names a literal string would
+either hardcode a project ref that differs between the local, development and production Supabase
+projects, or match by prefix and accept an unbounded chunk suffix, either of which is closer to
+parsing the library's internals than to describing a fact about this codebase.
+
+**A call site registry, checked against every place the code calls a cookie setting function.**
+Chosen instead. The registry names the call site, `src/lib/supabase/server.ts`'s `setAll`,
+`src/proxy.ts`'s two `.cookies.set(` calls, `src/features/auth/actions.ts`'s
+`rememberReturnPath()`, rather than the literal name a dynamically named cookie ends up with, and a
+test walks the source tree for every function call that sets a cookie, the same shape
+`no-tracking.test.ts` already uses to find a third party script tag by scanning source text rather
+than by importing a fixed list. A call site is a fact about the code; a runtime-chosen cookie name
+is a fact about the library. Anchoring the guard to the fact this codebase actually controls is what
+made AC-24 buildable at all.
+
+**The first draft stopped here, and a cross check on 2026-09-18 found it still wrong, in the shape
+this whole correction exists to catch: an unverified claim.** The design as first written surfaced
+a third call site, `src/features/demo/refresh-session.ts`, and reasoned that the demo refresh's own
+internal session mint "calls through the same Supabase cookie adapter" and so needed a
+`visibleToVisitor: false` registry entry, mirroring `ENV_KEYS_WITH_NO_RECIPIENT`. That reasoning
+was never checked against the actual code, and it was wrong: `createCookieJar()`
+(`refresh-session.ts:77`) holds its state in a plain `Map`, and its `.set(name, value)` at line 100
+is `Map.prototype.set`, never an HTTP cookie store. Nothing there can ever produce a `Set-Cookie`
+header. The draft was one edit away from naming a data structure that has never been a cookie as an
+undisclosed cookie, inside the spec governing the page whose entire argument is that every claim on
+it can be checked.
+
+**The near miss is the strongest argument for the guard design the cross check recommended.** A
+guard built by scanning source text for a pattern that looks like a cookie call is exactly the kind
+of check that would propose registering a `Map`, because the pattern `.set(` does not know the
+difference. A guard built on the response, driving a real sign in and reading the `Set-Cookie`
+headers an actual request actually receives, cannot make that mistake, because a `Map` produces no
+header to assert against. AC-24 was revised the same day to make the response level assertion the
+primary guard and keep the source scan only as a cheap secondary net that explicitly excludes the
+two things in this codebase that resemble a cookie setting call without being one (the `Map` above,
+and `src/lib/supabase/read-only-cookies.ts`'s deliberate no-op `setAll(){}`).
+
+**The cross check also found AC-14's own replacement text still incomplete.** It named the Supabase
+session cookie and `jobhunt_return_path`, and missed the short lived PKCE verifier cookies
+`@supabase/ssr` writes during the OAuth handshake itself. That fact was not undiscovered: `src/
+features/auth/AGENTS.md:29` already documents the verifier as "a host only cookie" that breaks sign
+in across a preview URL. It had simply never been carried from that engineering note to the page a
+visitor reads, which is the clearest evidence in this whole correction that the fix is not really
+three sentences of prose, it is one registry that both the code's real behaviour and the notice's
+claim are read from, so a fact like this one cannot go stale between a file only an engineer reads
+and a page anyone can.
+
+**On the primary guard's three steps, clarified 2026-09-18 during confirmation.** The integration
+suite cannot drive a real OAuth round trip: there is no browser and no live exchange with Google or
+GitHub in CI, which is exactly why `test/helpers/session.ts` mints a session through the admin API
+instead of a real sign in. So the primary guard cannot simply "sign in and check the cookies"; it
+has to name which of three separate steps, starting sign in, the callback, an ordinary signed in
+navigation, produces which cookie, or an absent cookie in the assertion reads as ambiguous rather
+than as a specific, wrong expectation. Starting sign in was the one step worth verifying against the
+library rather than assuming from the PKCE flow's shape: the installed `@supabase/auth-js` 2.112.3
+writes the verifier synchronously inside `signInWithOAuth()`, before the function returns the
+provider's authorization URL (`_getCodeChallengeAndMethod()`, `GoTrueClient.js:4816`, called from
+`src/features/auth/actions.ts:252`), so the verifier cookie is written to that action's own
+response, not to the callback's. The exact `Set-Cookie` a live response carries is still worth
+confirming once during the build; this closes the source level half of that question, not the
+runtime half.
+
 ## References
 
 **Project sources**
@@ -171,6 +249,21 @@ here it already did on the day it was written.
 - `src/features/entry-page/AGENTS.md`, the no client JavaScript rule and the drifted count precedent
 - `src/features/entry-page/entry-footer.tsx`, whose centre slot was left free for this feature
 - `docs/scope/scope.md`, feature 21's row and the Resolved entry on the custom domain
+- **Added 2026-09-18**: spec 0008 `index.md:65` (AC-12) and `:136`, `jobhunt_return_path`'s name and
+  cookie path; `src/lib/return-path.ts`, the cookie's name, path and 600 second max age constants;
+  `src/lib/supabase/server.ts`, the per request Supabase cookie adapter; `src/proxy.ts:81,133,144`,
+  the middleware's cookie refresh; `src/features/auth/actions.ts:134`, `rememberReturnPath()`;
+  `src/app/auth/callback/route.ts:73`, where the return path cookie is cleared;
+  `node_modules/@supabase/ssr/dist/main/clearAuthCookiesAtScopes.js`, confirming the
+  `sb-<project-ref>-auth-token` naming and chunking behaviour at the installed version;
+  `node_modules/@supabase/ssr/dist/main/cookies.js:12-29`, the PKCE verifier cookie names and
+  chunking rules; `src/features/auth/AGENTS.md:29`, the pre-existing "host only cookie" note about
+  the PKCE verifier that never reached `/privacy` until this correction
+- **Added 2026-09-18, cross check**: `src/features/demo/refresh-session.ts:77-107`, the `Map`
+  backed session jar verified to never touch an HTTP cookie store, the near miss recorded above;
+  `src/lib/supabase/read-only-cookies.ts`, the deliberate no-op `setAll(){}` adapter; `docs/
+  reflexes.md`, the 2026-08-28 rule this revision's primary guard design follows ("assert the
+  outcome the reader experiences, not the property the code sets")
 
 **Practices and standards**
 
