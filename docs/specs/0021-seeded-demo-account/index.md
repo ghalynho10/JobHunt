@@ -1,7 +1,7 @@
 # 0021. Seeded demo account
 
 **Date**: 2026-09-13
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
@@ -110,10 +110,13 @@ correction to `/develop` (**Build plan**, step 10).
   state rather than an empty, broken looking, or server error page. This is a different case from
   AC-15, and the two must render distinguishable copy.
 - **AC-13**: The entry page's hero carries a real, working link to `/demo`, and the "what's real
-  today" status card moves "a no sign in demo account" from planned to working. **Deliberately not
+  today" status card moves "a no sign in demo account" from planned to working. ~~**Deliberately not
   built by this spec.** Recorded in `docs/scope/scope.md` on 2026-09-14: wiring this while the page
   still showed fabricated data would have advertised a demo already decided to be insufficient,
-  and that reasoning holds unchanged for the real data version until it ships.
+  and that reasoning holds unchanged for the real data version until it ships.~~ **Built
+  2026-09-17**, once its own stated condition was met: the real data version shipped in pull
+  request #135 and the first production refresh ran 2026-09-16, so `/demo` shows real scored
+  postings rather than the fabricated set this was waiting out.
 - **AC-14** (new 2026-09-14): The page shows ~~the search query the current results answer (the
   title and, when set, the location the refresh searched)~~ both search queries the current
   results answer (both titles, and the shared location when one is set; revised 2026-09-15) and
@@ -850,3 +853,22 @@ there is no meaningful single persona thin thread here.
       steps failed, `ai_scoring` or `ai_check`, is carried on the failure event's `step` context
       and was not read: Sentry was unreachable from this repository during that run, recorded in
       the same section.
+- [ ] **The status card's `planned` row now needs a new claim each time the last one ships, which
+      is a recurring obligation the mechanism did not previously have** (2026-09-17). AC-13
+      specifies only that `a no sign in demo account` moves from `planned` to `working`. It says
+      nothing about what the `planned` row then shows, and feature 31 was the last of the original
+      five, so following AC-13 literally would have left that row rendering a `planned` chip beside
+      nothing. **That is not a cosmetic problem**: the third about paragraph, on the same screen,
+      promises "anything not built yet is labeled as such on this page, not implied", and a card
+      with no `planned` side makes that sentence false where a visitor can read both at once. So
+      one replacement claim was chosen rather than deleting the row: `resumes tailored to each
+      posting`, which is feature 25 (Resume tailoring per job), a real `planned` scope row, as
+      AC-8's second promise requires. **Recorded as a content change to AC-8's card beyond what
+      AC-13 specifies, not as a decision this spec made.** What it leaves open: the original five
+      drained one at a time and were never refilled, so the row was always going to empty exactly
+      once and no rule covers what happens after. From now on, every feature that moves this claim
+      into `working` must either choose the next one or delete the row and rewrite the paragraph
+      beside it, and nothing enforces that choice except `about-section.test.ts`'s exact match on a
+      single element array. Whether the row should carry a standing rule for picking its next
+      claim, or be rebuilt to read the scope, belongs to `/architect` and to spec 0006, which owns
+      the card.
