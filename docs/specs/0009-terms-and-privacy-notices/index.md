@@ -481,10 +481,12 @@ URLs, not finished prose. The words thicken after the thread is proved.
 7. **Added 2026-09-18, revised the same day after a cross check. Two separate steps rather than
    one, because a false claim is live on `/privacy` today and should not wait on the guard's
    design.**
-   - **7a.** Ship a corrected, hand written `COOKIES` array in `privacy-notice.tsx` promptly:
-     disclose the Supabase session cookie, the PKCE verifier cookies, and `jobhunt_return_path`
-     truthfully. This is an interim, manually verified fix, not yet enforced by a test, satisfies
-     the corrected **AC-14** on its own. Ships first and alone.
+   - **7a. Landed 2026-09-18.** Shipped a corrected, hand written `COOKIES` array in
+     `privacy-notice.tsx`: discloses the session cookie, the sign in handshake cookie, and the
+     deep link return cookie in plain words, matching the page's existing voice rather than
+     exposing internal names. This is an interim, manually verified fix, not yet enforced by a
+     test, satisfies the corrected **AC-14** on its own. 1284 unit tests pass; nothing pinned the
+     old text.
    - **7b.** Build the `CookieDisclosure` registry, then replace 7a's hand written array with
      `COOKIES` rendered FROM the registry the same way `RECIPIENTS_INTRO`'s list renders from
      `DATA_RECIPIENTS` (invariant 1's shape, extended to cookies), then add the primary integration

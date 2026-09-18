@@ -87,7 +87,10 @@ const GOOGLE_DISCLOSURE = [
 ];
 
 const COOKIES = [
-  "One cookie is set, and it is the session cookie that keeps you signed in as you move between pages. It is strictly necessary: without it, signing in would not survive a single click. It is not used to follow you, and it means nothing to any other website.",
+  "Three cookies are set while you use this service, and each one is strictly necessary: none of them are used to follow you, and none of them mean anything to any other website.",
+  "The first keeps you signed in as you move between pages. Without it, signing in would not survive a single click.",
+  "The second exists only for the few seconds it takes to hand you off to Google or GitHub to sign in, and is gone again the moment that finishes. It is part of how that handoff is done safely.",
+  "The third exists only if you followed a link to a page that needs signing in while you were signed out. It remembers where you were headed, for a few minutes at most, so signing in returns you there instead of somewhere generic, and it is removed the moment it has done that job.",
   "There is no analytics, no tracking, no advertising pixel, and no third party script on any page of this service. That is not a promise about intentions, it is a test: adding an analytics package or a script tag from another origin fails the build.",
 ];
 
