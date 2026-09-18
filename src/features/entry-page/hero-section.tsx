@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Heading } from "@/components/ui/heading";
@@ -59,6 +60,27 @@ const TOTAL_COUNT = MATCHED_COUNT + MISSING_SKILLS.length;
 
 /** `COPY-2` (spec 0006), the example label. Used verbatim in both places. */
 const EXAMPLE_LABEL = "Example result";
+
+/**
+ * The demo link (spec 0021, AC-13), held back until the demo was worth linking
+ * to.
+ *
+ * IT WAS DELIBERATELY ABSENT UNTIL NOW. `/demo` showed twelve hand written
+ * listings with hand written scores until 2026-09-16, and spec 0021 kept this
+ * link unbuilt on the grounds that wiring it would advertise a demo already
+ * decided to be insufficient. The page now scores real Adzuna postings for
+ * real, so the condition that held it back is met and the link is true.
+ *
+ * SECONDARY, NOT PRIMARY. `DoorCta` is the page's one action; this sits beside
+ * it as the way to see the product without a decision. A second primary would
+ * give the hero two equal doors and make neither read as the way in.
+ *
+ * THE COPY ECHOES `/demo`'S OWN HEADING ("See it on real job postings") so the
+ * page a visitor lands on confirms the promise that sent them there. It is not
+ * named in spec 0021, which specifies the link and not its words.
+ */
+const DEMO_PATH = "/demo";
+const DEMO_CTA = "See it on real postings";
 
 const HERO_SUBHEAD =
   "JobHunt ranks openings for your profile, then shows exactly which skills matched and which are missing. You see the reasoning behind every result, not just a number.";
@@ -217,8 +239,16 @@ export function HeroSection() {
            * this visitor is signed in, so it stops guessing and lets `/go`
            * decide.
            */}
-          <div className="mt-8">
+          {/*
+           * `items-center` and a wrapping row, so the secondary link sits on
+           * the door's baseline on a wide screen and drops beneath it on a
+           * narrow one rather than being squeezed beside it.
+           */}
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
             <DoorCta />
+            <Button href={DEMO_PATH} variant="secondary">
+              {DEMO_CTA}
+            </Button>
           </div>
         </div>
 

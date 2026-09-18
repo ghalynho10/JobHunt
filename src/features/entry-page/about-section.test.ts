@@ -152,19 +152,50 @@ describe("moving a claim across is a move, not a copy (AC-16)", () => {
     expect(planned()).not.toContain("ranked results with reasoning");
   });
 
-  it("still lists the one claim whose feature has not shipped", () => {
+  it("has moved the demo claim to working, now that /demo shows real scored listings", () => {
+    // covers: AC-16, and spec 0021's own AC-13
+    expect(working()).toContain("a no sign in demo account");
+    expect(planned()).not.toContain("a no sign in demo account");
+  });
+
+  it("still lists exactly one claim whose feature has not shipped", () => {
     /**
-     * Named individually so the next feature to ship has to come here and remove
-     * its own, rather than the row quietly emptying or growing. Feature 11 did
+     * Named individually so the next feature to ship has to come here and change
+     * it, rather than the row quietly emptying or growing. Feature 11 did
      * exactly that on 2026-09-04, taking `filtered search` out of this list,
-     * feature 12 did it again on 2026-09-05 with `application tracking`, and
-     * feature 14 on 2026-09-06 with `ranked results with reasoning`.
+     * feature 12 did it again on 2026-09-05 with `application tracking`,
+     * feature 14 on 2026-09-06 with `ranked results with reasoning`, and
+     * feature 31 on 2026-09-17 with `a no sign in demo account`.
      *
      * THIS TEST IS THE REASON THAT CLAUSE KEEPS GETTING HONOURED. Feature 7's
      * equivalent went unmet for two days because nothing failed when it was
      * skipped, and the live homepage told every visitor that nothing worked.
      * Failing here is cheaper than that.
+     *
+     * WHAT CHANGED ON 2026-09-17. Feature 31 was the last of the original five,
+     * so this list would have gone empty. It is refilled with one claim rather
+     * than removed, because the third about paragraph promises that anything
+     * unbuilt is labeled on this page, and an absent `planned` row makes that
+     * promise false. `toEqual` on a single element array is what holds the row
+     * to exactly one claim: a refill that added three would fail here, which is
+     * the shape being protected, since `PLANNED` is a single string and not a
+     * middot list like `WORKING`.
      */
-    expect(planned()).toEqual(["a no sign in demo account"]);
+    expect(planned()).toEqual(["resumes tailored to each posting"]);
+  });
+
+  it("names a planned claim that has a real scope row behind it", () => {
+    /**
+     * AC-8's second promise: nothing sits under `planned` that has no scope row
+     * at all. `resumes tailored to each posting` is feature 25, Resume tailoring
+     * per job. This asserts the claim is non empty and distinct from every
+     * working one, which is the part a test can check; that the scope row itself
+     * still reads `planned` stays a human read, for the reason the file header
+     * gives.
+     */
+    const [claim] = planned();
+
+    expect(claim).toBeTruthy();
+    expect(working()).not.toContain(claim);
   });
 });

@@ -194,6 +194,13 @@ describe("the entry page's links", () => {
      * footer's reserved centre slot being filled, and both are real routes
      * (`src/app/(marketing)/terms/page.tsx` and `.../privacy/page.tsx`), so the
      * rule this test enforces still holds with them on the page.
+     *
+     * SPEC 0021, AC-13: `/demo` joins the list, added 2026-09-17 with the hero's
+     * demo link. It is a real route (`src/app/(marketing)/demo/page.tsx`) and
+     * this test failing was the thing that proved the link had actually been
+     * added, since this list is an exact match rather than a subset check. The
+     * link was deliberately absent until the demo scored real postings; see that
+     * spec's AC-13 for why the wait was the point.
      */
     expect([...hrefsOnThePage()].sort()).toEqual(
       [
@@ -201,6 +208,7 @@ describe("the entry page's links", () => {
         "#how-it-works",
         "#reasoning",
         "/",
+        "/demo",
         "/go",
         "/go",
         "/go",

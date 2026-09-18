@@ -37,11 +37,13 @@ import { Text } from "@/components/ui/text";
  * time: a claim left `planned` and joined `working` because the thing it names
  * now exists. `filtered search` followed on 2026-09-04, when feature 11
  * shipped the real Adzuna search (spec 0013, AC-12), `application tracking` on
- * 2026-09-05, when feature 12 made applications real (spec 0014, AC-16), and
+ * 2026-09-05, when feature 12 made applications real (spec 0014, AC-16),
  * `ranked results with reasoning` on 2026-09-06, when feature 14 shipped fit
- * scoring (spec 0015, AC-15). One remains under `planned`, owned by feature 31.
- * `about-section.test.ts` names it individually, so the next feature to ship
- * has to come here and remove its own rather than the row quietly emptying.
+ * scoring (spec 0015, AC-15), and `a no sign in demo account` on 2026-09-17,
+ * when feature 31's entry page integration shipped (spec 0021, AC-13), which
+ * was the last of the original five. `about-section.test.ts` names the planned
+ * claim individually, so the next feature to ship has to come here and change
+ * it rather than the row quietly emptying.
  *
  * THAT LAST MOVE IS THE ONE WORTH READING TWICE. `ranked results with
  * reasoning` is the claim the two paragraphs beside this card are entirely
@@ -59,9 +61,34 @@ import { Text } from "@/components/ui/text";
  * costs: the only guard is somebody reading the page and knowing better.
  */
 const WORKING =
-  "sign in with Google or GitHub · profile · filtered search · application tracking · ranked results with reasoning";
+  "sign in with Google or GitHub · profile · filtered search · application tracking · ranked results with reasoning · a no sign in demo account";
 
-const PLANNED = "a no sign in demo account";
+/**
+ * ONE CLAIM, NOT A LIST, and that shape is deliberate rather than incidental.
+ * `WORKING` is a middot list because several things are true at once; this has
+ * always been a single string naming the next thing a visitor cannot do yet,
+ * and it stays one.
+ *
+ * REPLACED ON 2026-09-17 RATHER THAN EMPTIED. Feature 31 shipping moved the last
+ * of the original five claims across, which would have left this row rendering a
+ * `planned` chip beside nothing. That is not merely untidy: the third paragraph
+ * to the left of this card promises "anything not built yet is labeled as such
+ * on this page, not implied", and a card with no `planned` side makes that
+ * sentence false on the same screen it appears. So one replacement was chosen
+ * instead of deleting the row.
+ *
+ * `resumes tailored to each posting` IS FEATURE 25 (Resume tailoring per job),
+ * a real `planned` row in `docs/scope/scope.md`, which is what AC-8's second
+ * promise requires: nothing sits here that has no scope row at all.
+ *
+ * THE RECURRING COST THIS CREATES, worth naming because the mechanism did not
+ * have it before. The original five drained one at a time and were never
+ * refilled, so the row was always going to empty exactly once. From now on,
+ * every feature that moves this claim to `working` has to choose the next one,
+ * or delete the row and rewrite the paragraph beside it. Recorded in spec
+ * 0021's Follow-up.
+ */
+const PLANNED = "resumes tailored to each posting";
 
 const ABOUT_PARAGRAPHS = [
   "JobHunt is a real product in progress, built and run by one engineer. I use it for my own search, so the parts that are broken get fixed because I run into them too.",
