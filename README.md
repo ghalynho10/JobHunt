@@ -3,16 +3,23 @@
 A job search app I built that ranks real listings against your profile and
 shows the reasoning behind each ranking.
 
-**Live:** [usejobhunt.dev](https://usejobhunt.dev) · **State:** the v1 core loop
-runs end to end on the deployed site, and three planned v1 features are not
-built yet ([details](#current-state))
+**Live:** [usejobhunt.dev](https://usejobhunt.dev) · **State:** v1 is complete,
+declared 2026-09-17 ([details](#current-state))
+
+**Try it without an account:** [usejobhunt.dev/demo](https://usejobhunt.dev/demo)
+shows real Adzuna listings scored by the real scorer against two clearly
+fictional candidate profiles. No sign in, and the fastest way to see the
+product actually work.
 
 ![Ranked search results on usejobhunt.dev, each card showing a fit band, skill chips and its reasoning](docs/images/results-list.png)
 
-The same claimed skill gets opposite verdicts here, and both are right: the
-first card's excerpt talks about AI agents, so "LLM agent orchestration"
-stays matched; the second card's excerpt never mentions agents, and the
-only near match is "Agentic" in the title, so the second vendor removed it.
+Both cards here score the same candidate against similarly titled postings.
+Zions Bancorporation's excerpt is broad, so the reasoning leans on the
+candidate's own production AI experience rather than a keyword match;
+Wipro's excerpt reads as a generic company overview, and the reasoning says
+so plainly rather than guessing from what is not shown. Neither skill list
+claims a match the excerpt cannot support: everything not found in the
+visible text reads "not mentioned", never "missing".
 
 ![One result card: a Good match band, the matched and unmentioned skills, and the written reasoning](docs/images/result-card.png)
 
@@ -133,28 +140,38 @@ stayed as they were.
 
 ## Current state
 
-As of 2026-09-10.
+As of 2026-09-18. **v1 is complete**, declared 2026-09-17.
 
-- **Built:** 20 of the 33 features in [the scope](docs/scope/scope.md). That
+- **Built:** 22 of the 33 features in [the scope](docs/scope/scope.md). That
   covers the foundation, slice 1 (profile, search, usage gating, apply and
-  record) and slice 2 (the model router, fit scoring, the eval set and harness,
-  and the cross-vendor check). All 19 specs are accepted.
-- **Not built:** feature 18 (structured search filters), feature 19 (listing
-  data quality) and feature 20 (guided application capture). Together they make
-  up v1's own slices 3 and 4, and I haven't designed any of them yet. For now,
-  search takes a title and a location only.
+  record), slice 2 (the model router, fit scoring, the eval set and harness,
+  and the cross-vendor check), and two extras that shipped during the v1 push
+  without being required by v1's completion test: spend visibility and gating
+  polish, and the public seeded demo at `/demo`. All 21 specs are accepted.
+- **What follows v1** is split into two phases. v1.5 is exactly four features,
+  in build order: feature 19 (listing data quality, first because it already
+  carries two confirmed real-world defects), feature 24 (master resume),
+  feature 25 (resume tailoring per job), and feature 26 (profile depth and
+  completeness). v2 holds everything else still open, structured search
+  filters, guided application capture, discard with reason, applications
+  dashboard, auth remainder, product analytics, and company research lite,
+  moved there as a deliberate call: none of the seven are needed by v1's
+  completion test. For now, search still takes a title and a location only.
 - **Where it has run:** on 2026-09-10 I ran the full loop on the deployed site.
   With a real profile I searched real listings on usejobhunt.dev, saw them
   ranked with the reasoning shown, and used it to apply to two real jobs, one
   scored good_match and one strong_match. Before that I had only driven it end
   to end on a local production build. On 2026-09-11 I saw the flagged state on
-  the deployed site for the first time, on the second card in the screenshot
-  above: the second vendor could not find "LLM agent orchestration" in the
-  excerpt, so it was removed from the matched skills with a note, and a caveat
-  appeared above the reasoning.
-- **Checks:** 1,221 unit tests and 132 integration tests pass. Another 8 are
-  skipped on purpose, because they spend real vendor money. Lint, typecheck and
-  format are clean. `main` is protected by three required checks: lint,
+  the deployed site for the first time: the second vendor could not find a
+  claimed skill in the excerpt, so it was removed from the matched skills with
+  a note, and a caveat appeared above the reasoning. The screenshots above were
+  recaptured since then and no longer happen to show that particular card.
+- **Checks:** 1,284 unit tests pass, recounted 2026-09-18. The integration
+  suite drives the real local database under the real row level security
+  policies; its last committed count predates several later features, so I'm
+  not repeating a stale number here rather than re-verify it. Another 8 tests
+  are skipped on purpose, because they spend real vendor money. Lint, typecheck
+  and format are clean. `main` is protected by three required checks: lint,
   typecheck and build; the migration apply; and the full test job. The rule
   applies to admins too.
 
@@ -176,11 +193,13 @@ As of 2026-09-10.
   that would take a blind second opinion, and I have no source for one. The
   corrected pair now passes 3 to 2, the smallest margin the harness accepts,
   and I haven't taken a full sixteen-pair run since the correction.
-- **No spend, token or product telemetry.** The gate counts calls, not tokens
-  or dollars, and I read vendor spend by hand from two dashboards. Spend
-  visibility and product analytics are features 28 and 29, both planned for
-  v1.5. Only 2 of the 23 named Sentry spans have an alert. The scoring pipeline
-  and every product write have none yet, a sequencing call I recorded in
+- **Usage visibility stops at call counts; no token, dollar or product
+  telemetry.** Feature 28 shipped a per-account weekly count ("Searches used
+  this week: 7 of 25", visible in the screenshot above), but the gate itself
+  still counts calls, not tokens or dollars, and I still read vendor spend by
+  hand from two dashboards. Product analytics is feature 29, moved to v2. Only
+  2 of the 26 named Sentry spans have an alert. The scoring pipeline and every
+  product write have none yet, a sequencing call I recorded in
   [spans.md](docs/observability/spans.md).
 - **No end-to-end browser test runner.** Playwright is my recorded choice. It
   goes in with the first feature that needs it, not as an empty config. Until
@@ -188,8 +207,8 @@ As of 2026-09-10.
   spec's `verify.md`, which makes it careful but not repeatable. Examples are
   the single reorder of results and an apply that must not spend a search call.
 - **Application tracking is thin.** An application is one recorded row and a
-  list at `/applications`. Statuses and the guided capture questions come later,
-  in features 23 and 20.
+  list at `/applications`. Statuses and the guided capture questions come
+  later, in features 23 and 20, both in v2.
 
 ## How I ran the build
 
@@ -201,7 +220,7 @@ from the one that wrote it. I also keep a file of standing rules: each
 mistake worth remembering becomes a one-line rule, so the same correction
 does not have to be given twice. All of it is in the repo:
 
-- **[docs/specs/](docs/specs/)** holds nineteen specs, one per load-bearing
+- **[docs/specs/](docs/specs/)** holds twenty-one specs, one per load-bearing
   decision. I approve each one before code is built from it. Each has three
   files:
   - `index.md`: the decision and its acceptance criteria.
@@ -211,12 +230,12 @@ does not have to be given twice. All of it is in the repo:
 
   Start with [0001](docs/specs/0001-stack-and-architecture/index.md). Every
   later spec inherits its binding rules.
-- **[docs/reviews/](docs/reviews/)** holds code reviews for 15 of the 20
-  finished features, some over several rounds. The five without one are the
-  scaffold, tooling, deployment, terms and privacy, and the band anchor
-  review. Each review runs on a different model from the one that wrote the
-  code, by design, and names its reviewing model at the top.
-- **[docs/reflexes.md](docs/reflexes.md)** holds 35 standing rules, one line
+- **[docs/reviews/](docs/reviews/)** holds code reviews for 16 of the 22
+  finished features, some over several rounds. The six without one are the
+  scaffold, tooling, deployment, terms and privacy, the band anchor review,
+  and the seeded demo account. Each review runs on a different model from the
+  one that wrote the code, by design, and names its reviewing model at the top.
+- **[docs/reflexes.md](docs/reflexes.md)** holds 38 standing rules, one line
   each. Most were written right after a specific mistake in this project, mine
   or an agent's, and carry its date and what happened. Two examples:
   - A shell check ending in `|| echo "none"` prints the same reassuring word for
@@ -239,7 +258,7 @@ does not have to be given twice. All of it is in the repo:
 - Supabase: Postgres, plus Auth with Google and GitHub OAuth and no password
   path. Accessed through `@supabase/ssr`, with no ORM. Schema and policies are
   hand-written SQL migrations.
-- Nine tables, with row level security forced on all nine and 23 per-row
+- Eleven tables, with row level security forced on all eleven and 23 per-row
   policies over the six that hold user data.
   [`isolation.test.ts`](test/integration/isolation.test.ts) proves it with two
   freshly minted accounts. One writes a profile row, and the other, querying
