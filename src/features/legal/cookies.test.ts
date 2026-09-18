@@ -152,6 +152,40 @@ describe("the registry itself (covers AC-14)", () => {
     expect(ids).toHaveLength(new Set(ids).size);
   });
 
+  it("compiles every nameRegex, so a typo in it fails here rather than in the integration guard", () => {
+    for (const cookie of COOKIE_DISCLOSURES) {
+      expect(() => new RegExp(cookie.nameRegex)).not.toThrow();
+    }
+  });
+
+  /**
+   * MUTUAL EXCLUSION, VERIFIED AGAINST THE REAL NAMES THE LOCAL STACK
+   * PRODUCED on 2026-09-18, not invented cases. Two patterns matching the
+   * same real name would make the primary guard's per step assertions
+   * ambiguous about which entry a cookie belongs to.
+   */
+  it("matches each real observed cookie name to exactly one entry", () => {
+    const realNames = [
+      "sb-127-auth-token",
+      "sb-127-auth-token.0",
+      "sb-127-auth-token-code-verifier",
+      "sb-127-auth-token-flow-4ebf92345c2baef97d34ea40fba0cf80-code-verifier",
+      "sb-127-auth-token-flows-code-verifier",
+      "jobhunt_return_path",
+    ];
+
+    for (const name of realNames) {
+      const matches = COOKIE_DISCLOSURES.filter((cookie) =>
+        new RegExp(cookie.nameRegex).test(name),
+      );
+
+      expect(
+        matches.map((cookie) => cookie.id),
+        `"${name}" should match exactly one registry entry`,
+      ).toHaveLength(1);
+    }
+  });
+
   it("names the three cookies this codebase sets today", () => {
     expect(COOKIE_DISCLOSURES.map((cookie) => cookie.id)).toEqual([
       "session",

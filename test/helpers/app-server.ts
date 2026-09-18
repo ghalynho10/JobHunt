@@ -60,7 +60,19 @@ async function freePort(): Promise<number> {
 }
 
 /**
- * Starts the application and waits until it answers.
+ * Whether this attempt lost the `<distDir>/lock` race to a sibling test file
+ * starting its own server at the same time, rather than a real failure.
+ */
+function lostLockRace(output: string): boolean {
+  return output.includes("Another next dev server is already running");
+}
+
+/** How long `startAppServer()` retries losing the lock race before giving up. */
+const LOCK_RETRY_BUDGET_MS = 180_000;
+
+/**
+ * Starts the application and waits until it answers, retrying if a sibling
+ * test file currently holds the shared dist dir's lock.
  *
  * READINESS IS A REAL REQUEST, not a line of log output. A dev server prints
  * that it is listening well before it has compiled the route under test, so
@@ -73,8 +85,40 @@ async function freePort(): Promise<number> {
  * broken test setup, which is a programmer bug and should keep its stack.
  */
 export async function startAppServer(): Promise<AppServer> {
+  const deadline = Date.now() + LOCK_RETRY_BUDGET_MS;
+
+  for (;;) {
+    const attempt = await startOnce();
+
+    if (attempt.ok) return attempt.server;
+    if (!attempt.lockRace) throw attempt.error;
+    if (Date.now() >= deadline) throw attempt.error;
+
+    /**
+     * SOMEBODY ELSE HOLDS THE LOCK, NOT A REAL FAILURE. `next dev` takes a
+     * lock at `<distDir>/lock` and exits rather than starting a second
+     * server in the same directory, so two test files calling
+     * `startAppServer()` at the same time (the ordinary case, vitest runs
+     * files in parallel) can race for it. A fixed, single `distDir` name is
+     * deliberate, not an oversight: `tsconfig.json`'s `include` list names
+     * it explicitly so Next never has to rewrite that committed file to add
+     * a path, and a unique name per call was tried and reverted on
+     * 2026-09-18 for exactly that reason, it grew the file by two lines on
+     * every single test run, forever. Waiting out the lock instead serves
+     * both files correctly, just not at the same moment.
+     */
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+}
+
+async function startOnce(): Promise<
+  | { readonly ok: true; readonly server: AppServer }
+  | { readonly ok: false; readonly error: Error; readonly lockRace: boolean }
+> {
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
+  /** Fixed and shared, matching the pre-declared entry in `tsconfig.json`. */
+  const distDir = ".next-test";
 
   const child: ChildProcess = spawn(
     "pnpm",
@@ -88,17 +132,20 @@ export async function startAppServer(): Promise<AppServer> {
       env: {
         ...process.env,
         NODE_ENV: "development",
-        /**
-         * ITS OWN OUTPUT DIRECTORY, AND THAT IS WHAT MAKES THIS WORK AT ALL.
-         * `next dev` takes a lock at `<distDir>/lock` and exits rather than
-         * starting a second server in the same directory, so without this the
-         * test would fail for anybody with `pnpm dev` already running, and pass
-         * for everybody else. `next.config.ts` reads the variable and is
-         * unchanged when it is absent.
-         */
-        NEXT_DIST_DIR: ".next-test",
+        NEXT_DIST_DIR: distDir,
       },
       stdio: ["ignore", "pipe", "pipe"],
+      /**
+       * ITS OWN PROCESS GROUP, so `stop()` can kill the whole tree rather
+       * than only this immediate child. `pnpm exec next dev` spawns `next`,
+       * which spawns its own Turbopack workers; signalling only the `pnpm`
+       * process leaves those running. Found on 2026-09-18: after a test
+       * finished and reported a clean pass, its `next dev`/`next-server`
+       * pair were still alive minutes later, still holding `.next-test`
+       * open, which is also what would have kept a sibling test file stuck
+       * retrying the lock race above forever.
+       */
+      detached: true,
     },
   );
 
@@ -113,19 +160,61 @@ export async function startAppServer(): Promise<AppServer> {
   child.stderr?.on("data", (chunk: Buffer) => output.push(chunk.toString()));
 
   const stop = async (): Promise<void> => {
-    if (child.exitCode !== null || child.signalCode !== null) return;
+    if (
+      child.exitCode === null &&
+      child.signalCode === null &&
+      child.pid !== undefined
+    ) {
+      /**
+       * THE NEGATIVE PID SIGNALS THE WHOLE GROUP `detached: true` gave this
+       * process, not just `pnpm` itself. `child.kill()` alone only reaches
+       * `pnpm`, which is what left `next dev` and its `next-server` orphaned
+       * and still holding `distDir` open.
+       */
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        /** Already gone between the check above and here; nothing to do. */
+      }
 
-    child.kill("SIGTERM");
-    await once(child, "exit");
+      const exited = await Promise.race([
+        once(child, "exit").then(() => true),
+        new Promise<false>((resolve) =>
+          setTimeout(() => resolve(false), 5_000),
+        ),
+      ]);
+
+      if (!exited) {
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          /** Already gone. */
+        }
+      }
+    }
+
+    /**
+     * `distDir` IS NOT REMOVED HERE, DELIBERATELY. It is the one shared,
+     * stable name every call reuses (see above), so deleting it would only
+     * cost the next caller a full recompile instead of reusing this run's
+     * build cache, and risks racing a sibling file's `startOnce()` that is
+     * mid retry waiting for exactly this process to release the lock.
+     */
   };
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(
-        `The test server exited with code ${child.exitCode} before answering.\n${output.join("")}`,
-      );
+      const combined = output.join("");
+
+      return {
+        ok: false,
+        error: new Error(
+          `The test server exited with code ${child.exitCode} before answering.\n${combined}`,
+        ),
+        lockRace: lostLockRace(combined),
+      };
     }
 
     try {
@@ -133,7 +222,7 @@ export async function startAppServer(): Promise<AppServer> {
         signal: AbortSignal.timeout(10_000),
       });
 
-      if (response.ok) return { origin, stop };
+      if (response.ok) return { ok: true, server: { origin, stop } };
     } catch {
       /** Not up yet. The deadline above is what ends this, not an error here. */
     }
@@ -143,7 +232,11 @@ export async function startAppServer(): Promise<AppServer> {
 
   await stop();
 
-  throw new Error(
-    `The test server did not answer within ${READY_TIMEOUT_MS}ms.\n${output.join("")}`,
-  );
+  return {
+    ok: false,
+    error: new Error(
+      `The test server did not answer within ${READY_TIMEOUT_MS}ms.\n${output.join("")}`,
+    ),
+    lockRace: false,
+  };
 }

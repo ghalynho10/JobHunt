@@ -28,6 +28,19 @@ export interface CookieDisclosure {
    */
   readonly namePattern: string;
   /**
+   * The same fact as `namePattern`, but a real regular expression source the
+   * integration guard can test a live `Set-Cookie` name against, added
+   * 2026-09-18 once the build reached the point of needing one. Written from
+   * the real names the local Supabase stack produced (verified against the
+   * installed `@supabase/ssr`, not guessed): `sb-<ref>-auth-token`, its
+   * numbered chunks, and the three PKCE verifier shapes
+   * (`-code-verifier`, `-flow-<flowId>-code-verifier`, `-flows-code-verifier`).
+   * Matched against every entry in order, so a name matching two entries at
+   * once would be a real ambiguity the test would need to catch; verified by
+   * hand that the three shapes above are mutually exclusive.
+   */
+  readonly nameRegex: string;
+  /**
    * Every call site that can produce this cookie's `Set-Cookie` header, as
    * `file:line`. A list because one cookie can be written from more than one
    * place: the session cookie is refreshed by both `src/proxy.ts` and the per
@@ -57,6 +70,7 @@ export const COOKIE_DISCLOSURES: readonly CookieDisclosure[] = [
     id: "session",
     namePattern:
       "sb-<project-ref>-auth-token, chosen at runtime by @supabase/ssr and occasionally split into numbered chunks",
+    nameRegex: "^sb-.+-auth-token(\\.\\d+)?$",
     setBy: ["src/proxy.ts:144", "src/lib/supabase/server.ts:59"],
     purpose:
       "The first keeps you signed in as you move between pages. Without it, signing in would not survive a single click.",
@@ -66,6 +80,8 @@ export const COOKIE_DISCLOSURES: readonly CookieDisclosure[] = [
     id: "pkce-verifier",
     namePattern:
       "<storageKey>-code-verifier, and per sign in attempt <storageKey>-flow-<flowId>-code-verifier plus a <storageKey>-flows-code-verifier index, all chosen at runtime by @supabase/ssr",
+    nameRegex:
+      "^sb-.+-auth-token-code-verifier$|^sb-.+-auth-token-flow-[A-Za-z0-9_-]+-code-verifier$|^sb-.+-auth-token-flows-code-verifier$",
     setBy: ["src/lib/supabase/server.ts:59"],
     purpose:
       "The second exists only for the few seconds it takes to hand you off to Google or GitHub to sign in, and is gone again the moment that finishes. It is part of how that handoff is done safely.",
@@ -75,6 +91,7 @@ export const COOKIE_DISCLOSURES: readonly CookieDisclosure[] = [
   {
     id: "return-path",
     namePattern: "jobhunt_return_path",
+    nameRegex: "^jobhunt_return_path$",
     setBy: [
       "src/features/auth/actions.ts:134",
       "src/app/auth/callback/route.ts:73",
