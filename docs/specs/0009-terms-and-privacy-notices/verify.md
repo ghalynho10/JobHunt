@@ -1,8 +1,10 @@
-# Verify: terms & privacy notices · spec 0009 · updated 2026-09-01
+# Verify: terms & privacy notices · spec 0009 · updated 2026-09-18
 
 _Steps derived from spec 0009 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
 **Scope of this file.** The code is complete: both pages, both registries, every guard test, and both links. What is NOT done is the second half of build plan step 6, which needs a deployment on `usejobhunt.dev` and Google Cloud console access. Those steps are marked **engineer** below and are the only reason this feature is not finished. Everything else here is a re proof, not a first proof.
+
+**Updated 2026-09-18.** Two AC-14 steps below were found to have missed a real defect: the cookie section named one cookie as strictly necessary when the codebase sets three, and the step meant to check "no other cookie is set" checked the wrong page (a signed out visit to `/privacy`, which cannot see either of the other two cookies). Both are struck through and annotated SUPERSEDED rather than deleted. 7a (the prose correction) is proved by the two new local steps; 7b (the `CookieDisclosure` registry and its guards, spec 0009 Build plan) has not landed yet, so the real response step below is not yet run.
 
 **Where to run.** Steps marked **local** run against `pnpm dev`. Steps marked **deployed** need the pages live on `usejobhunt.dev`, because Google will not accept a `vercel.app` address as an authorised domain and a policy URL it cannot reach is the whole reason this feature exists.
 
@@ -46,7 +48,8 @@ Each of these is a claim somebody could check and find wrong, which is the failu
 - [x] **local** Confirm the notice names JobHunt, Ghaly Nicolas Jules, and the United States → AC-11
 - [x] **local** Confirm each lawful basis is named WITH its purpose (contract necessity for identity, profile and application data; legitimate interest for error monitoring), and that all six rights are listed with how to exercise each → AC-12
 - [x] **local** Confirm the Google section says what is received, what it is used for, where it is stored and that it is shared with nobody; and that the four negatives are stated plainly. Confirm the words "Limited Use" appear nowhere, which is deliberate → AC-13
-- [x] **local** Confirm the cookie section names the session cookie as strictly necessary and states there is no analytics and no tracking → AC-14
+- [x] **local** ~~Confirm the cookie section names the session cookie as strictly necessary and states there is no analytics and no tracking~~ → AC-14 · **SUPERSEDED 2026-09-18.** This step only checked that A cookie was named as strictly necessary, not that EVERY cookie was; the page named one when the codebase sets three. See the corrected step below.
+- [x] **local, added 2026-09-18** Confirm the cookie section names three cookies (the session cookie, the sign in handshake cookie, the deep link return cookie), each described as strictly necessary in plain words with no internal name or jargon exposed, and still states there is no analytics and no tracking → AC-14
 - [x] **local** Read the terms and confirm all four settled clauses are present and complete: the three acceptable use rules, the five licence limits (non exclusive, limited to operating the service, ends on deletion, not sublicensable, not for training), as is with no warranty and no cap figure, and change by update in place with no advance notice → AC-15
 - [x] **local** Confirm the governing law clause writes "State of Georgia, United States of America" in full, not the bare word → AC-15
 - [x] **local** Confirm both pages carry the effective date and say the published version is the one that applies → AC-16
@@ -71,7 +74,8 @@ The Google sign in step needs a throwaway Google account, which this check did n
 - [x] Confirm the responsible party, country, contact address and effective date all come from `publication.ts` by changing one and seeing both pages move together → AC-8, AC-11, AC-16
 - [x] Confirm the rights list and the lawful basis are the ones the spec settled, since both are decided rather than derived → AC-12
 - [x] Read Vercel's own Privacy Notice and confirm it still says IP address and IP derived location data, and still does not confirm user agent, which the page deliberately does not claim → AC-3
-- [x] Confirm the session cookie the notice describes is the one `src/proxy.ts` refreshes, and that no other cookie is set on a signed out visit to `/privacy` → AC-14
+- [x] ~~Confirm the session cookie the notice describes is the one `src/proxy.ts` refreshes, and that no other cookie is set on a signed out visit to `/privacy`~~ → AC-14 · **SUPERSEDED 2026-09-18.** The second half of this step, "no other cookie is set", was never actually true and was never run against a real sign in, only a signed out visit to `/privacy` itself, which cannot see the return path cookie (only set on `/sign-in`) or the handshake cookie (only set once sign in starts). This is the step that should have caught the false claim and did not, because it checked the wrong page. See the corrected step below.
+- [ ] **added 2026-09-18, not yet run** Start sign in from a protected page (so a return path cookie is written), then complete a real sign in, then read the response headers at each of the three steps the AC-24 guard design names (starting sign in, the callback, an ordinary signed in navigation) → the cookies the notice now names on `/privacy` are exactly the ones a visitor's browser actually receives, no more and no fewer → AC-14, and previews spec 0009 Build plan 7b's own primary guard
 - [x] Change `EFFECTIVE_DATE` in `publication.ts` and reload both pages → both dates move, and they read the same in a non UTC time zone, because the date is a published fact and not a moment in the reader's day → AC-16
 
 ## Deployment and the Google console
@@ -101,7 +105,7 @@ The Google sign in step needs a throwaway Google account, which this check did n
 - AC-11 covered by the responsible party read and the `publication.ts` source step
 - AC-12 covered by the lawful basis and rights reads
 - AC-13 covered by the Google section read, the four negatives and the Limited Use absence check
-- AC-14 covered by the cookie read, the analytics break step and the cookie source step
+- AC-14 covered by the corrected cookie read (2026-09-18), the analytics break step, and the real response step (added 2026-09-18, not yet run)
 - AC-15 covered by the four settled clauses read and the governing law step
 - AC-16 covered by the effective date reads and the `EFFECTIVE_DATE` source step
 - AC-17 covered by the two view source steps, one on a legal page and one on `/`, plus the deployed `x-robots-tag` header check, because the header beats the meta tag
