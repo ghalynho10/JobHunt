@@ -4,13 +4,16 @@ _Steps derived from spec 0009 acceptance criteria. `/check verify` runs these; `
 
 **Scope of this file.** The code is complete: both pages, both registries, every guard test, and both links. What is NOT done is the second half of build plan step 6, which needs a deployment on `usejobhunt.dev` and Google Cloud console access. Those steps are marked **engineer** below and are the only reason this feature is not finished. Everything else here is a re proof, not a first proof.
 
-**Updated 2026-09-18.** Two AC-14 steps below were found to have missed a real defect: the cookie section named one cookie as strictly necessary when the codebase sets three, and the step meant to check "no other cookie is set" checked the wrong page (a signed out visit to `/privacy`, which cannot see either of the other two cookies). Both are struck through and annotated SUPERSEDED rather than deleted. 7a (the prose correction) is proved by the two new local steps; 7b (the `CookieDisclosure` registry and its guards, spec 0009 Build plan) has not landed yet, so the real response step below is not yet run.
+**Updated 2026-09-18.** Two AC-14 steps below were found to have missed a real defect: the cookie section named one cookie as strictly necessary when the codebase sets three, and the step meant to check "no other cookie is set" checked the wrong page (a signed out visit to `/privacy`, which cannot see either of the other two cookies). Both are struck through and annotated SUPERSEDED rather than deleted. 7a (the prose correction) is proved by the two new local steps.
+
+**7b landed the same day.** The `CookieDisclosure` registry and both AC-24 guards are built; the real response step below has now run and passed. Both guards were proved not vacuous by deliberately breaking the registry (an entry for a cookie nothing sets; a missing entry for one that is) and confirming each guard fails, then restoring it.
 
 **Where to run.** Steps marked **local** run against `pnpm dev`. Steps marked **deployed** need the pages live on `usejobhunt.dev`, because Google will not accept a `vercel.app` address as an authorised domain and a policy URL it cannot reach is the whole reason this feature exists.
 
 ## Commands
 
-- [x] `pnpm test` → 523 tests pass, including the five guards in `src/features/legal/` → AC-4, AC-5, AC-6, AC-14, AC-23
+- [x] `pnpm test` → 1296 tests pass (recounted 2026-09-18), including the six guards in `src/features/legal/` → AC-4, AC-5, AC-6, AC-14, AC-23, AC-24
+- [x] `pnpm test:integration` → 176 tests pass, including `test/integration/cookie-disclosure.test.ts`'s primary AC-24 guard (five tests: the PKCE verifier and return path cookies on the sign in response, the return path cookie cleared on the callback, the session cookie through a real minted session, and no registry entry left unmatched across all three) → AC-24
 - [x] `pnpm build` → `/terms` and `/privacy` both show `○ (Static)` in the route table, never `ƒ` → AC-1
 - [x] `pnpm lint && pnpm typecheck` → both clean → AC-1
 
@@ -22,6 +25,10 @@ _Steps derived from spec 0009 acceptance criteria. `/check verify` runs these; `
 - [x] Flip `userInfo: false` to `true` in `src/sentry.server.config.ts` → `sentry-claim.test.ts` fails with "sends no user identity" → AC-4
 - [x] Add `"@vercel/analytics"` to `package.json` dependencies → `no-tracking.test.ts` fails → AC-14. **Restore `pnpm-lock.yaml` and run `pnpm install --frozen-lockfile` afterwards**: `pnpm` rewrites the lockfile and installs the package for real while you are doing this
 - [x] Add `"use client";` to the top of `src/features/legal/privacy-notice.tsx` → `client-boundary.test.ts` fails → AC-1, AC-19
+- [x] **added 2026-09-18** Remove `"src/proxy.ts:144"` from the session entry's `setBy` in `src/features/legal/cookies.ts` → `cookies.test.ts` fails with "A cookie setting call site was found that no registry entry names" → AC-24
+- [x] **added 2026-09-18** Change `"src/proxy.ts:144"` to `"src/proxy.ts:999"` in the same file → `cookies.test.ts` fails with "holds no entry for a call site that no longer exists" → AC-24
+- [x] **added 2026-09-18** Add a fake `CookieDisclosure` entry naming a call site that is real but a `nameRegex` that matches nothing → `cookie-disclosure.test.ts`'s final block fails with "has no entry that never appeared" → AC-24
+- [x] **added 2026-09-18** Remove the `pkce-verifier` entry from `COOKIE_DISCLOSURES` entirely → `cookie-disclosure.test.ts` fails at `regexFor("pkce-verifier")` with "No registry entry named" → AC-24
 
 ## UI / manual: the pages themselves
 
@@ -75,7 +82,7 @@ The Google sign in step needs a throwaway Google account, which this check did n
 - [x] Confirm the rights list and the lawful basis are the ones the spec settled, since both are decided rather than derived → AC-12
 - [x] Read Vercel's own Privacy Notice and confirm it still says IP address and IP derived location data, and still does not confirm user agent, which the page deliberately does not claim → AC-3
 - [x] ~~Confirm the session cookie the notice describes is the one `src/proxy.ts` refreshes, and that no other cookie is set on a signed out visit to `/privacy`~~ → AC-14 · **SUPERSEDED 2026-09-18.** The second half of this step, "no other cookie is set", was never actually true and was never run against a real sign in, only a signed out visit to `/privacy` itself, which cannot see the return path cookie (only set on `/sign-in`) or the handshake cookie (only set once sign in starts). This is the step that should have caught the false claim and did not, because it checked the wrong page. See the corrected step below.
-- [ ] **added 2026-09-18, not yet run** Start sign in from a protected page (so a return path cookie is written), then complete a real sign in, then read the response headers at each of the three steps the AC-24 guard design names (starting sign in, the callback, an ordinary signed in navigation) → the cookies the notice now names on `/privacy` are exactly the ones a visitor's browser actually receives, no more and no fewer → AC-14, and previews spec 0009 Build plan 7b's own primary guard
+- [x] **added 2026-09-18, run automatically by `pnpm test:integration`** Start sign in with `?next=` set (so a return path cookie is written), read that response's `Set-Cookie` headers, then the callback's, then a signed in session's → the cookies the notice now names on `/privacy` are exactly the ones a visitor's browser actually receives at each of the three steps, no more and no fewer, matched against `CookieDisclosure`'s `nameRegex` rather than a number this test invents → AC-14, AC-24. **Corrected from the original wording**: this does not complete a real sign in, since no real Google or GitHub round trip is available in this suite; `signInWithOAuth()` writes the PKCE verifier cookie before it ever needs one, entirely client side, which is what makes the first step provable without one
 - [x] Change `EFFECTIVE_DATE` in `publication.ts` and reload both pages → both dates move, and they read the same in a non UTC time zone, because the date is a published fact and not a moment in the reader's day → AC-16
 
 ## Deployment and the Google console
@@ -105,7 +112,7 @@ The Google sign in step needs a throwaway Google account, which this check did n
 - AC-11 covered by the responsible party read and the `publication.ts` source step
 - AC-12 covered by the lawful basis and rights reads
 - AC-13 covered by the Google section read, the four negatives and the Limited Use absence check
-- AC-14 covered by the corrected cookie read (2026-09-18), the analytics break step, and the real response step (added 2026-09-18, not yet run)
+- AC-14 covered by the corrected cookie read (2026-09-18), the analytics break step, and the real response step (2026-09-18)
 - AC-15 covered by the four settled clauses read and the governing law step
 - AC-16 covered by the effective date reads and the `EFFECTIVE_DATE` source step
 - AC-17 covered by the two view source steps, one on a legal page and one on `/`, plus the deployed `x-robots-tag` header check, because the header beats the meta tag
@@ -115,3 +122,4 @@ The Google sign in step needs a throwaway Google account, which this check did n
 - AC-21 covered by the three console steps · **engineer, not yet done**
 - AC-22 covered by the brand verification steps · **engineer, not yet done**
 - AC-23 covered by the two `stored-fields.test.ts` break steps and the `db:types` step
+- AC-24 covered by the real response step, `pnpm test:integration`, and the four `cookies.test.ts`/`cookie-disclosure.test.ts` break steps (both guards, both non vacuity directions)
