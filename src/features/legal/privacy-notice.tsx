@@ -1,5 +1,6 @@
 import { Text } from "@/components/ui/text";
 
+import { COOKIE_DISCLOSURES } from "./cookies";
 import {
   BulletList,
   InlineLink,
@@ -86,12 +87,40 @@ const GOOGLE_DISCLOSURE = [
   "That data is used for one thing, which is knowing which account you are so your own profile comes back when you return. It is stored in the sign in records held by Supabase, described above, and it is shared with nobody. It is removed along with everything else when you ask for your account to be deleted.",
 ];
 
+/**
+ * Sentence initial number words, so the intro below can count the registry
+ * instead of a hardcoded word going stale the day a fourth cookie arrives.
+ */
+const COOKIE_COUNT_WORDS = [
+  "Zero",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+];
+
+function cookieCountWord(count: number): string {
+  return COOKIE_COUNT_WORDS[count] ?? String(count);
+}
+
+const COOKIES_NO_TRACKING =
+  "There is no analytics, no tracking, no advertising pixel, and no third party script on any page of this service. That is not a promise about intentions, it is a test: adding an analytics package or a script tag from another origin fails the build.";
+
+/**
+ * Rendered from `COOKIE_DISCLOSURES`, never restated (invariant 1, extended to
+ * cookies by AC-24). The page cannot name a cookie the registry does not hold,
+ * and cannot omit one it does, because there is only one list.
+ */
 const COOKIES = [
-  "Three cookies are set while you use this service, and each one is strictly necessary: none of them are used to follow you, and none of them mean anything to any other website.",
-  "The first keeps you signed in as you move between pages. Without it, signing in would not survive a single click.",
-  "The second exists only for the few seconds it takes to hand you off to Google or GitHub to sign in, and is gone again the moment that finishes. It is part of how that handoff is done safely.",
-  "The third exists only if you followed a link to a page that needs signing in while you were signed out. It remembers where you were headed, for a few minutes at most, so signing in returns you there instead of somewhere generic, and it is removed the moment it has done that job.",
-  "There is no analytics, no tracking, no advertising pixel, and no third party script on any page of this service. That is not a promise about intentions, it is a test: adding an analytics package or a script tag from another origin fails the build.",
+  `${cookieCountWord(COOKIE_DISCLOSURES.length)} cookies are set while you use this service, and each one is strictly necessary: none of them are used to follow you, and none of them mean anything to any other website.`,
+  ...COOKIE_DISCLOSURES.map((cookie) => cookie.purpose),
+  COOKIES_NO_TRACKING,
 ];
 
 const RETENTION = [
