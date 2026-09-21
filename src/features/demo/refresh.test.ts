@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { ADZUNA_SOURCE } from "@/lib/adzuna";
+import type { DedupFields } from "@/lib/listing-dedup";
 import type { Listing } from "@/features/search/adzuna";
+
+import { EVERPURE_PAIR } from "../../../test/fixtures/everpure-pair";
 
 import { DEMO_SEARCHES, KEPT_LISTING_COUNT, keepListings } from "./refresh";
 
@@ -352,5 +355,69 @@ describe("keepListings, what it must never do", () => {
       "f5",
       "f6",
     ]);
+  });
+});
+
+describe("keepListings, duplicates under the shared dedup key (spec 0022, AC-8)", () => {
+  /**
+   * `/demo` and `/search` must agree on what a duplicate is (invariant 5), so
+   * this walk is driven over the same Everpure pair `/search`'s own dedup test
+   * uses, plus a synthetic true duplicate. Before spec 0022 the walk compared
+   * `sourceJobId` alone, and the second case below kept both ids.
+   */
+  const asListing = (fields: DedupFields): Listing => ({
+    ...listing(fields.sourceJobId),
+    companyName: fields.companyName,
+    title: fields.title,
+    location: fields.location,
+  });
+
+  it("keeps both Everpure roles, because their titles differ", () => {
+    const [manager, engineer] = EVERPURE_PAIR.map(asListing);
+    if (manager === undefined || engineer === undefined)
+      throw new Error("fixture");
+
+    expect(idsOf(keepListings([manager, engineer], []))).toEqual([
+      "5883839578",
+      "5883870504",
+    ]);
+  });
+
+  it("keeps one of two ids sharing company, title and location, across the two searches", () => {
+    const shared = {
+      companyName: "Acme",
+      title: "Engineer",
+      location: "Boston",
+    };
+    const backend = [{ ...listing("b1"), ...shared }];
+    const frontend = [{ ...listing("f1"), ...shared }, listing("f2")];
+
+    // The frontend duplicate costs that search nothing: it keeps f2 instead.
+    expect(idsOf(keepListings(backend, frontend))).toEqual(["b1", "f2"]);
+  });
+
+  it("still recognises one location-less listing returned by both searches", () => {
+    const shared = { ...listing("x"), location: undefined };
+
+    expect(
+      idsOf(keepListings([shared], [{ ...shared }, listing("f2")])),
+    ).toEqual(["x", "f2"]);
+  });
+
+  it("keeps two different location-less ids at one company and title apart", () => {
+    const blank = {
+      companyName: "Acme",
+      title: "Engineer",
+      location: undefined,
+    };
+
+    expect(
+      idsOf(
+        keepListings(
+          [{ ...listing("b1"), ...blank }],
+          [{ ...listing("f1"), ...blank }],
+        ),
+      ),
+    ).toEqual(["b1", "f1"]);
   });
 });
