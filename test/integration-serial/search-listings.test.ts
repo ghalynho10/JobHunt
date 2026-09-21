@@ -454,6 +454,51 @@ describe("the item transform, on a real item edited at one field", () => {
     expect(result.value.value[0]?.salaryMax).toBe(100000);
   });
 
+  it("decodes an escaped newline before the listing reaches anyone (spec 0022, AC-4)", async () => {
+    /**
+     * The PNC shape seen on 2026-09-13: Adzuna sends the two characters
+     * backslash and `n` inside the description, and the card printed them. The
+     * title gets a leading one too, to prove the second trim runs.
+     */
+    const { session } = await freshSession("search-decode");
+    respondWith(
+      await realItemWith({
+        title: "\\nPlatform Engineer",
+        description: "About us.\\nWhat you will do &amp; more.",
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    const listing = result.value.value[0];
+    expect(listing?.title).toBe("Platform Engineer");
+    expect(listing?.descriptionSnippet).toBe(
+      "About us.\nWhat you will do & more.",
+    );
+  });
+
+  it("leaves an absent description absent rather than decoding it to empty", async () => {
+    const { session } = await freshSession("search-absent");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    const withoutEither = Object.fromEntries(
+      Object.entries(real.results[0] ?? {}).filter(
+        ([key]) => key !== "description" && key !== "location",
+      ),
+    );
+    respondWith(JSON.stringify({ results: [withoutEither] }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    expect(result.value.value[0]?.descriptionSnippet).toBeUndefined();
+    expect(result.value.value[0]?.location).toBeUndefined();
+  });
+
   it("drops a listing whose url is not http or https", async () => {
     /**
      * A bare `z.url()` accepts `javascript:alert(1)`, and this value is
@@ -640,6 +685,39 @@ describe("a required field arriving empty (spec 0014, AC-13)", () => {
     expect(isFailure(result)).toBe(true);
     if (isFailure(result)) expect(result.kind).toBe("response_malformed");
   });
+
+  /**
+   * Spec 0022, AC-4: the same rule after decoding. A title or company made
+   * only of escapes that decode to whitespace was non empty when the schema
+   * trimmed it, and would reach a card and `application`'s checks as blank if
+   * the transform did not trim a second time and refuse it.
+   */
+  const decodesToBlank = [
+    {
+      name: "a title",
+      slug: "decodeblank-title",
+      overrides: { title: "\\n\\t" },
+    },
+    {
+      name: "a company display_name",
+      slug: "decodeblank-company",
+      overrides: { company: { display_name: "\\n" } },
+    },
+  ] as const;
+
+  for (const testCase of decodesToBlank) {
+    it(`drops an item whose ${testCase.name} decodes to nothing, and keeps the good one`, async () => {
+      const { session } = await freshSession(testCase.slug);
+
+      respondWith(await twoItems(testCase.overrides));
+
+      const result = await searchListings({ title: "engineer" }, session.jar);
+
+      if (isFailure(result) || !result.value.allowed)
+        throw new Error("unexpected refusal or failure");
+      expect(result.value.value).toHaveLength(1);
+    });
+  }
 
   it("keeps an item whose optional field is empty, so the rule is not 'drop anything blank'", async () => {
     /**

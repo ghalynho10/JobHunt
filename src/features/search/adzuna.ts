@@ -7,6 +7,10 @@ import { z } from "zod";
 import { env } from "@/env";
 import { ADZUNA_COUNTRY, ADZUNA_SOURCE } from "@/lib/adzuna";
 import {
+  decodeListingText,
+  type ListingTextField,
+} from "@/lib/listing-normalize";
+import {
   attempt,
   failure,
   isFailure,
@@ -136,7 +140,36 @@ const adzunaItemSchema = z
     ]),
     created: z.string().optional(),
   })
-  .transform((raw) => {
+  .transform((raw, ctx) => {
+    /**
+     * DECODED HERE, ONCE, BEFORE ANYTHING READS THE TEXT (spec 0022, AC-4).
+     * Everything downstream, the card, the stored `application` row and the
+     * scoring prompt, receives the decoded value and never decodes it again
+     * (invariant 3). An absent `location` or `description` stays absent: it is
+     * never decoded into an empty string.
+     */
+    const decode = (text: string, field: ListingTextField) =>
+      decodeListingText(text, { sourceJobId: raw.id, field });
+
+    /**
+     * TRIMMED A SECOND TIME, because a decoded escape can put whitespace at an
+     * edge the schema's own trim above never saw (a `\n` at the start, for
+     * one). If that leaves nothing, the item is refused here, so it is dropped
+     * and counted on the same path as any other unparseable item, and an empty
+     * title or company never reaches a card or `application`'s
+     * `length(trim(...)) > 0` checks (spec 0014, AC-13).
+     */
+    const title = decode(raw.title, "title").trim();
+    const companyName = decode(raw.company.display_name, "companyName").trim();
+
+    if (title === "" || companyName === "") {
+      ctx.addIssue({
+        code: "custom",
+        message: "The title or company is empty once its escapes are decoded.",
+      });
+      return z.NEVER;
+    }
+
     /**
      * A max below the min is dropped rather than passed on inverted (Feature
      * design): `application`'s own check constraint (spec 0003) would refuse
@@ -154,11 +187,17 @@ const adzunaItemSchema = z
     return {
       source: ADZUNA_SOURCE,
       sourceJobId: raw.id,
-      title: raw.title,
-      companyName: raw.company.display_name,
-      location: raw.location?.display_name,
+      title,
+      companyName,
+      location:
+        raw.location === undefined
+          ? undefined
+          : decode(raw.location.display_name, "location"),
       url: raw.redirect_url,
-      descriptionSnippet: raw.description,
+      descriptionSnippet:
+        raw.description === undefined
+          ? undefined
+          : decode(raw.description, "description"),
       salaryMin,
       salaryMax,
       salaryCurrency: hasSalary

@@ -37,6 +37,8 @@ export interface CapturedEvent {
   readonly fingerprint: readonly string[] | undefined;
   readonly tags: Readonly<Record<string, unknown>> | undefined;
   readonly message: string | undefined;
+  /** The event's `extra`, where a message event carries its context. */
+  readonly extra: Readonly<Record<string, unknown>> | undefined;
   readonly exceptionType: string | undefined;
   readonly exceptionValue: string | undefined;
 }
@@ -82,6 +84,7 @@ function collect(envelope: Envelope): void {
       fingerprint: event.fingerprint,
       tags: event.tags,
       message: typeof event.message === "string" ? event.message : undefined,
+      extra: event.extra,
       exceptionType: exception?.type,
       exceptionValue: exception?.value,
     });
