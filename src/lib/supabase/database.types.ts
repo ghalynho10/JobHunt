@@ -463,6 +463,10 @@ export type Database = {
           reason: string
         }[]
       }
+      decode_listing_text: {
+        Args: { input: string; retrim?: boolean }
+        Returns: string
+      }
       get_job_search_usage_summary: {
         Args: never
         Returns: {
