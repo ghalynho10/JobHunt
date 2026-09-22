@@ -627,6 +627,34 @@ describe("the same job under two ids renders once (spec 0022, AC-1 to AC-3)", ()
     ).toBe(true);
   });
 
+  it("keeps the first id and says so when the applied read failed (AC-3, invariant 6)", async () => {
+    /**
+     * The one case where the kept id can be an unapplied sibling. It must not
+     * be silent: the same `COPY-8` sentence the single listing case shows has
+     * to be on screen, and the card must not claim an application it cannot
+     * see.
+     */
+    readAppliedJobIds.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "applied read failed",
+      }) as never,
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(postingHrefs(tree)).toEqual(["https://www.adzuna.com/land/ad/111"]);
+    expect(textOf(tree)).toContain(SEARCH_COPY.appliedReadFailed);
+    const apply = flatten(tree).filter(
+      (element) => element.type === ApplyControl,
+    );
+    expect(apply).toHaveLength(1);
+    expect(
+      (apply[0]?.props as { alreadyApplied?: boolean }).alreadyApplied,
+    ).toBe(false);
+  });
+
   it("keeps two roles with different titles as two cards", async () => {
     searchListings.mockResolvedValue(
       success({

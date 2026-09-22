@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { afterAll, describe, expect, it } from "vitest";
 
 import { decodeListingText } from "@/lib/listing-normalize";
@@ -83,26 +86,42 @@ describe("the second trim on title and company (AC-4, AC-7)", () => {
 
 describe("the backfill statement over real application rows (AC-7)", () => {
   /**
-   * THE SAME STATEMENT THE MIGRATION RUNS, narrowed to this test's two rows by
-   * id. Running it unnarrowed would rewrite rows other integration files are
-   * using in parallel. Keep this in step with the `update` at the foot of
-   * `supabase/migrations/20260921120000_decode_listing_text.sql`.
+   * THE MIGRATION'S OWN STATEMENT, READ OUT OF THE FILE, not a copy kept here.
+   * A copy could drift from what production runs while this test stayed
+   * green. The one change is a narrowing to this test's own rows by id, added
+   * in front of the migration's `where exists`, because running it unnarrowed
+   * would rewrite rows other integration files are using in parallel. Both
+   * `indexOf` anchors must be found exactly once, or this throws before any
+   * test runs, so a reshaped migration fails loudly rather than silently
+   * testing nothing.
    */
-  const BACKFILL = `
-    update public.application
-    set
-      job_title = public.decode_listing_text(job_title, true),
-      company_name = public.decode_listing_text(company_name, true),
-      job_location = public.decode_listing_text(job_location),
-      job_description = public.decode_listing_text(job_description)
-    where id = any($1::uuid[])
-      and exists (
-        select 1
-        from pg_catalog.unnest(
-          array[job_title, company_name, job_location, job_description]
-        ) as field (value)
-        where field.value ~ '\\\\n|\\\\r|\\\\t|\\\\"|\\\\\\\\|&amp;|&lt;|&gt;|&quot;|&#39;'
-      )`;
+  const BACKFILL = (() => {
+    const migration = readFileSync(
+      fileURLToPath(
+        new URL(
+          "../../supabase/migrations/20260921120000_decode_listing_text.sql",
+          import.meta.url,
+        ),
+      ),
+      "utf8",
+    );
+    const statement = migration.slice(
+      migration.indexOf("update public.application"),
+    );
+    const anchor = "where exists (";
+    if (
+      !statement.startsWith("update public.application") ||
+      statement.indexOf(anchor) === -1 ||
+      statement.indexOf(anchor) !== statement.lastIndexOf(anchor)
+    ) {
+      throw new Error(
+        "The backfill statement in the migration no longer has the shape this test narrows.",
+      );
+    }
+    return statement
+      .replace(anchor, "where id = any($1::uuid[]) and exists (")
+      .replace(/;\s*$/, "");
+  })();
 
   interface Row {
     readonly id: string;

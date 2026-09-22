@@ -79,6 +79,27 @@ describe("a genuine duplicate collapses (AC-1)", () => {
     expect(ids(result)).toEqual(["a", "x", "y"]);
   });
 
+  it("never lets a separator inside a field make two different listings collide", () => {
+    // Under a naive join on "|" these two would both read "a|b|c|boston".
+    const first = listing("a", { companyName: "A|B", title: "C" });
+    const second = listing("b", { companyName: "A", title: "B|C" });
+
+    expect(listingDedupKey(first)).not.toBe(listingDedupKey(second));
+  });
+
+  it("folds non ASCII case the same way as ASCII", () => {
+    const upper = listing("a", {
+      companyName: "ZÜRICH AG",
+      location: "ZÜRICH",
+    });
+    const lower = listing("b", {
+      companyName: "zürich ag",
+      location: "zürich",
+    });
+
+    expect(ids(dedupeListings([upper, lower], undefined))).toEqual(["a"]);
+  });
+
   it("does not collapse on a different location", () => {
     expect(
       ids(

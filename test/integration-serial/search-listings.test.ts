@@ -8,6 +8,8 @@ import {
   vi,
 } from "vitest";
 
+import * as Sentry from "@sentry/nextjs";
+
 import { searchListings } from "@/features/search/adzuna";
 import { readSearchPrefill } from "@/features/search/preferences";
 import { isFailure } from "@/lib/result";
@@ -18,6 +20,7 @@ import { deleteFixtureUser, mintFixtureUser } from "../helpers/fixture-user";
 import { recordedFetch } from "../helpers/recorder";
 import { mintSession } from "../helpers/session";
 import { ADZUNA } from "../helpers/services";
+import { capturedEvents } from "../setup/sentry-transport";
 
 /**
  * Search, end to end against the real stack (spec 0013, Critical test
@@ -477,6 +480,58 @@ describe("the item transform, on a real item edited at one field", () => {
     expect(listing?.descriptionSnippet).toBe(
       "About us.\nWhat you will do & more.",
     );
+  });
+
+  it("decodes the company and the location too, not only title and description (spec 0022, AC-4)", async () => {
+    const { session } = await freshSession("search-decode-co");
+    respondWith(
+      await realItemWith({
+        company: { display_name: "R&amp;D Labs\\n" },
+        location: { display_name: "Boston\\tMA" },
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    const listing = result.value.value[0];
+    // The company is trimmed again after decoding; the location is not
+    // trimmed at all, matching the SQL twin's `retrim` split.
+    expect(listing?.companyName).toBe("R&D Labs");
+    expect(listing?.location).toBe("Boston\tMA");
+  });
+
+  it("reports an unrecognised escape with the real Adzuna id and the field it was in (spec 0022, AC-5)", async () => {
+    const { session } = await freshSession("search-leftover");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    const item: Record<string, unknown> = {
+      ...real.results[0],
+      description: "see caf&eacute; here",
+    };
+    respondWith(JSON.stringify({ results: [item] }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+    await Sentry.flush(2000);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    // Still rendered with the fragment intact: nothing is dropped.
+    expect(result.value.value[0]?.descriptionSnippet).toBe(
+      "see caf&eacute; here",
+    );
+    const reports = capturedEvents().filter(
+      (event) =>
+        event.level === "warning" && event.extra?.["field"] !== undefined,
+    );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.extra).toMatchObject({
+      sourceJobId: String(item["id"]),
+      field: "description",
+      fragments: ["&eacute;"],
+    });
   });
 
   it("leaves an absent description absent rather than decoding it to empty", async () => {
