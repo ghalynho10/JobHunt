@@ -3,7 +3,7 @@
 A multi user job search web app: enter a profile, search real listings, see them ranked with the reasoning shown, click through to apply, and record that you applied. Free, no billing, built for the author's own job search plus a few friends and recruiters evaluating it as a portfolio piece.
 
 **Build approach:** Tracer Bullet (prove the whole pipe works end to end, narrow but real, before building any single part of it fully).
-**Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). Four features carry a `· GA` tag and also get a fresh model `/check review` plus `/document`.
+**Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). Six features carry a `· GA` tag and also get a fresh model `/check review` plus `/document`.
 
 **v1: complete, declared 2026-09-17.** The completion test below was already met before feature 31 shipped that day: a user can enter a profile, search, see ranked results with the reasoning shown, click through to apply, and record that they applied, all verified in production.
 
@@ -38,7 +38,11 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 19 | Listing data quality | v1.5 | done |
 | 24 | Master resume | v1.5 | planned |
 | 25 | Resume tailoring per job | v1.5 | planned |
-| 26 | Profile depth & completeness | v1.5 | planned |
+| 26 | Profile depth & completeness | v1.5 | dropped |
+| 34 | Chip input for skills, titles & locations | v1.5 | planned |
+| 35 | Nested role history, with migration | v1.5 | planned |
+| 36 | Resume upload with extraction | v1.5 | planned |
+| 37 | Honest profile completeness signalling | v1.5 | planned |
 | 18 | Structured search filters | v2 | planned |
 | 20 | Guided application capture | v2 | planned |
 | 22 | Discard with reason | v2 | planned |
@@ -417,7 +421,9 @@ _**Resolved by spec 0021's revision, 2026-09-14** (was left to `/architect`, not
 
 ## v1.5
 
-Sequenced immediately after v1, and scoped, on 2026-09-18, to exactly four features, in this build order. Listing data quality goes first, since it carries two confirmed real world defects and a widened remit rather than a fresh design. Master resume, then resume tailoring per job, then profile depth and completeness follow in a chain, since each one after the first needs the one before it live.
+Sequenced immediately after v1, and scoped, on 2026-09-18, to four features, in this build order. Listing data quality goes first, since it carries two confirmed real world defects and a widened remit rather than a fresh design. Master resume, then resume tailoring per job, follow next, since resume tailoring needs the master resume live first.
+
+Profile depth and completeness (feature 26) was split on 2026-09-22 into four rows: chip input (34), nested role history with its own migration (35), resume upload with extraction (36), and honest completeness signalling (37). None of the four change the completion test, so they stay in this phase together. Resume upload still needs the master resume live first, same as the original row. Completeness is sequenced last, since it needs the other three's final shape to describe honestly.
 
 ### 19. Listing data quality · done
 Fix the known problems in the incoming listing data rather than switching sources: the same job appearing under different identifiers, escaped characters reaching the reader as literal text, a salary rendered as a range from a number to itself, and occasional ungrounded outlier figures. Two problems, not one: incoming source text needs **normalising** as well as de-duplicating, a widening recorded 2026-09-16 rather than the original framing. The dedup key is the risky part: key on the wrong field and a genuinely different real result disappears silently.
@@ -443,7 +449,7 @@ _Design decided 2026-09-21, spec [0022](../specs/0022-listing-data-quality/index
 ### 24. Master resume · needs a decision
 One canonical resume as the single source of truth, from which every tailored version is regenerated fresh rather than edited in place.
 **Done when:** the canonical version is editable and versioned, a tailored version is always regenerated from it rather than from a previous tailoring, and each generated version is saved as a snapshot tied to its application record.
-_Resume permanence, decided 2026-09-18, settling the question between this feature and feature 26. An uploaded resume (feature 26) replaces the master outright: the master is the one permanent, single source of truth, never merged with an upload and never left as a second version beside it. A tailored resume (feature 25) is always regenerated fresh from the current master, never edited in place, and never regenerated from an earlier tailoring rather than the master itself. Each tailored version still saves as a snapshot tied to its own application record, so the record of what was actually sent to a given employer survives even after the master changes later. There is one resume of record, and an upload overwrites it._
+_Resume permanence, decided 2026-09-18, settling the question between this feature and feature 36. An uploaded resume (feature 36, resume upload with extraction) replaces the master outright: the master is the one permanent, single source of truth, never merged with an upload and never left as a second version beside it. A tailored resume (feature 25) is always regenerated fresh from the current master, never edited in place, and never regenerated from an earlier tailoring rather than the master itself. Each tailored version still saves as a snapshot tied to its own application record, so the record of what was actually sent to a given employer survives even after the master changes later. There is one resume of record, and an upload overwrites it._
 - [ ] Design it (spec): `/architect master resume`
 
 ### 25. Resume tailoring per job · needs a decision
@@ -451,12 +457,32 @@ Generate a resume tailored to a specific listing, showing the fit score alongsid
 **Done when:** a tailored version generates against a real listing, any bullet with an unsupported number is dropped by a deterministic check rather than by asking a model to behave, the result is attached to its application record, and a generation failure is visible.
 - [ ] Design it (spec): `/architect resume tailoring per job`
 
-### 26. Profile depth & completeness · needs a decision
-Replace the flat one row per job history with nested roles containing sub projects, so a research assistant project stops having to masquerade as a standalone employer. Adds honest completeness signalling: say what is actually missing, not a vague percentage. Also brings resume upload with extraction, with its accuracy limits shown rather than assumed; that upload is what covers "a resume should fill in a profile", it is not a missing feature on top of it. And replaces the one value per line textarea for skills, desired titles and desired locations with a chip input: type a value, press Enter, it becomes a chip with an x to remove it. All three fields change together, since they call the same `newlineList` parser in `src/features/profile/schemas.ts` and behave identically today; changing only skills would make the other two diverge for no reason.
-**Done when:** a role can contain sub projects and renders correctly, completeness names the specific missing pieces, extraction results are shown for review before being saved, the migration from the flat shape loses nothing, and skills, desired titles and desired locations are entered as chips rather than a line per value.
+### 26. Profile depth & completeness · dropped
+Split on 2026-09-22 into four rows: chip input (34), nested role history with its migration (35), resume upload with extraction (36), and honest completeness signalling (37). See those rows; this one carries no further work.
+
+### 34. Chip input for skills, titles & locations · needs a decision
+Replace the one value per line textarea for skills, desired titles and desired locations with a chip input: type a value, press Enter, it becomes a chip with an x to remove it. All three fields change together, since they call the same `newlineList` parser in `src/features/profile/schemas.ts` and behave identically today; changing only skills would make the other two diverge for no reason.
+**Done when:** all three fields are entered as chips rather than a line per value, a chip commits on Enter only, and existing saved values convert to chips with nothing lost.
 _Implementation constraint for the design pass: a value can contain commas, "Chicago, IL" is a real desired location, so the chip control must commit on Enter only and never split on commas, which is the usual default in chip components and would break that one value into two._
-_Resume upload here overwrites the master resume (feature 24) outright; there is no merge and no second version kept beside it. See feature 24 for the full resume permanence decision._
-- [ ] Design it (spec): `/architect profile depth & completeness`
+- [ ] Design it (spec): `/architect chip input for skills, titles & locations`
+
+### 35. Nested role history, with migration · needs a decision · GA
+Let a role contain nested sub projects, so a research assistant project stops having to masquerade as a standalone employer. Ships with the one time migration that converts every existing flat job history row into this shape, since the schema and the conversion have to land together: an empty nested table beside live flat rows would leave the profile reading two shapes at once, and this row's own first Done when clause cannot be met until existing data is actually in the new shape. Feature 19 is the precedent: its parse change and its backfill shipped together in one feature with the migration inside it.
+**Done when:** a role can contain sub projects and both render correctly, and every existing flat row converts to the nested shape with nothing lost, verified by a row count check before and after, the same pattern feature 19 used for its own backfill.
+_Tagged GA over the project default because this row converts every existing job history row in place and is the one piece of the original feature 26 that can lose data, the same reasoning behind the GA tag on features 4, 7, 10, 14 and 17._
+- [ ] Design it (spec): `/architect nested role history, with migration`
+
+### 36. Resume upload with extraction · needs a decision
+Upload a resume and extract profile fields for review before saving, with its accuracy limits shown rather than assumed; this is what covers "a resume should fill in a profile", it is not a missing feature on top of it.
+**Done when:** extraction results are shown for review before being saved, the shown limits reflect real accuracy, and a successful upload overwrites the master resume (feature 24) outright.
+_Resume upload here overwrites the master resume (feature 24) outright; there is no merge and no second version kept beside it. See feature 24 for the full resume permanence decision. Still needs feature 24 live first, same as the original row._
+- [ ] Design it (spec): `/architect resume upload with extraction`
+
+### 37. Honest profile completeness signalling · needs a decision
+Say what is actually missing from a profile, not a vague percentage.
+**Done when:** completeness names the specific missing pieces across the full profile shape, including nested roles (35), the chip fields (34), and the uploaded resume (36).
+_Sequenced last of the four, since it needs the other three's final shape to describe honestly._
+- [ ] Design it (spec): `/architect honest profile completeness signalling`
 
 ## v2
 
