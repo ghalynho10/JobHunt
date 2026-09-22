@@ -85,13 +85,13 @@ export function dedupeListings<T extends DedupFields>(
   listings: readonly T[],
   appliedIds: ReadonlySet<string> | undefined,
 ): readonly T[] {
-  const groups = listings.reduce<ReadonlyMap<string, readonly T[]>>(
-    (grouped, listing) => {
-      const key = listingDedupKey(listing);
-      return new Map(grouped).set(key, [...(grouped.get(key) ?? []), listing]);
-    },
-    new Map(),
-  );
+  /**
+   * `Map.groupBy` keeps keys in first occurrence order and each group's
+   * members in Adzuna's order, which are exactly the two orders the rules above
+   * rely on: a group's position, and "earliest applied id" within it. It builds
+   * one new map without touching `listings`.
+   */
+  const groups = Map.groupBy(listings, listingDedupKey);
 
   return [...groups.values()].flatMap((members) => {
     const applied = members.find((member) =>
