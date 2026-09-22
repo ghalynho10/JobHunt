@@ -125,6 +125,13 @@ revoke execute on function public.decode_listing_text(text, boolean)
 -- identical, `updated_at` included (AC-7). `job_location` and
 -- `job_description` are decoded without the second trim, matching the parse,
 -- which never trims those two.
+--
+-- A ROW MATCHED ONLY THROUGH ANOTHER COLUMN still has its title and company
+-- passed through the second trim, and that is a no-op: the insert path
+-- already stores both trimmed (`title` and `companyName` are
+-- `z.string().trim()` in `src/features/applications/schemas.ts`, the same
+-- JavaScript whitespace set `edge_space` mirrors), so a column with no token
+-- comes out byte identical.
 update public.application
 set
   job_title = public.decode_listing_text(job_title, true),
