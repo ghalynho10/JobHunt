@@ -7,6 +7,7 @@ import type { ListingOutcome } from "@/features/scoring/score-listings";
 import { scoreListings } from "@/features/scoring/score-listings";
 import type { Listing } from "@/features/search/adzuna";
 import { searchListings } from "@/features/search/adzuna";
+import { listingDedupKey } from "@/lib/listing-dedup";
 import {
   attempt,
   failure,
@@ -407,7 +408,7 @@ export interface KeptListing {
  *
  * THE RULE, AS THE SPEC STATES IT. Backend takes the first turn, then frontend,
  * and so on. On its turn a search keeps its next listing, in its own order,
- * whose `sourceJobId` neither search has kept yet, skipping any that has been,
+ * whose dedup key neither search has kept yet, skipping any that has been,
  * so a duplicate costs that search nothing. A search stops taking turns once it
  * has kept `KEPT_LISTING_COUNT` or its own results run out, and the other
  * carries on alone. A short search is never topped up from the other.
@@ -437,6 +438,13 @@ export function keepListings(
     { title: frontendSearch.title, remaining: frontend.values() },
   ] as const;
 
+  /**
+   * KEYED ON `listingDedupKey()`, NOT ON `sourceJobId` (spec 0022, AC-8).
+   * `/search` collapses the same job under two ids with that key, so `/demo`
+   * uses the same one or a pair would be one result there and two here
+   * (invariant 5). The key is stable per listing, so one listing returned by
+   * both searches is still recognised as the same one.
+   */
   const seen = new Set<string>();
   const kept: KeptListing[] = [];
   const finished = new Set<DemoSearchTitle>();
@@ -452,7 +460,7 @@ export function keepListings(
         continue;
       }
 
-      seen.add(next.sourceJobId);
+      seen.add(listingDedupKey(next));
       kept.push({
         listing: next,
         searchTitle: lane.title,
@@ -470,7 +478,7 @@ export function keepListings(
   return kept;
 }
 
-/** The next listing an iterator yields whose id has not been kept yet. */
+/** The next listing an iterator yields whose dedup key has not been kept yet. */
 function nextUnseen(
   remaining: Iterator<Listing>,
   seen: ReadonlySet<string>,
@@ -479,7 +487,7 @@ function nextUnseen(
     const step = remaining.next();
 
     if (step.done === true) return undefined;
-    if (!seen.has(step.value.sourceJobId)) return step.value;
+    if (!seen.has(listingDedupKey(step.value))) return step.value;
   }
 }
 

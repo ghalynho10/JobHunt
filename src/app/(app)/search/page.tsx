@@ -23,6 +23,7 @@ import { readSearchPrefill } from "@/features/search/preferences";
 import { ResultList } from "@/features/search/result-list";
 import { SearchForm } from "@/features/search/search-form";
 import { UsageNotice } from "@/features/search/usage-notice";
+import { dedupeListings } from "@/lib/listing-dedup";
 import { isFailure } from "@/lib/result";
 import { SENTENCES } from "@/lib/usage-gating/copy";
 
@@ -295,6 +296,19 @@ async function SearchOutcome({
 
   const appliedIds = isFailure(applied) ? undefined : applied.value;
 
+  /**
+   * SPEC 0022, AC-1 TO AC-3: the same job under two Adzuna ids renders once.
+   * Run HERE, after the applied read, because a group keeps the id the caller
+   * already applied to, so the card and an existing `application` row name the
+   * same id. The applied read above still asks about every raw id, which is
+   * what lets it find an application on any member of a group.
+   *
+   * Every consumer below reads `shown`, scoring included, so a collapsed
+   * duplicate also costs no model call. The empty check above reads the raw
+   * array, which is safe: dedup never turns a non empty list into an empty one.
+   */
+  const shown = dedupeListings(listings, appliedIds);
+
   return (
     <>
       {/*
@@ -373,7 +387,7 @@ async function SearchOutcome({
           <Suspense
             fallback={
               <ResultList
-                rows={listings.map((listing) => ({
+                rows={shown.map((listing) => ({
                   listing,
                   score: <ScoreCard outcome="pending" />,
                   busy: true,
@@ -385,7 +399,7 @@ async function SearchOutcome({
           >
             <ScoredResults
               profile={scoring.profile}
-              listings={listings}
+              listings={shown}
               now={now}
               appliedIds={appliedIds}
             />
@@ -393,7 +407,7 @@ async function SearchOutcome({
         </>
       ) : (
         <ResultList
-          rows={listings.map((listing) => ({ listing }))}
+          rows={shown.map((listing) => ({ listing }))}
           now={now}
           appliedIds={appliedIds}
         />

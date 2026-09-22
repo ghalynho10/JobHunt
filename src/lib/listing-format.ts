@@ -59,12 +59,19 @@ export function salaryText(figures: SalaryFigures): string | undefined {
      * difference between two numbers that are the same. Spec 0013 AC-8 says "a
      * salary range when present" and never considered this case, so this is a
      * gap it did not cover rather than a departure from it.
+     *
+     * THE FORMATTED STRINGS ARE COMPARED, NOT THE RAW NUMBERS (spec 0022,
+     * AC-6). `109440.2` and `109440.4` differ as numbers and both display as
+     * `$109,440`, so a raw comparison still rendered a range of one figure to
+     * itself. "Do these two read the same" is the question the display asks,
+     * and comparing the rendered strings keeps the answer right if the format
+     * above ever changes, where a `Math.round` shortcut would silently stop
+     * matching it.
      */
-    if (figures.salaryMin === figures.salaryMax) {
-      return format(figures.salaryMin);
-    }
+    const min = format(figures.salaryMin);
+    const max = format(figures.salaryMax);
 
-    return `${format(figures.salaryMin)} to ${format(figures.salaryMax)}`;
+    return min === max ? min : `${min} to ${max}`;
   }
 
   if (figures.salaryMin !== undefined)

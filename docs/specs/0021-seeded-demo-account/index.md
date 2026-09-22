@@ -735,10 +735,15 @@ there is no meaningful single persona thin thread here.
   still negligible against the shared caps at a weekly cadence. Two searches is 2 against
   `job_search`'s global day cap of 66 and 2 against the refresh identity's own account week cap of
   25 (`supabase/migrations/20260902120000_usage_gating.sql`).
-- Two Adzuna ids carrying one posting both appear on `/demo`, since de-duplication is by id only.
-  The first real refresh had exactly this: Everpure, Inc. under ids `5883839578` and `5883870504`,
-  with byte identical snippets but different titles. It stays visible until feature 19 decides the
-  dedup key (`## Follow-up`).
+- De-duplication is by id only, so two Adzuna ids under one company both appear on `/demo`
+  whenever they exist. The first real refresh had one instance of this shape: Everpure, Inc.
+  under ids `5883839578` and `5883870504`, with byte identical snippets but different titles
+  ("Software Engineering Manager, Platform" and "Software Engineer"). The identical snippets are
+  expected rather than suspicious (`rationale.md` records every stored snippet as 500 characters
+  of the company's own introduction), so this pair is most likely two distinct roles, and **no
+  confirmed duplicate is on record**. Both ids stay visible as two results under feature 19's dedup
+  key (spec [0022](../0022-listing-data-quality/index.md), AC-2), because their titles differ
+  (`## Follow-up`).
 - Changing a query after seeing one run's results is the move this spec otherwise forbids. It is
   accepted once, on a criterion about the cards' information (no matched skills for either
   persona) rather than about which bands came back, and it is bounded by a stopping rule
@@ -797,12 +802,15 @@ there is no meaningful single persona thin thread here.
       strongly the second time, does not. This ticks what the rule concluded, it does not decide
       anything new: the fix still belongs to spec 0013's Consequences and to
       `docs/scope/scope.md`'s deferred full posting text item, which now carries both numbers.
-- [ ] **Two listing data defects the first real refresh put on this public page, both feature
+- [ ] **Two listing data items the first real refresh put on this public page, both feature
       19's** (`docs/scope/scope.md`, "Listing data quality"), recorded here because `/demo` is
       where a visitor sees them: (1) Everpure, Inc. appears twice under Adzuna ids `5883839578`
       and `5883870504`, byte identical snippets with different titles ("Software Engineering
-      Manager, Platform" and "Software Engineer"). That different title is exactly the risk
-      feature 19's row names for a dedup key. (2) PNC Financial Services Group's snippet (id
+      Manager, Platform" and "Software Engineer"). The identical snippets are expected, not
+      suspicious (`rationale.md`'s 500 character company introduction finding), so this pair is
+      most likely two distinct roles rather than a confirmed duplicate; it is a test case a dedup
+      key must keep as two results, which is exactly the risk feature 19's row names. (2) PNC
+      Financial Services Group's snippet (id
       `5854960477`) carries literal `\n` character sequences, rendered as text. ~~Feature 19's scope
       row does not yet name this second defect (its row covers duplicates, the equal salary range
       and outliers; `docs/session-notes.md` is the only other place it is mentioned), so this

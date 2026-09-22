@@ -8,6 +8,8 @@ import {
   vi,
 } from "vitest";
 
+import * as Sentry from "@sentry/nextjs";
+
 import { searchListings } from "@/features/search/adzuna";
 import { readSearchPrefill } from "@/features/search/preferences";
 import { isFailure } from "@/lib/result";
@@ -18,6 +20,7 @@ import { deleteFixtureUser, mintFixtureUser } from "../helpers/fixture-user";
 import { recordedFetch } from "../helpers/recorder";
 import { mintSession } from "../helpers/session";
 import { ADZUNA } from "../helpers/services";
+import { capturedEvents } from "../setup/sentry-transport";
 
 /**
  * Search, end to end against the real stack (spec 0013, Critical test
@@ -454,6 +457,103 @@ describe("the item transform, on a real item edited at one field", () => {
     expect(result.value.value[0]?.salaryMax).toBe(100000);
   });
 
+  it("decodes an escaped newline before the listing reaches anyone (spec 0022, AC-4)", async () => {
+    /**
+     * The PNC shape seen on 2026-09-13: Adzuna sends the two characters
+     * backslash and `n` inside the description, and the card printed them. The
+     * title gets a leading one too, to prove the second trim runs.
+     */
+    const { session } = await freshSession("search-decode");
+    respondWith(
+      await realItemWith({
+        title: "\\nPlatform Engineer",
+        description: "About us.\\nWhat you will do &amp; more.",
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    const listing = result.value.value[0];
+    expect(listing?.title).toBe("Platform Engineer");
+    expect(listing?.descriptionSnippet).toBe(
+      "About us.\nWhat you will do & more.",
+    );
+  });
+
+  it("decodes the company and the location too, not only title and description (spec 0022, AC-4)", async () => {
+    const { session } = await freshSession("search-decode-co");
+    respondWith(
+      await realItemWith({
+        company: { display_name: "R&amp;D Labs\\n" },
+        location: { display_name: "Boston\\tMA" },
+      }),
+    );
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    const listing = result.value.value[0];
+    // The company is trimmed again after decoding; the location is not
+    // trimmed at all, matching the SQL twin's `retrim` split.
+    expect(listing?.companyName).toBe("R&D Labs");
+    expect(listing?.location).toBe("Boston\tMA");
+  });
+
+  it("reports an unrecognised escape with the real Adzuna id and the field it was in (spec 0022, AC-5)", async () => {
+    const { session } = await freshSession("search-leftover");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    const item: Record<string, unknown> = {
+      ...real.results[0],
+      description: "see caf&eacute; here",
+    };
+    respondWith(JSON.stringify({ results: [item] }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+    await Sentry.flush(2000);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    // Still rendered with the fragment intact: nothing is dropped.
+    expect(result.value.value[0]?.descriptionSnippet).toBe(
+      "see caf&eacute; here",
+    );
+    const reports = capturedEvents().filter(
+      (event) =>
+        event.level === "warning" && event.extra?.["field"] !== undefined,
+    );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.extra).toMatchObject({
+      sourceJobId: String(item["id"]),
+      field: "description",
+      fragments: ["&eacute;"],
+    });
+  });
+
+  it("leaves an absent description absent rather than decoding it to empty", async () => {
+    const { session } = await freshSession("search-absent");
+    const real = JSON.parse(await realAdzunaBody()) as {
+      results: Record<string, unknown>[];
+    };
+    const withoutEither = Object.fromEntries(
+      Object.entries(real.results[0] ?? {}).filter(
+        ([key]) => key !== "description" && key !== "location",
+      ),
+    );
+    respondWith(JSON.stringify({ results: [withoutEither] }));
+
+    const result = await searchListings({ title: "engineer" }, session.jar);
+
+    if (isFailure(result) || !result.value.allowed)
+      throw new Error("unexpected");
+    expect(result.value.value[0]?.descriptionSnippet).toBeUndefined();
+    expect(result.value.value[0]?.location).toBeUndefined();
+  });
+
   it("drops a listing whose url is not http or https", async () => {
     /**
      * A bare `z.url()` accepts `javascript:alert(1)`, and this value is
@@ -640,6 +740,39 @@ describe("a required field arriving empty (spec 0014, AC-13)", () => {
     expect(isFailure(result)).toBe(true);
     if (isFailure(result)) expect(result.kind).toBe("response_malformed");
   });
+
+  /**
+   * Spec 0022, AC-4: the same rule after decoding. A title or company made
+   * only of escapes that decode to whitespace was non empty when the schema
+   * trimmed it, and would reach a card and `application`'s checks as blank if
+   * the transform did not trim a second time and refuse it.
+   */
+  const decodesToBlank = [
+    {
+      name: "a title",
+      slug: "decodeblank-title",
+      overrides: { title: "\\n\\t" },
+    },
+    {
+      name: "a company display_name",
+      slug: "decodeblank-company",
+      overrides: { company: { display_name: "\\n" } },
+    },
+  ] as const;
+
+  for (const testCase of decodesToBlank) {
+    it(`drops an item whose ${testCase.name} decodes to nothing, and keeps the good one`, async () => {
+      const { session } = await freshSession(testCase.slug);
+
+      respondWith(await twoItems(testCase.overrides));
+
+      const result = await searchListings({ title: "engineer" }, session.jar);
+
+      if (isFailure(result) || !result.value.allowed)
+        throw new Error("unexpected refusal or failure");
+      expect(result.value.value).toHaveLength(1);
+    });
+  }
 
   it("keeps an item whose optional field is empty, so the rule is not 'drop anything blank'", async () => {
     /**

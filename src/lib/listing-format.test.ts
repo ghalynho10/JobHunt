@@ -88,6 +88,31 @@ describe("salaryText (spec 0013 invariant 7, spec 0014 AC-18)", () => {
     expect(text).not.toContain(" to ");
   });
 
+  it("renders one figure when the two differ only by cents the display rounds away (spec 0022, AC-6)", () => {
+    /**
+     * Reachable because Adzuna's figures parse as `z.number()`, not integers.
+     * Compared as raw numbers these two differ, and both format as $109,440.
+     */
+    const text = salaryText({
+      salaryMin: 109440.2,
+      salaryMax: 109440.4,
+      salaryCurrency: "USD",
+    });
+
+    expect(text).toBe("$109,440");
+  });
+
+  it("still renders a range when the rounded figures differ", () => {
+    // The other side of the boundary, so the rule is not "cents never range".
+    expect(
+      salaryText({
+        salaryMin: 109440.4,
+        salaryMax: 109440.6,
+        salaryCurrency: "USD",
+      }),
+    ).toBe("$109,440 to $109,441");
+  });
+
   it("renders a single stated figure as a bound, not as a fake range", () => {
     expect(
       salaryText({

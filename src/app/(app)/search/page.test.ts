@@ -563,6 +563,130 @@ describe("the applied marker read fails (AC-9, COPY-8)", () => {
   });
 });
 
+describe("the same job under two ids renders once (spec 0022, AC-1 to AC-3)", () => {
+  /**
+   * The pure grouping is proven in `src/lib/listing-dedup.test.ts`. These pin
+   * the WIRING: that the page renders the deduped list, that it does so after
+   * the applied read (so AC-3's preference has something to prefer), and that
+   * the scored path is fed the deduped list too.
+   */
+  const duplicate = [
+    {
+      ...listing,
+      sourceJobId: "111",
+      url: "https://www.adzuna.com/land/ad/111",
+    },
+    {
+      ...listing,
+      sourceJobId: "222",
+      url: "https://www.adzuna.com/land/ad/222",
+    },
+  ];
+
+  const postingHrefs = (tree: unknown) =>
+    flatten(tree as never)
+      .map((element) => (element.props as { href?: string }).href)
+      .filter((href) => href?.includes("/land/ad/") === true);
+
+  beforeEach(() => {
+    searchListings.mockResolvedValue(
+      success({ allowed: true, value: duplicate }),
+    );
+    // Set here rather than inherited: `clearAllMocks` keeps an earlier test's
+    // resolved value, and this block's assertions turn on exactly this read.
+    readAppliedJobIds.mockResolvedValue(success(new Set()) as never);
+  });
+
+  it("renders one card for two ids sharing company, title and location", async () => {
+    const tree = await render({ q: "engineer" });
+
+    expect(
+      flatten(tree).filter((element) => element.type === "li"),
+    ).toHaveLength(1);
+    expect(postingHrefs(tree)).toEqual(["https://www.adzuna.com/land/ad/111"]);
+  });
+
+  it("still asks the applied read about every raw id", async () => {
+    await render({ q: "engineer" });
+
+    expect(readAppliedJobIds).toHaveBeenCalledWith(["111", "222"]);
+  });
+
+  it("keeps the id the caller applied to, so the card names it", async () => {
+    readAppliedJobIds.mockResolvedValue(success(new Set(["222"])) as never);
+
+    const tree = await render({ q: "engineer" });
+
+    expect(postingHrefs(tree)).toEqual(["https://www.adzuna.com/land/ad/222"]);
+    const apply = flatten(tree).filter(
+      (element) => element.type === ApplyControl,
+    );
+    expect(apply).toHaveLength(1);
+    expect(
+      (apply[0]?.props as { alreadyApplied?: boolean }).alreadyApplied,
+    ).toBe(true);
+  });
+
+  it("keeps the first id and says so when the applied read failed (AC-3, invariant 6)", async () => {
+    /**
+     * The one case where the kept id can be an unapplied sibling. It must not
+     * be silent: the same `COPY-8` sentence the single listing case shows has
+     * to be on screen, and the card must not claim an application it cannot
+     * see.
+     */
+    readAppliedJobIds.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "applied read failed",
+      }) as never,
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(postingHrefs(tree)).toEqual(["https://www.adzuna.com/land/ad/111"]);
+    expect(textOf(tree)).toContain(SEARCH_COPY.appliedReadFailed);
+    const apply = flatten(tree).filter(
+      (element) => element.type === ApplyControl,
+    );
+    expect(apply).toHaveLength(1);
+    expect(
+      (apply[0]?.props as { alreadyApplied?: boolean }).alreadyApplied,
+    ).toBe(false);
+  });
+
+  it("keeps two roles with different titles as two cards", async () => {
+    searchListings.mockResolvedValue(
+      success({
+        allowed: true,
+        value: [
+          duplicate[0],
+          { ...duplicate[1], title: "Engineering Manager" },
+        ],
+      }),
+    );
+
+    const tree = await render({ q: "engineer" });
+
+    expect(
+      flatten(tree).filter((element) => element.type === "li"),
+    ).toHaveLength(2);
+  });
+
+  it("scores only the deduped list, so a duplicate costs no model call", async () => {
+    readScoringProfile.mockResolvedValue({ kind: "score", profile: {} });
+    scoreListings.mockResolvedValue(listingOutcomes([scoreOf("strong_match")]));
+
+    await render({ q: "engineer" });
+
+    expect(scoreListings).toHaveBeenCalledOnce();
+    const scored = scoreListings.mock.calls[0]?.[1] as readonly {
+      sourceJobId: string;
+    }[];
+    expect(scored.map((entry) => entry.sourceJobId)).toEqual(["111"]);
+  });
+});
+
 /**
  * Scoring on the results page (spec 0015, AC-7, AC-9, AC-10, AC-11).
  *
