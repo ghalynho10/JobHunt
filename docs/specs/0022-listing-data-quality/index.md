@@ -1,7 +1,7 @@
 # 0022. Listing data quality
 
 **Date**: 2026-09-21
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
