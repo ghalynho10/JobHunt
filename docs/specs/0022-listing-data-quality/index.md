@@ -299,8 +299,10 @@ everything it depends on is already proven correct.
    decode correctly, the clean row is byte identical, and the total row count is unchanged.
    Satisfies **AC-7**.
 8. Engineer step, not code: before this migration merges, run its row count query against
-   production and record the number (see Follow-up); after it deploys, confirm the post count is
-   zero and the total `application` row count is unchanged. Satisfies **AC-7**.
+   production and record the matching count and the total `application` row count (see
+   Follow-up); after it deploys, confirm the total is unchanged and inspect every row that still
+   matches. The matching count is not expected to reach zero, because a correctly decoded row can
+   still match the pattern. Satisfies **AC-7**.
 
 ## Consequences
 
@@ -353,9 +355,15 @@ everything it depends on is already proven correct.
 - [ ] Before the Build plan step 7 migration merges, run its row count query against production
       (Feature design, Value sourcing: a count of `application` rows whose `job_title`,
       `company_name`, `job_location`, or `job_description` matches one of AC-4's ten known escape
-      sequences or entities) and record the number (in this item or in `docs/session-notes.md`);
-      after it deploys, confirm the post count is zero and the total `application` row count is
-      unchanged.
+      sequences or entities) and record that matching count and the total `application` row
+      count (in this item or in `docs/session-notes.md`). After it deploys, confirm the total is
+      unchanged, and inspect every row that still matches. **The matching count is not expected to
+      reach zero**, because a correctly decoded row can still match the pattern: `&amp;lt;`
+      decodes once to `&lt;`, and an escaped backslash followed by `n` decodes to a literal
+      backslash and `n`, and the pattern matches both. Each row that still matches must be either
+      a once decoded double escape of that kind, or a `job_title` or `company_name` that would
+      decode to blank and was kept as stored (AC-4). A matching row that is neither is a defect in
+      the backfill.
 - [ ] Whether Adzuna's own `id` is a reliable key on its own remains untested: no confirmed duplicate
       has been observed on real data (the Everpure pair turned out to be two distinct roles, see
       Context in [rationale.md](rationale.md)). The composite key this spec chooses is the
