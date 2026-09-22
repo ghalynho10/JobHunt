@@ -75,6 +75,7 @@ Installed and green on the scaffold (feature 2).
 - integration: on
 - branch prefix: matches the commit type (`feat/`, `docs/`, `test/`, `chore/`)
 - commit: per-milestone
+- No tool attribution anywhere: no `Co-Authored-By` trailer on a commit (the develop skill's flow/git.md and the default system prompt both call for one), and no "Generated with Claude Code" footer on a pull request (`gh pr create` adds one by default). Full ownership on a portfolio facing repo: the engineer owns every decision, and authorship reads that way.
 
 Messages are conventional (`feat:`, `fix:`, `docs:`, `chore:`). Push and pull requests always confirm with the engineer first.
 
