@@ -434,7 +434,7 @@ _**Everpure, Inc. appears twice under two Adzuna ids, most likely as two distinc
   - [x] Salary comparison and `/demo` key: `salaryText()` compares formatted strings, and `keepListings()`'s `seen` set uses `listingDedupKey()` (AC-6, AC-8)
   - [ ] Backfill migration: the named SQL decode function, the one time update over all four `application` text columns, the parity and backfill scope integration tests, and the engineer's pre and post production row count check (AC-7)
 - [ ] Verify it: `/check verify listing data quality`
-- [ ] Test it: `/test listing data quality`
+- [x] Test it: `/test listing data quality`
 
 _Design decided 2026-09-21, spec [0022](../specs/0022-listing-data-quality/index.md). Two things this pass settled that the row above did not. **The outlier clause of Done when is already met, not built:** "outliers are handled visibly rather than shown as fact" is answered by spec 0013 AC-7's existing "(estimated)" label, and batch relative detection was rejected on sample size (at most 20 results, mostly predicted). Reword that clause through `/scope`; this pass did not edit Done when. **The Everpure pair is not a confirmed duplicate**: its two ids carry different titles, so no confirmed duplicate is on record, and the pair is the fixture a dedup key must keep as two results. The estimate contradicting a stated salary is deferred, see Deferred._
 
