@@ -1,7 +1,7 @@
 # 0022. Listing data quality
 
 **Date**: 2026-09-21
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
@@ -369,6 +369,21 @@ everything it depends on is already proven correct.
       Context in [rationale.md](rationale.md)). The composite key this spec chooses is the
       conservative answer for exactly that reason. Revisit if a real duplicate is ever observed with
       a shape the Done when's own test case does not already cover.
+- [ ] **The first duplicate shaped pair on record, seen on the `/demo` refresh against production on
+      2026-09-22, after this feature shipped.** Two cards for Tetrate, both titled "Lead Frontend
+      Engineer", with byte identical snippets, kept apart only because their locations read "US" and
+      "Trammells, Harris County", and carrying different estimated salaries ($126,109 and $161,784).
+      **Better evidence than the Everpure pair**, whose titles differ: here the company and title
+      match, so location is the only field holding the two apart. That same refresh met AC-8 and
+      AC-2, since no two kept cards shared company, title and location.
+      **The key is not changed on one sighting**, and that is a decision rather than an omission:
+      dropping location from the key would merge genuine roles in different cities, the silent loss
+      this feature exists to prevent (Consequences, and invariant 1's reasoning applied to the
+      location field).
+      The open question for a later pass, and it is a question for `/architect`, not for a build:
+      should a pair at the same company and title, with a byte identical snippet, differing only by
+      location, collapse at all; and if it should, which location the kept card shows. A third
+      sighting with figures recorded would make that decision on evidence rather than on two cases.
 
 ## Migration plan
 
