@@ -182,6 +182,20 @@ export function ChipField({
   const entryRef = useRef<HTMLInputElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
+  /**
+   * Mirrors `initialValues` for the mount effect below, read there instead of
+   * depended on directly. The parent recreates that array by reference on
+   * every render (`parseNewlineList(state.values[name] ?? stored)` is a fresh
+   * array literal each time), so putting it in the mount effect's dependency
+   * array would re-run that effect on every unrelated re-render once mounted,
+   * each time overwriting whatever the reader had just typed with the stored
+   * values again. Assigned in its own effect, never during render, since
+   * mutating a ref while rendering is a different, unrelated hazard.
+   */
+  const initialValuesRef = useRef(initialValues);
+  useEffect(() => {
+    initialValuesRef.current = initialValues;
+  });
 
   const announce = useCallback((text: string) => {
     setAnnouncement((prior) => ({ id: (prior?.id ?? 0) + 1, text }));
@@ -231,6 +245,14 @@ export function ChipField({
    * not the entry input that is about to appear; the same `id` never answers
    * to two elements at once.
    *
+   * FALLS BACK TO `initialValues` (read through the ref above), NEVER TO AN
+   * EMPTY LIST, when the element cannot be read as a `Textarea` (absent, or
+   * already swapped past). An unreadable element must never be
+   * indistinguishable from a reader who cleared the field: the hidden input
+   * submits `committed.join("\n")`, so seeding from an empty list here would
+   * silently overwrite the reader's already stored values on the very next
+   * save, for a reason that has nothing to do with anything they did.
+   *
    * SETTING STATE HERE IS THE POINT, NOT AN ANTI-PATTERN THIS RULE USUALLY
    * CATCHES. `mounted` cannot be computed during render (it exists only to
    * tell the first client render apart from every one after it, so the first
@@ -240,14 +262,13 @@ export function ChipField({
    */
   useEffect(() => {
     const previous = document.getElementById(id);
-    const raw = previous instanceof HTMLTextAreaElement ? previous.value : "";
+    const committedFromDom =
+      previous instanceof HTMLTextAreaElement
+        ? parseNewlineList(previous.value)
+        : initialValuesRef.current;
 
-    /* eslint-disable react-hooks/set-state-in-effect -- see the doc comment
-       above: this is the hydration-safe mount flag idiom, seeded from a read
-       of the live DOM, not a props-mirroring effect the rule means to catch. */
-    setCommitted(parseNewlineList(raw));
+    setCommitted(committedFromDom);
     setMounted(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
 
   /**

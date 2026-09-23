@@ -645,3 +645,48 @@ describe("the server's own field error (AC-4)", () => {
     ).toContain(message);
   });
 });
+
+describe("a seed element the mount effect cannot read (regression)", () => {
+  /**
+   * The mount effect seeds `committed` from `document.getElementById(id)`,
+   * expecting a `Textarea`. If that lookup ever fails, whether the element is
+   * gone, given a different id, or is some other tag entirely, the fallback
+   * must be `initialValues`, never an empty list: an unreadable element must
+   * never be indistinguishable from a reader who cleared the field, since the
+   * hidden input goes on to submit `committed.join("\n")` on the very next
+   * save.
+   *
+   * THE SABOTAGE HAS TO LAND BEFORE THE MOUNT EFFECT'S OWN PASSIVE FLUSH, so
+   * it is done inside the same synchronous `act()` callback as the initial
+   * `render()`, on the same tick: `act()` flushes passive effects only after
+   * the whole callback function returns, not between the statements inside
+   * it, so mutating the DOM here reliably lands ahead of the effect reading
+   * it. This is what actually reproduces "the lookup fails", rather than
+   * merely asserting on a value nothing here proved was ever at risk.
+   */
+  it("falls back to the initial values, never to an empty list, when the id lookup fails", () => {
+    /**
+     * `document.getElementById` is mocked BEFORE mounting starts, so the
+     * failure is guaranteed to be in place for the mount effect's own call,
+     * with no race against when React happens to flush that passive effect.
+     * A DOM mutation timed against `act()` was tried first and did not work:
+     * it left the effect reading the still-intact `Textarea`, so the
+     * assertions below passed against the unfixed code too, proving nothing.
+     * Confirmed against the unfixed fallback (`initialValuesRef.current`
+     * reverted to `[]`) that THIS version fails first.
+     */
+    const getElementById = vi
+      .spyOn(document, "getElementById")
+      .mockReturnValue(null);
+
+    const { container } = mountField({
+      initialValues: ["React", "TypeScript"],
+    });
+
+    getElementById.mockRestore();
+
+    expect(container.textContent).toContain("React");
+    expect(container.textContent).toContain("TypeScript");
+    expect(hiddenInputOf(container).value).toBe("React\nTypeScript");
+  });
+});
