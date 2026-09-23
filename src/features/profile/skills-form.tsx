@@ -4,24 +4,24 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 
 import { saveSkills } from "./actions";
+import { ChipField, parseNewlineList } from "./chip-field";
 import { CONTROLS } from "./copy";
 import { FormMessage } from "./form-message";
 import { IDLE_STATE } from "./form-state";
 
 /**
- * The skills edit form (spec 0010, AC-5, AC-6).
+ * The skills edit form (spec 0010, AC-5, AC-6; entry mechanism superseded by
+ * spec 0023, AC-1 to AC-6, AC-11, AC-13, AC-14).
  *
- * ONE TEXTAREA, ONE SKILL PER LINE, saved as a whole. There is no tag widget and
- * no per skill add control, because the diff happens in the action: it compares
- * what was submitted against what is stored and writes only the difference. A
- * per skill control would need a write per keystroke and would still need that
- * same comparison behind it.
+ * A CHIP PER SKILL, TYPED AND COMMITTED ONE AT A TIME. The `FormData` contract
+ * is unchanged from spec 0010: `ChipField` still submits `skills` as a single
+ * newline joined string, so the Server Action's own diff (what was submitted
+ * against what is stored) is untouched by this change.
  *
  * THE LINES ARE NOT SORTED HERE. The stored list arrives ordered by lower case
- * name, so the box opens in the order the reader last saw it on the page.
+ * name, so the chips render in the order the reader last saw them on the page.
  */
 
 interface SkillsFormProps {
@@ -36,19 +36,13 @@ export function SkillsForm({ skills }: SkillsFormProps) {
     <form action={formAction} className="flex flex-col gap-5">
       <FormMessage message={state.message} />
 
-      <Field
-        id="skills-list"
-        label={
-          <>
-            Skills <span className="font-normal text-muted">one per line</span>
-          </>
-        }
-      >
-        <Textarea
+      <Field id="skills-list" label="Skills">
+        <ChipField
           id="skills-list"
           name="skills"
-          rows={8}
-          defaultValue={state.values.skills ?? skills}
+          initialValues={parseNewlineList(state.values.skills ?? skills)}
+          noun="skill"
+          disabled={pending}
           error={state.errors.skills}
         />
       </Field>
