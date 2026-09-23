@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { EARLIEST_YEAR, isAfter, type CalendarMonth } from "./calendar";
+import { tooLongValue, tooManyValues } from "./copy";
+import { LIST_VALUE_MAX_LENGTH, PREFERENCE_LIST_MAX_COUNT } from "./limits";
 
 /**
  * The boundary parses for every profile write (spec 0010, AC-3, AC-6, AC-7,
@@ -136,8 +138,8 @@ export type IdentityInput = z.output<typeof identitySchema>;
  */
 export const skillsSchema = z.object({
   skills: newlineList({
-    maxLength: 100,
-    tooLong: "Keep each skill to 100 characters or fewer.",
+    maxLength: LIST_VALUE_MAX_LENGTH,
+    tooLong: tooLongValue("skill", LIST_VALUE_MAX_LENGTH),
   }),
 });
 
@@ -173,16 +175,16 @@ const PAY_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
 export const preferencesSchema = z
   .object({
     desired_titles: newlineList({
-      maxLength: 100,
-      tooLong: "Keep each title to 100 characters or fewer.",
-      maxCount: 50,
-      tooMany: "Add at most 50 titles.",
+      maxLength: LIST_VALUE_MAX_LENGTH,
+      tooLong: tooLongValue("title", LIST_VALUE_MAX_LENGTH),
+      maxCount: PREFERENCE_LIST_MAX_COUNT,
+      tooMany: tooManyValues("title", PREFERENCE_LIST_MAX_COUNT),
     }),
     desired_locations: newlineList({
-      maxLength: 100,
-      tooLong: "Keep each location to 100 characters or fewer.",
-      maxCount: 50,
-      tooMany: "Add at most 50 locations.",
+      maxLength: LIST_VALUE_MAX_LENGTH,
+      tooLong: tooLongValue("location", LIST_VALUE_MAX_LENGTH),
+      maxCount: PREFERENCE_LIST_MAX_COUNT,
+      tooMany: tooManyValues("location", PREFERENCE_LIST_MAX_COUNT),
     }),
     remote_preference: z.enum(REMOTE_PREFERENCES, {
       error: "Choose one of the four options.",

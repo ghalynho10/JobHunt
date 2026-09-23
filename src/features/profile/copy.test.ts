@@ -6,7 +6,15 @@ import {
   FIRST_RUN_NOTE,
   HEADINGS,
   PREFERENCES_NOT_SET,
+  alreadyAdded,
+  chipPendingRemoval,
+  chipPendingRemovalCleared,
+  chipRemoved,
   deleteConfirmation,
+  pasteRefusedSome,
+  removeChipLabel,
+  tooLongValue,
+  tooManyValues,
 } from "./copy";
 
 /**
@@ -33,6 +41,14 @@ const EVERY_SLOT: readonly string[] = [
   ...Object.values(HEADINGS),
   ...Object.values(CONTROLS),
   deleteConfirmation("Backend Engineer", "Northwind Labs"),
+  alreadyAdded("React"),
+  tooLongValue("skill", 100),
+  tooManyValues("title", 50),
+  pasteRefusedSome(2, "location"),
+  chipRemoved("React"),
+  chipPendingRemoval("React"),
+  chipPendingRemovalCleared("React"),
+  removeChipLabel("React"),
 ];
 
 describe("the punctuation rule spec 0007 set and spec 0010 carries with no carve out", () => {
@@ -157,5 +173,65 @@ describe("the control labels are defined once (COPY-6)", () => {
       cancel: "Cancel",
       remove: "Remove",
     });
+  });
+});
+
+/**
+ * Spec 0023's `## Copy` table. These restart at `COPY-1` independently of the
+ * table above, per that spec's own header comment, so each is labelled
+ * "(spec 0023)" here to avoid reading as a collision with spec 0010's.
+ */
+describe("the chip field messages (spec 0023)", () => {
+  it("names the existing chip a duplicate commit matches (COPY-1)", () => {
+    // covers: AC-5
+    expect(alreadyAdded("React")).toBe('"React" is already added.');
+  });
+
+  it("quotes the actual configured limit, never a hardcoded number (COPY-2)", () => {
+    // covers: AC-6
+    expect(tooLongValue("skill", 100)).toBe(
+      "Keep each skill to 100 characters or fewer.",
+    );
+    expect(tooLongValue("location", 42)).toBe(
+      "Keep each location to 42 characters or fewer.",
+    );
+  });
+
+  it("quotes the actual configured count cap (COPY-3)", () => {
+    // covers: AC-6
+    expect(tooManyValues("title", 50)).toBe("Add at most 50 titles.");
+    expect(tooManyValues("location", 50)).toBe("Add at most 50 locations.");
+  });
+
+  it("aggregates a paste's refusals into one message, singular and plural (COPY-4)", () => {
+    // covers: AC-7
+    expect(pasteRefusedSome(1, "title")).toBe("1 title could not be added.");
+    expect(pasteRefusedSome(3, "location")).toBe(
+      "3 locations could not be added.",
+    );
+  });
+
+  it("announces a removal by the value removed (COPY-5)", () => {
+    // covers: AC-9, AC-10
+    expect(chipRemoved("Kafka")).toBe("Removed Kafka.");
+  });
+
+  it("announces a pending removal and how to complete it (COPY-6)", () => {
+    // covers: AC-10
+    expect(chipPendingRemoval("Kafka")).toBe(
+      "Kafka marked for removal. Press Backspace again to remove it.",
+    );
+  });
+
+  it("announces the pending mark clearing (COPY-7)", () => {
+    // covers: AC-10
+    expect(chipPendingRemovalCleared("Kafka")).toBe(
+      "Kafka is no longer marked for removal.",
+    );
+  });
+
+  it("names the value in the remove control's accessible name, never the generic label (COPY-8)", () => {
+    // covers: AC-9
+    expect(removeChipLabel("Kafka")).toBe("Remove Kafka");
   });
 });

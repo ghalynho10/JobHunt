@@ -93,3 +93,74 @@ export const CONTROLS = {
   cancel: "Cancel",
   remove: "Remove",
 } as const;
+
+/**
+ * `COPY-1` (spec 0023). A commit refused as a case insensitive duplicate
+ * (AC-5). The existing chip's own casing, never the one just typed.
+ */
+export function alreadyAdded(existingValue: string): string {
+  return `"${existingValue}" is already added.`;
+}
+
+/**
+ * `COPY-2` (spec 0023). A commit refused for length (AC-6), also read by
+ * `schemas.ts` in place of its three former inline `tooLong` messages.
+ *
+ * @param noun `skill`, `title` or `location`.
+ * @param max The character cap, from `limits.ts`, never hardcoded here.
+ */
+export function tooLongValue(noun: string, max: number): string {
+  return `Keep each ${noun} to ${max} characters or fewer.`;
+}
+
+/**
+ * `COPY-3` (spec 0023). A commit refused on `desired_titles` or
+ * `desired_locations` for the count cap (AC-6), also read by `schemas.ts` in
+ * place of its two former inline `tooMany` messages.
+ *
+ * @param noun `title` or `location`.
+ * @param max The count cap, from `limits.ts`, never hardcoded here.
+ */
+export function tooManyValues(noun: string, max: number): string {
+  return `Add at most ${max} ${noun}s.`;
+}
+
+/**
+ * `COPY-4` (spec 0023). A paste where one or more lines were refused,
+ * aggregated into one message rather than one per refused line (AC-7).
+ */
+export function pasteRefusedSome(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : noun + "s"} could not be added.`;
+}
+
+/**
+ * `COPY-5` (spec 0023). A chip removed, by its own control or the Backspace
+ * shortcut, announced only through the hidden live region (AC-9, AC-10).
+ */
+export function chipRemoved(value: string): string {
+  return `Removed ${value}.`;
+}
+
+/**
+ * `COPY-6` (spec 0023). A chip marked pending removal by the first Backspace,
+ * announced only (AC-10).
+ */
+export function chipPendingRemoval(value: string): string {
+  return `${value} marked for removal. Press Backspace again to remove it.`;
+}
+
+/**
+ * `COPY-7` (spec 0023). The pending mark cleared without removing the chip,
+ * announced only (AC-10).
+ */
+export function chipPendingRemovalCleared(value: string): string {
+  return `${value} is no longer marked for removal.`;
+}
+
+/**
+ * `COPY-8` (spec 0023). The accessible name of a chip's remove control
+ * (AC-9), never the page's generic `CONTROLS.remove` label.
+ */
+export function removeChipLabel(value: string): string {
+  return `Remove ${value}`;
+}
