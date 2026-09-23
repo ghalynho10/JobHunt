@@ -123,6 +123,14 @@ jobs:
           SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-placeholder-google-secret
           SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID: ci-placeholder-github-client-id
           SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET: ci-placeholder-github-secret
+          # supabase/setup-cli@v1 sets this to ghcr.io, overriding the CLI's own
+          # default (public.ecr.aws, verified in the CLI's source at this exact
+          # pinned version). This restores that default. On 2026-09-23 ghcr.io
+          # refused every Supabase image with "toomanyrequests: allowed:
+          # 44000/minute" on three consecutive runs, including one where
+          # `docker login ghcr.io` succeeded first, so the failure was not about
+          # authentication and adding one did not fix it.
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
 
       # Read back from the stack that is actually running rather than hardcoded.
       # The local keys are fixed development values, not secrets, but reading
