@@ -465,12 +465,12 @@ Replace the one value per line textarea for skills, desired titles and desired l
 **Done when:** all three fields are entered as chips rather than a line per value, a chip commits on Enter only, and existing saved values convert to chips with nothing lost.
 _Implementation constraint for the design pass: a value can contain commas, "Chicago, IL" is a real desired location, so the chip control must commit on Enter only and never split on commas, which is the usual default in chip components and would break that one value into two._
 - [x] Design it (spec): [0023](../specs/0023-chip-input-for-skills-titles-locations/index.md). Interactivity lives in a new `src/features/profile/chip-field.tsx`, not `src/components/ui/`, per that directory's own rule that a base component never takes an event handler; the visual grammar (an additive `editable` chip state, a discriminated union action slot) stays in `chip.tsx`. Transport is a single newline joined hidden field, reusing `newlineList()` unchanged. Went through three cross check rounds; spec 0010's AC-5, AC-6 and AC-9 were corrected in place to record the superseded entry mechanism.
-- [ ] Build it: `/develop chip input for skills, titles & locations`
-  - [ ] Shared limits and copy: `src/features/profile/limits.ts` (import free), the eight new `copy.ts` entries, `schemas.ts` repointed at both, satisfies AC-6, AC-15
-  - [ ] `chip.tsx`'s new `editable` state, the `action` slot and `pendingRemoval`, both gated by a discriminated union, satisfies AC-9, AC-14
-  - [ ] `chip-field.tsx` core and the skills thin thread (mount swap, commit, duplicate and length refusal, remove control, jsdom tests), satisfies AC-1 to AC-6, AC-9, AC-11, AC-13, AC-14, AC-16
-  - [ ] Paste splitting, the two step Backspace, and blur/submit auto commit, satisfies AC-2, AC-7, AC-8, AC-9, AC-10
-  - [ ] Extend to `desired_titles` and `desired_locations`, and the manual no data lost pass, satisfies AC-1, AC-6, AC-9, AC-12
+- [x] Build it: `/develop chip input for skills, titles & locations` · code in `src/features/profile/chip-field.tsx`, `chip.tsx`, `limits.ts`, `copy.ts`, `schemas.ts`, `skills-form.tsx`, `preferences-form.tsx`
+  - [x] Shared limits and copy: `src/features/profile/limits.ts` (import free), the eight new `copy.ts` entries, `schemas.ts` repointed at both, satisfies AC-6, AC-15
+  - [x] `chip.tsx`'s new `editable` state, the `action` slot and `pendingRemoval`, both gated by a discriminated union, satisfies AC-9, AC-14
+  - [x] `chip-field.tsx` core and the skills thin thread (mount swap, commit, duplicate and length refusal, remove control, jsdom tests), satisfies AC-1 to AC-6, AC-9, AC-11, AC-13, AC-14, AC-16
+  - [x] Paste splitting, the two step Backspace, and blur/submit auto commit, satisfies AC-2, AC-7, AC-8, AC-9, AC-10
+  - [x] Extend to `desired_titles` and `desired_locations`, and the manual no data lost pass, satisfies AC-1, AC-6, AC-9, AC-12. Manual pass done live against a running dev server and the real local Supabase stack (a minted fixture session, not a real account): skills, titles (order preserved) and locations (a comma-bearing value, "Chicago, IL", survived as one chip) all round tripped through save and reload with nothing lost, and the remove control measured exactly 24 by 24 CSS pixels in the browser. Not yet run: a real screen reader pass and the pre hydration DOM seeding scenario, both flagged in spec 0023 AC-16 as needing `/check verify`
 - [ ] Verify it: `/check verify chip input for skills, titles & locations`
 - [ ] Test it: `/test chip input for skills, titles & locations`
 
