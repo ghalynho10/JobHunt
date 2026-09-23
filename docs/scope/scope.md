@@ -39,7 +39,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 24 | Master resume | v1.5 | planned |
 | 25 | Resume tailoring per job | v1.5 | planned |
 | 26 | Profile depth & completeness | v1.5 | dropped |
-| 34 | Chip input for skills, titles & locations | v1.5 | planned |
+| 34 | Chip input for skills, titles & locations | v1.5 | in-progress |
 | 35 | Nested role history, with migration | v1.5 | planned |
 | 36 | Resume upload with extraction | v1.5 | planned |
 | 37 | Honest profile completeness signalling | v1.5 | planned |
@@ -460,11 +460,19 @@ Generate a resume tailored to a specific listing, showing the fit score alongsid
 ### 26. Profile depth & completeness · dropped
 Split on 2026-09-22 into four rows: chip input (34), nested role history with its migration (35), resume upload with extraction (36), and honest completeness signalling (37). See those rows; this one carries no further work.
 
-### 34. Chip input for skills, titles & locations · needs a decision
+### 34. Chip input for skills, titles & locations · in-progress
 Replace the one value per line textarea for skills, desired titles and desired locations with a chip input: type a value, press Enter, it becomes a chip with an x to remove it. All three fields change together, since they call the same `newlineList` parser in `src/features/profile/schemas.ts` and behave identically today; changing only skills would make the other two diverge for no reason.
 **Done when:** all three fields are entered as chips rather than a line per value, a chip commits on Enter only, and existing saved values convert to chips with nothing lost.
 _Implementation constraint for the design pass: a value can contain commas, "Chicago, IL" is a real desired location, so the chip control must commit on Enter only and never split on commas, which is the usual default in chip components and would break that one value into two._
-- [ ] Design it (spec): `/architect chip input for skills, titles & locations`
+- [x] Design it (spec): [0023](../specs/0023-chip-input-for-skills-titles-locations/index.md). Interactivity lives in a new `src/features/profile/chip-field.tsx`, not `src/components/ui/`, per that directory's own rule that a base component never takes an event handler; the visual grammar (an additive `editable` chip state, a discriminated union action slot) stays in `chip.tsx`. Transport is a single newline joined hidden field, reusing `newlineList()` unchanged. Went through three cross check rounds; spec 0010's AC-5, AC-6 and AC-9 were corrected in place to record the superseded entry mechanism.
+- [ ] Build it: `/develop chip input for skills, titles & locations`
+  - [ ] Shared limits and copy: `src/features/profile/limits.ts` (import free), the eight new `copy.ts` entries, `schemas.ts` repointed at both, satisfies AC-6, AC-15
+  - [ ] `chip.tsx`'s new `editable` state, the `action` slot and `pendingRemoval`, both gated by a discriminated union, satisfies AC-9, AC-14
+  - [ ] `chip-field.tsx` core and the skills thin thread (mount swap, commit, duplicate and length refusal, remove control, jsdom tests), satisfies AC-1 to AC-6, AC-9, AC-11, AC-13, AC-14, AC-16
+  - [ ] Paste splitting, the two step Backspace, and blur/submit auto commit, satisfies AC-2, AC-7, AC-8, AC-9, AC-10
+  - [ ] Extend to `desired_titles` and `desired_locations`, and the manual no data lost pass, satisfies AC-1, AC-6, AC-9, AC-12
+- [ ] Verify it: `/check verify chip input for skills, titles & locations`
+- [ ] Test it: `/test chip input for skills, titles & locations`
 
 ### 35. Nested role history, with migration · needs a decision · GA
 Let a role contain nested sub projects, so a research assistant project stops having to masquerade as a standalone employer. Ships with the one time migration that converts every existing flat job history row into this shape, since the schema and the conversion have to land together: an empty nested table beside live flat rows would leave the profile reading two shapes at once, and this row's own first Done when clause cannot be met until existing data is actually in the new shape. Feature 19 is the precedent: its parse change and its backfill shipped together in one feature with the migration inside it.
