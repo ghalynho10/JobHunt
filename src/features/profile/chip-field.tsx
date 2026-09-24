@@ -51,11 +51,11 @@ interface ChipFieldProps {
   /** The `FormData` key the Server Action reads. */
   readonly name: string;
   /**
-   * The stored values (or the last failed submit's own values), used only to
-   * seed the unmounted `Textarea`'s `defaultValue`. The mounted branch's chips
-   * are seeded separately, from that `Textarea`'s live DOM value at mount time
-   * (see the mount effect below), which is what keeps a value typed during a
-   * slow connection's brief pre hydration window from being lost.
+   * The stored values (or the last failed submit's own values). The single
+   * source for both branches: the unmounted `Textarea`'s `defaultValue`, and
+   * the mounted branch's initial committed chips (AC-4). Read once, at first
+   * render, by `useState`, so a parent recreating this array by reference on
+   * every render never re-seeds chips the reader has since changed.
    */
   readonly initialValues: readonly string[];
   /** The count cap, `desired_titles` and `desired_locations` only. */
@@ -168,7 +168,7 @@ export function ChipField({
   error,
 }: ChipFieldProps) {
   const [mounted, setMounted] = useState(false);
-  const [committed, setCommitted] = useState<readonly string[]>([]);
+  const [committed, setCommitted] = useState<readonly string[]>(initialValues);
   const [pendingIndex, setPendingIndex] = useState<number | undefined>(
     undefined,
   );
@@ -182,35 +182,6 @@ export function ChipField({
   const entryRef = useRef<HTMLInputElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
-  /**
-   * Mirrors `initialValues` for the mount effect below, read there instead of
-   * depended on directly. The parent recreates that array by reference on
-   * every render (`parseNewlineList(state.values[name] ?? stored)` is a fresh
-   * array literal each time), so putting it in the mount effect's dependency
-   * array would re-run that effect on every unrelated re-render once mounted,
-   * each time overwriting whatever the reader had just typed with the stored
-   * values again. Assigned in its own effect, never during render, since
-   * mutating a ref while rendering is a different, unrelated hazard.
-   */
-  const initialValuesRef = useRef(initialValues);
-  useEffect(() => {
-    initialValuesRef.current = initialValues;
-  });
-  /**
-   * Guards the mount effect below so its seeding read runs at most once per
-   * mounted instance. Confirmed necessary by `/debug` on 2026-09-24: the
-   * effect's own `[id]` dependency array means a parent re-rendering this
-   * same instance with a changed `id` genuinely re-runs it on this same
-   * fiber, with `committed` state intact, after the swap. (React Strict
-   * Mode's double invoke was tested and ruled out as a trigger: both
-   * invocations land back to back before the swap's own re-render commits,
-   * so both read the still present `Textarea` and neither is destructive.)
-   * A second run, from any cause, always reads the entry `<input>` the first
-   * run's own swap already put in the DOM, fails `instanceof
-   * HTMLTextAreaElement`, and silently overwrites already committed chips
-   * with `initialValues`.
-   */
-  const seededRef = useRef(false);
 
   const announce = useCallback((text: string) => {
     setAnnouncement((prior) => ({ id: (prior?.id ?? 0) + 1, text }));
@@ -267,40 +238,24 @@ export function ChipField({
   }
 
   /**
-   * The mount and swap (AC-4). Reads the still rendered `Textarea` by `id`
-   * (it cannot take a `ref`: a fixed prop list, no `forwardRef`) BEFORE
-   * flipping `mounted`, so this reads the element that is about to disappear,
-   * not the entry input that is about to appear; the same `id` never answers
-   * to two elements at once.
+   * The mount and swap (AC-4). The committed chips are already seeded from
+   * `initialValues` by `useState` above, so this only flips `mounted`, which
+   * is idempotent and needs no guard against running twice.
    *
-   * FALLS BACK TO `initialValues` (read through the ref above), NEVER TO AN
-   * EMPTY LIST, when the element cannot be read as a `Textarea` (absent, or
-   * already swapped past). An unreadable element must never be
-   * indistinguishable from a reader who cleared the field: the hidden input
-   * submits `committed.join("\n")`, so seeding from an empty list here would
-   * silently overwrite the reader's already stored values on the very next
-   * save, for a reason that has nothing to do with anything they did.
+   * A value typed into the `Textarea` before this runs is NOT preserved, and
+   * no read of the DOM here could preserve it: React's own hydration commit
+   * (`initTextarea`, `react-dom` 19.2.8) resets the `Textarea`'s value to its
+   * server rendered text before any effect runs (spec 0023 AC-4).
    *
    * SETTING STATE HERE IS THE POINT, NOT AN ANTI-PATTERN THIS RULE USUALLY
-   * CATCHES. `mounted` cannot be computed during render (it exists only to
+   * CATCHES. `mounted` cannot be computed during render: it exists only to
    * tell the first client render apart from every one after it, so the first
-   * one matches the server render and no hydration mismatch occurs), and the
-   * seed value comes from reading the live DOM, an external system, which is
-   * exactly the case the rule's own guidance carves out.
+   * one matches the server render and no hydration mismatch occurs.
    */
   useEffect(() => {
-    if (seededRef.current) return;
-    seededRef.current = true;
-
-    const previous = document.getElementById(id);
-    const committedFromDom =
-      previous instanceof HTMLTextAreaElement
-        ? parseNewlineList(previous.value)
-        : initialValuesRef.current;
-
-    setCommitted(committedFromDom);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the mount flag AC-4 names, see above
     setMounted(true);
-  }, [id]);
+  }, []);
 
   /**
    * The capture phase submit guard (AC-8). Attached directly to the hidden

@@ -18,17 +18,16 @@ import { ChipField } from "./chip-field";
  * The same hand rolled `react-dom/client` plus `act` harness is reused here,
  * no new dependency, per AC-16.
  *
- * WHAT THIS CANNOT PROVE, stated plainly, per AC-16. `createRoot` always
- * synchronously mounts and flushes its effects inside the same `act()` call,
- * so there is no window during which a reader could type into the still
- * rendered `Textarea` before the mount effect swaps it out. AC-4's pre
- * hydration DOM seeding scenario needs `hydrateRoot` against server rendered
- * markup with a value already typed into it to reproduce honestly, and stays
- * manual, in `verify.md`, the same way `focus-keeper.dom.test.tsx` already
- * documents a scenario it cannot reproduce either. A real computed pixel
- * measurement of the remove control (AC-9) and a real screen reader pass
- * also stay manual, for the same reason every other component in this design
- * system leaves those two to `/check verify`.
+ * WHAT THIS DOES NOT TEST, stated plainly, per AC-16. A value typed into the
+ * `Textarea` before hydration is not a coverage gap: preserving it is
+ * impossible under React's own hydration model, for any field that already
+ * holds a value. React's hydration commit (`initTextarea`, `react-dom`
+ * 19.2.8, `cjs/react-dom-client.development.js` line 1855) resets the
+ * `Textarea`'s value to its server rendered text before any effect runs, so
+ * AC-4 no longer promises it and no test here or in `verify.md` asserts it.
+ * A real computed pixel measurement of the remove control (AC-9) and a real
+ * screen reader pass stay manual, for the same reason every other component
+ * in this design system leaves those two to `/check verify`.
  */
 
 declare global {
@@ -154,64 +153,6 @@ describe("mounting seeds the chips from the initial values (AC-4)", () => {
     expect(container.textContent).toContain("TypeScript");
     expect(hiddenInputOf(container).value).toBe("React\nTypeScript");
     expect(container.querySelector("textarea")).toBeNull();
-  });
-
-  it("does not re-seed and discard already committed chips if the mount effect runs again after the swap", () => {
-    /**
-     * Regression for a latent bug `/debug` found on 2026-09-24 while
-     * investigating spec 0023 verify.md's item 13 finding: the seeding
-     * effect's own `[id]` dependency array means a parent re-rendering this
-     * same mounted instance with a changed `id` genuinely re-runs it, with
-     * `committed` state intact, after the swap. Without a guard, that second
-     * run reads the entry `<input>` the first run's own swap already put in
-     * the DOM, fails `instanceof HTMLTextAreaElement`, and silently
-     * overwrites already committed chips with `initialValues`, discarding
-     * anything committed in between. (Not the same cause as item 13 itself:
-     * React Strict Mode's double invoke was tested and ruled out as a
-     * trigger for this, since both invocations land before the swap's own
-     * re-render commits.)
-     */
-    const testContainer = document.createElement("div");
-    document.body.append(testContainer);
-    const root = createRoot(testContainer);
-
-    act(() => {
-      root.render(
-        <ChipField
-          id="rename-me"
-          name="skills"
-          initialValues={["React", "TypeScript"]}
-          noun="skill"
-          disabled={false}
-          error={undefined}
-        />,
-      );
-    });
-
-    const entry = entryOf(testContainer);
-    entry.value = "Kafka";
-    pressKey(entry, "Enter");
-    expect(hiddenInputOf(testContainer).value).toBe("React\nTypeScript\nKafka");
-
-    act(() => {
-      root.render(
-        <ChipField
-          id="renamed"
-          name="skills"
-          initialValues={["React", "TypeScript"]}
-          noun="skill"
-          disabled={false}
-          error={undefined}
-        />,
-      );
-    });
-
-    expect(hiddenInputOf(testContainer).value).toBe("React\nTypeScript\nKafka");
-
-    act(() => {
-      root.unmount();
-    });
-    testContainer.remove();
   });
 });
 
@@ -769,50 +710,5 @@ describe("the server's own field error (AC-4)", () => {
     expect(
       document.getElementById(describedBy as string)?.textContent,
     ).toContain(message);
-  });
-});
-
-describe("a seed element the mount effect cannot read (regression)", () => {
-  /**
-   * The mount effect seeds `committed` from `document.getElementById(id)`,
-   * expecting a `Textarea`. If that lookup ever fails, whether the element is
-   * gone, given a different id, or is some other tag entirely, the fallback
-   * must be `initialValues`, never an empty list: an unreadable element must
-   * never be indistinguishable from a reader who cleared the field, since the
-   * hidden input goes on to submit `committed.join("\n")` on the very next
-   * save.
-   *
-   * THE SABOTAGE HAS TO LAND BEFORE THE MOUNT EFFECT'S OWN PASSIVE FLUSH, so
-   * it is done inside the same synchronous `act()` callback as the initial
-   * `render()`, on the same tick: `act()` flushes passive effects only after
-   * the whole callback function returns, not between the statements inside
-   * it, so mutating the DOM here reliably lands ahead of the effect reading
-   * it. This is what actually reproduces "the lookup fails", rather than
-   * merely asserting on a value nothing here proved was ever at risk.
-   */
-  it("falls back to the initial values, never to an empty list, when the id lookup fails", () => {
-    /**
-     * `document.getElementById` is mocked BEFORE mounting starts, so the
-     * failure is guaranteed to be in place for the mount effect's own call,
-     * with no race against when React happens to flush that passive effect.
-     * A DOM mutation timed against `act()` was tried first and did not work:
-     * it left the effect reading the still-intact `Textarea`, so the
-     * assertions below passed against the unfixed code too, proving nothing.
-     * Confirmed against the unfixed fallback (`initialValuesRef.current`
-     * reverted to `[]`) that THIS version fails first.
-     */
-    const getElementById = vi
-      .spyOn(document, "getElementById")
-      .mockReturnValue(null);
-
-    const { container } = mountField({
-      initialValues: ["React", "TypeScript"],
-    });
-
-    getElementById.mockRestore();
-
-    expect(container.textContent).toContain("React");
-    expect(container.textContent).toContain("TypeScript");
-    expect(hiddenInputOf(container).value).toBe("React\nTypeScript");
   });
 });
