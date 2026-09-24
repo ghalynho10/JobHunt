@@ -218,13 +218,26 @@ export function ChipField({
     if (value !== undefined) announce(chipPendingRemovalCleared(value));
   }, [pendingIndex, committed, announce]);
 
-  /** Enter, blur and submit all share this: the same checks, the same messaging. */
+  /**
+   * Enter and blur share this (submit has its own copy in the capture phase
+   * handler below, since it must also write the hidden input synchronously).
+   *
+   * AN EMPTY BOX LEAVES ANY SHOWN REFUSAL ALONE (bug fixed here, spec 0023
+   * verify.md's 2026-09-23 finding). Blur fires before a real pointer click's
+   * mouseup resolves (a Save click blurs the entry box on its mousedown), so
+   * clearing the refusal paragraph here used to unmount it and shift the Save
+   * button at the exact moment the click was landing, sometimes moving the
+   * button out from under the pointer entirely and silently dropping the
+   * click. AC-8 requires only the SUBMIT handler to clear a stale message; an
+   * empty commit clears it here only when it actually replaces the refusal
+   * with a fresh outcome, never merely because the box is empty. Clearing on
+   * typing is handled separately, by `onEntryChange` below.
+   */
   function commitFromEntry() {
     const raw = entryRef.current?.value ?? "";
     const result = evaluateCandidate(raw, committed, maxCount, noun);
 
     if (result === undefined) {
-      setRefusal(undefined);
       return;
     }
 
@@ -357,6 +370,16 @@ export function ChipField({
     }
   }
 
+  /**
+   * Clears a stale refusal as soon as the reader starts a new attempt, since
+   * `commitFromEntry` no longer clears one just because the box went empty
+   * (see its own comment above). This is what still makes the message go
+   * away for a reader who keeps typing, without tying that removal to blur.
+   */
+  function onEntryChange() {
+    setRefusal(undefined);
+  }
+
   function onEntryPaste(event: ClipboardEvent<HTMLInputElement>) {
     event.preventDefault();
     clearPending();
@@ -455,6 +478,7 @@ export function ChipField({
           type="text"
           disabled={disabled}
           onKeyDown={onEntryKeyDown}
+          onChange={onEntryChange}
           onPaste={onEntryPaste}
           onBlur={onEntryBlur}
           aria-invalid={invalid}

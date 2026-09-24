@@ -233,6 +233,42 @@ describe("refusing a duplicate commit (AC-5)", () => {
     expect(secondSpan?.textContent).toBe('"React" is already added.');
     expect(secondSpan).not.toBe(firstSpan);
   });
+
+  it("clears a shown refusal as soon as the reader types, not only on blur", () => {
+    /**
+     * Companion to the blur regression above: since blur no longer clears a
+     * stale refusal on its own, typing is what still makes the message go
+     * away for a reader correcting their entry, and it does so well before
+     * any Save click, decoupling the clear from the click's own timing.
+     */
+    const { container } = mountField({ initialValues: ["React"] });
+    const entry = entryOf(container);
+
+    entry.value = "react";
+    pressKey(entry, "Enter");
+    expect(container.textContent).toContain('"React" is already added.');
+
+    /**
+     * React patches `HTMLInputElement.prototype.value`'s setter to track
+     * genuine changes; a plain `entry.value = ...` assignment goes through
+     * that same patched setter and leaves its tracker believing nothing
+     * changed, so the synthetic `onChange` this test means to prove never
+     * fires. The native setter, invoked directly, is what a real keystroke's
+     * own internal DOM mutation goes through instead (never the JS property
+     * setter React patches), which is why this is needed only in jsdom, not
+     * in the real browser reproduction this regression came from.
+     */
+    const nativeValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    act(() => {
+      nativeValueSetter?.call(entry, "reac");
+      entry.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(container.textContent).not.toContain('"React" is already added.');
+  });
 });
 
 describe("refusing an over limit commit (AC-6)", () => {
@@ -403,6 +439,38 @@ describe("auto commit on blur and submit (AC-8)", () => {
     });
 
     expect(hiddenInputOf(container).value).toBe("React\nKafka");
+  });
+
+  it("leaves a shown refusal message alone when an already empty box loses focus", () => {
+    /**
+     * Regression for spec 0023 verify.md's 2026-09-23 finding: a real Save
+     * click blurs the entry box on its own mousedown, and this used to clear
+     * a shown refusal right then, which shifted the Save button under the
+     * pointer between mousedown and mouseup and silently dropped the click.
+     * `commitFromEntry` no longer clears a stale refusal just because the box
+     * is empty (see its own comment in `chip-field.tsx`); only a fresh
+     * outcome, a submit, or a chip removal may replace it. The click miss
+     * itself needs a real layout engine and stays a `/check verify` browser
+     * step (`docs/specs/0023-chip-input-for-skills-titles-locations/verify.md`),
+     * the same way this file already leaves AC-9's pixel measurement to it.
+     */
+    const { container } = mountField({ initialValues: ["React"] });
+    const entry = entryOf(container);
+    const outside = document.createElement("button");
+    document.body.append(outside);
+
+    entry.value = "react";
+    pressKey(entry, "Enter");
+    expect(container.textContent).toContain('"React" is already added.');
+
+    entry.value = "";
+    act(() => {
+      entry.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: outside }),
+      );
+    });
+
+    expect(container.textContent).toContain('"React" is already added.');
   });
 
   it("keeps state unchanged across a failed server submission, no remount", () => {
