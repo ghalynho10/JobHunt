@@ -113,6 +113,7 @@ describe("the editable state a chip field builds (spec 0023)", () => {
  */
 describe("Chip forbids action and pendingRemoval on a verdict chip", () => {
   const MATCHED = { state: "matched", children: "Go" } as const;
+  const EDITABLE = { state: "editable", children: "Go" } as const;
 
   it("rejects action on a matched chip", () => {
     // @ts-expect-error `action` is `never` on a verdict chip, see ChipAsVerdict
@@ -131,6 +132,13 @@ describe("Chip forbids action and pendingRemoval on a verdict chip", () => {
   it("rejects action on a chip with no state at all (defaults to matched)", () => {
     // @ts-expect-error the default branch is still a verdict chip
     const call = () => Chip({ children: "Go", action: "x" });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects a pending editable chip with no remove control to act on it", () => {
+    // @ts-expect-error `pendingRemoval` needs `action`, see ChipAsEditable (spec 0023, AC-9)
+    const call = () => Chip({ ...EDITABLE, pendingRemoval: true });
 
     expect(call).toBeTypeOf("function");
   });

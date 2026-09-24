@@ -82,21 +82,38 @@ type ChipAsVerdict = ChipCommon & {
  */
 type ChipAsEditable = ChipCommon & {
   readonly state: "editable";
+} & (ChipWithAction | ChipWithoutAction);
+
+/**
+ * An editable chip with its remove control. The only shape `pendingRemoval`
+ * is reachable on.
+ */
+type ChipWithAction = {
   /**
    * The remove control, rendered as given. Handler free: `Chip` stays a server
    * component (`src/components/ui/AGENTS.md` line 7), so the control that
    * removes the chip is built and wired by the client caller, `chip-field.tsx`,
    * never by this file.
    */
-  readonly action?: ReactNode;
+  readonly action: ReactNode;
   /**
    * Marks this chip pending removal (spec 0023, AC-10): a visible, shape based
    * change, never colour alone, matching this design system's own dashed
    * versus solid grammar (`GapIcon`'s dashed stroke already means "not
-   * settled yet"). Cannot be `true` without `action` also set, so a pending
-   * state can never exist on a chip with no control to act on it.
+   * settled yet").
    */
   readonly pendingRemoval?: boolean;
+};
+
+/**
+ * An editable chip with no remove control. `pendingRemoval` is `never` here
+ * (spec 0023, AC-9), so a pending state can never exist on a chip with no
+ * control to act on it. `/check review` on 2026-09-24 found the earlier single
+ * shape let `pendingRemoval: true` compile without an `action`.
+ */
+type ChipWithoutAction = {
+  readonly action?: never;
+  readonly pendingRemoval?: never;
 };
 
 type ChipProps = ChipAsVerdict | ChipAsEditable;
