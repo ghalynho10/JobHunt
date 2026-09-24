@@ -155,6 +155,64 @@ describe("mounting seeds the chips from the initial values (AC-4)", () => {
     expect(hiddenInputOf(container).value).toBe("React\nTypeScript");
     expect(container.querySelector("textarea")).toBeNull();
   });
+
+  it("does not re-seed and discard already committed chips if the mount effect runs again after the swap", () => {
+    /**
+     * Regression for a latent bug `/debug` found on 2026-09-24 while
+     * investigating spec 0023 verify.md's item 13 finding: the seeding
+     * effect's own `[id]` dependency array means a parent re-rendering this
+     * same mounted instance with a changed `id` genuinely re-runs it, with
+     * `committed` state intact, after the swap. Without a guard, that second
+     * run reads the entry `<input>` the first run's own swap already put in
+     * the DOM, fails `instanceof HTMLTextAreaElement`, and silently
+     * overwrites already committed chips with `initialValues`, discarding
+     * anything committed in between. (Not the same cause as item 13 itself:
+     * React Strict Mode's double invoke was tested and ruled out as a
+     * trigger for this, since both invocations land before the swap's own
+     * re-render commits.)
+     */
+    const testContainer = document.createElement("div");
+    document.body.append(testContainer);
+    const root = createRoot(testContainer);
+
+    act(() => {
+      root.render(
+        <ChipField
+          id="rename-me"
+          name="skills"
+          initialValues={["React", "TypeScript"]}
+          noun="skill"
+          disabled={false}
+          error={undefined}
+        />,
+      );
+    });
+
+    const entry = entryOf(testContainer);
+    entry.value = "Kafka";
+    pressKey(entry, "Enter");
+    expect(hiddenInputOf(testContainer).value).toBe("React\nTypeScript\nKafka");
+
+    act(() => {
+      root.render(
+        <ChipField
+          id="renamed"
+          name="skills"
+          initialValues={["React", "TypeScript"]}
+          noun="skill"
+          disabled={false}
+          error={undefined}
+        />,
+      );
+    });
+
+    expect(hiddenInputOf(testContainer).value).toBe("React\nTypeScript\nKafka");
+
+    act(() => {
+      root.unmount();
+    });
+    testContainer.remove();
+  });
 });
 
 describe("committing a value on Enter (AC-1, AC-2)", () => {

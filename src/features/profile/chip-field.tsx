@@ -196,6 +196,21 @@ export function ChipField({
   useEffect(() => {
     initialValuesRef.current = initialValues;
   });
+  /**
+   * Guards the mount effect below so its seeding read runs at most once per
+   * mounted instance. Confirmed necessary by `/debug` on 2026-09-24: the
+   * effect's own `[id]` dependency array means a parent re-rendering this
+   * same instance with a changed `id` genuinely re-runs it on this same
+   * fiber, with `committed` state intact, after the swap. (React Strict
+   * Mode's double invoke was tested and ruled out as a trigger: both
+   * invocations land back to back before the swap's own re-render commits,
+   * so both read the still present `Textarea` and neither is destructive.)
+   * A second run, from any cause, always reads the entry `<input>` the first
+   * run's own swap already put in the DOM, fails `instanceof
+   * HTMLTextAreaElement`, and silently overwrites already committed chips
+   * with `initialValues`.
+   */
+  const seededRef = useRef(false);
 
   const announce = useCallback((text: string) => {
     setAnnouncement((prior) => ({ id: (prior?.id ?? 0) + 1, text }));
@@ -274,6 +289,9 @@ export function ChipField({
    * exactly the case the rule's own guidance carves out.
    */
   useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+
     const previous = document.getElementById(id);
     const committedFromDom =
       previous instanceof HTMLTextAreaElement
