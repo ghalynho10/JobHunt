@@ -154,6 +154,26 @@ describe("mounting seeds the chips from the initial values (AC-4)", () => {
     expect(hiddenInputOf(container).value).toBe("React\nTypeScript");
     expect(container.querySelector("textarea")).toBeNull();
   });
+
+  it("keeps the given order and casing, never sorting the values (AC-1)", () => {
+    const { container } = mountField({
+      initialValues: ["Zephyr", "alpha", "Beta"],
+    });
+
+    const labels = [
+      ...container.querySelectorAll('button[aria-label^="Remove "]'),
+    ].map((button) => button.getAttribute("aria-label"));
+
+    expect(labels).toEqual(["Remove Zephyr", "Remove alpha", "Remove Beta"]);
+    expect(hiddenInputOf(container).value).toBe("Zephyr\nalpha\nBeta");
+  });
+
+  it("leaves exactly one control carrying the field's name once mounted", () => {
+    const { container } = mountField();
+    const form = container.querySelector("form") as HTMLFormElement;
+
+    expect(new FormData(form).getAll("skills")).toEqual(["React\nTypeScript"]);
+  });
 });
 
 describe("committing a value on Enter (AC-1, AC-2)", () => {
@@ -282,6 +302,27 @@ describe("refusing an over limit commit (AC-6)", () => {
       "Keep each skill to 100 characters or fewer.",
     );
     expect(hiddenInputOf(container).value).toBe("");
+  });
+
+  it("accepts a value of exactly the character cap", () => {
+    const { container } = mountField({ initialValues: [] });
+    const entry = entryOf(container);
+
+    entry.value = "a".repeat(100);
+    pressKey(entry, "Enter");
+
+    expect(hiddenInputOf(container).value).toBe("a".repeat(100));
+  });
+
+  it("trims before measuring, so surrounding spaces never push a value over the cap", () => {
+    const { container } = mountField({ initialValues: [] });
+    const entry = entryOf(container);
+
+    entry.value = `   ${"a".repeat(100)}   `;
+    pressKey(entry, "Enter");
+
+    expect(hiddenInputOf(container).value).toBe("a".repeat(100));
+    expect(container.textContent).not.toContain("characters or fewer");
   });
 
   it("refuses a value once a field's own count cap is reached", () => {
@@ -472,19 +513,77 @@ describe("auto commit on blur and submit (AC-8)", () => {
     expect(container.textContent).toContain('"React" is already added.');
   });
 
-  it("keeps state unchanged across a failed server submission, no remount", () => {
-    const { container } = mountField({
-      initialValues: ["React"],
-      error: undefined,
-    });
-    const entry = entryOf(container);
+  it("keeps committed chips when the parent re-renders with a server error and new initial values", () => {
+    /**
+     * What a failed save actually does: the parent form re-renders the same
+     * mounted field with `state.errors[name]` set and `initialValues` rebuilt
+     * from `state.values[name]`, a fresh array. `committed` is read from
+     * `initialValues` once, at first render (spec 0023 build step 11), so
+     * neither prop change may reset what the reader has on screen.
+     */
+    const testContainer = document.createElement("div");
+    document.body.append(testContainer);
+    const root = createRoot(testContainer);
+    const render = (
+      initialValues: readonly string[],
+      error: string | undefined,
+    ) => {
+      act(() => {
+        root.render(
+          <form>
+            <ChipField
+              id="rerender-field"
+              name="skills"
+              initialValues={initialValues}
+              noun="skill"
+              disabled={false}
+              error={error}
+            />
+          </form>,
+        );
+      });
+    };
+
+    render(["React"], undefined);
+    const entry = entryOf(testContainer);
     entry.value = "Kafka";
     pressKey(entry, "Enter");
 
+    render(["Something else"], "Nothing was saved.");
+
+    expect(hiddenInputOf(testContainer).value).toBe("React\nKafka");
+    expect(testContainer.textContent).toContain("Nothing was saved.");
+
+    act(() => {
+      root.unmount();
+    });
+    testContainer.remove();
+  });
+});
+
+describe("chips are not editable in place (AC-11)", () => {
+  it("renders each chip's text as plain text, with no editable control of its own", () => {
+    const { container } = mountField({ initialValues: ["React", "Kafka"] });
+
+    const editables = container.querySelectorAll(
+      'textarea, [contenteditable="true"], input:not([type="hidden"])',
+    );
+
+    expect([...editables]).toEqual([entryOf(container)]);
+  });
+
+  it("changes nothing when a chip's own text is clicked", () => {
+    const { container } = mountField({ initialValues: ["React", "Kafka"] });
+    const chipText = [...container.querySelectorAll("span")].find(
+      (span) => span.textContent === "React",
+    ) as HTMLElement;
+
+    act(() => {
+      chipText.click();
+    });
+
     expect(hiddenInputOf(container).value).toBe("React\nKafka");
-    // A parent re-rendering this same mounted instance with a fresh `error`
-    // prop must not wipe out what was already committed; nothing in this
-    // component reads `initialValues` again after the first mount.
+    expect(entryOf(container).value).toBe("");
   });
 });
 
