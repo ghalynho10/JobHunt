@@ -50,3 +50,111 @@ describe("Chip carries its state by shape, not colour alone", () => {
     expect(findByType(Chip({ children: "Go" }), CheckIcon)).toBeDefined();
   });
 });
+
+/**
+ * Spec 0023, AC-9. The `editable` state, and the `action` and `pendingRemoval`
+ * props it alone accepts, added for the chip input feature.
+ */
+describe("the editable state a chip field builds (spec 0023)", () => {
+  it("renders no verdict icon, since a typed chip is neither a match nor a gap", () => {
+    // covers: AC-9
+    const chip = Chip({ state: "editable", children: "React" });
+
+    expect(findByType(chip, CheckIcon)).toBeUndefined();
+    expect(findByType(chip, GapIcon)).toBeUndefined();
+  });
+
+  it("keeps the three verdict states unchanged when no action is passed", () => {
+    /**
+     * The regression case: adding `editable` must not touch the three states
+     * that already existed, so this pins the same assertions the tests above
+     * already make, once more, against the extended union.
+     */
+    for (const state of ["matched", "missing", "status"] as const) {
+      expect(textOf(Chip({ state, children: "Terraform" }))).toBe("Terraform");
+    }
+
+    expect(
+      findByType(Chip({ state: "matched", children: "Go" }), CheckIcon),
+    ).toBeDefined();
+    expect(
+      findByType(Chip({ state: "missing", children: "Kafka" }), GapIcon),
+    ).toBeDefined();
+  });
+
+  it("renders the given action node beside the label", () => {
+    // covers: AC-9
+    const chip = Chip({
+      state: "editable",
+      action: "remove-control",
+      children: "React",
+    });
+
+    expect(textOf(chip)).toBe("Reactremove-control");
+  });
+
+  it("renders no action when none is given", () => {
+    const chip = Chip({ state: "editable", children: "React" });
+
+    expect(textOf(chip)).toBe("React");
+  });
+});
+
+/**
+ * Spec 0023, AC-9. These are compile time assertions, matching the technique
+ * `button.test.ts` already uses for `ButtonAsLink`'s forbidden combinations:
+ * `@ts-expect-error` fails `tsc --noEmit` if the error it expects stops
+ * happening, so this suite goes red the moment `action`/`pendingRemoval` are
+ * reachable from a verdict chip. Props are hoisted to a named object first,
+ * because a spread defeats excess property checking otherwise, and each
+ * `@ts-expect-error` call stays on one line, since the directive only
+ * suppresses the line directly beneath it (`src/components/ui/AGENTS.md`,
+ * Testing section).
+ */
+describe("Chip forbids action and pendingRemoval on a verdict chip", () => {
+  const MATCHED = { state: "matched", children: "Go" } as const;
+  const EDITABLE = { state: "editable", children: "Go" } as const;
+
+  it("rejects action on a matched chip", () => {
+    // @ts-expect-error `action` is `never` on a verdict chip, see ChipAsVerdict
+    const call = () => Chip({ ...MATCHED, action: "x" });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects pendingRemoval on a matched chip", () => {
+    // @ts-expect-error `pendingRemoval` is `never` on a verdict chip too
+    const call = () => Chip({ ...MATCHED, pendingRemoval: true });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects action on a chip with no state at all (defaults to matched)", () => {
+    // @ts-expect-error the default branch is still a verdict chip
+    const call = () => Chip({ children: "Go", action: "x" });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("rejects a pending editable chip with no remove control to act on it", () => {
+    // @ts-expect-error `pendingRemoval` needs `action`, see ChipAsEditable (spec 0023, AC-9)
+    const call = () => Chip({ ...EDITABLE, pendingRemoval: true });
+
+    expect(call).toBeTypeOf("function");
+  });
+
+  it("still allows every legitimate editable combination", () => {
+    // The guard is worthless if it also blocks ordinary use, so pin that too.
+    expect(Chip({ state: "editable", children: "Go", action: "x" }).type).toBe(
+      "span",
+    );
+    expect(
+      Chip({
+        state: "editable",
+        children: "Go",
+        action: "x",
+        pendingRemoval: true,
+      }).type,
+    ).toBe("span");
+  });
+});

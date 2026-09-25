@@ -6,19 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, type SelectOption } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 import { savePreferences } from "./actions";
+import { ChipField, parseNewlineList } from "./chip-field";
 import { CONTROLS } from "./copy";
 import { FormMessage } from "./form-message";
 import { IDLE_STATE } from "./form-state";
+import { PREFERENCE_LIST_MAX_COUNT } from "./limits";
 
 /**
- * The search preferences form (spec 0010, AC-9, AC-10).
+ * The search preferences form (spec 0010, AC-9, AC-10; the two list fields'
+ * entry mechanism superseded by spec 0023, AC-1, AC-6, AC-12).
  *
- * THE TWO LISTS ARE ONE VALUE PER LINE, NEVER COMMA SEPARATED. A desired
- * location can itself contain a comma ("Berlin, Germany"), so a comma separator
- * would split a single value the reader typed into two they never meant.
+ * THE TWO LISTS ARE CHIPS, NEVER COMMA SEPARATED. A desired location can
+ * itself contain a comma ("Berlin, Germany"), so `ChipField` commits only on
+ * Enter and never splits a typed value on one; the `FormData` contract is
+ * unchanged from spec 0010, a single newline joined string per field.
  *
  * THE PAY PAIR IS SUBMITTED AS TEXT AND CHECKED ON THE SERVER. The amount is not
  * a `number` input, because AC-9 rejects an over precise or out of range amount
@@ -74,16 +77,22 @@ export function PreferencesForm({
         label={
           <>
             Job titles you want{" "}
-            <span className="font-normal text-muted">one per line</span>
+            <span className="font-normal text-muted">
+              the first one prefills your search
+            </span>
           </>
         }
         optional
       >
-        <Textarea
+        <ChipField
           id="preferences-titles"
           name="desired_titles"
-          rows={5}
-          defaultValue={value("desired_titles", desiredTitles)}
+          initialValues={parseNewlineList(
+            value("desired_titles", desiredTitles),
+          )}
+          maxCount={PREFERENCE_LIST_MAX_COUNT}
+          noun="title"
+          disabled={pending}
           error={state.errors.desired_titles}
         />
       </Field>
@@ -93,16 +102,22 @@ export function PreferencesForm({
         label={
           <>
             Locations you want{" "}
-            <span className="font-normal text-muted">one per line</span>
+            <span className="font-normal text-muted">
+              the first one prefills your search
+            </span>
           </>
         }
         optional
       >
-        <Textarea
+        <ChipField
           id="preferences-locations"
           name="desired_locations"
-          rows={5}
-          defaultValue={value("desired_locations", desiredLocations)}
+          initialValues={parseNewlineList(
+            value("desired_locations", desiredLocations),
+          )}
+          maxCount={PREFERENCE_LIST_MAX_COUNT}
+          noun="location"
+          disabled={pending}
           error={state.errors.desired_locations}
         />
       </Field>
