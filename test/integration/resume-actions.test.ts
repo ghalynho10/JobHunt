@@ -294,6 +294,13 @@ describe("the database refuses what the parse refuses (AC-3, AC-11)", () => {
 describe("a version is never changed or removed (AC-4, AC-11, invariant 1)", () => {
   it("grants authenticated select and insert only, and anon and service_role nothing", async () => {
     // covers: AC-11
+    /**
+     * EVERY TABLE PRIVILEGE POSTGRES 17 HAS, not only the four a policy could
+     * govern. Asking about select, insert, update and delete alone passed while
+     * `authenticated` still held Supabase's default truncate, references,
+     * trigger and maintain (`/check verify`, 2026-09-30), and truncate is the
+     * one row level security never applies to.
+     */
     const rows = await queryAsSuperuser<{
       role: string;
       privilege: string;
@@ -301,7 +308,7 @@ describe("a version is never changed or removed (AC-4, AC-11, invariant 1)", () 
     }>(
       `select role, privilege, has_table_privilege(role, 'public.resume_version', privilege) as held
          from unnest(array['authenticated', 'anon', 'service_role']) as role,
-              unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as privilege
+              unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']) as privilege
         order by role, privilege`,
     );
     const held = rows

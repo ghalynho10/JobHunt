@@ -53,6 +53,14 @@ create table public.resume_version (
 -- No `update` and no `delete`, which is invariant 1 as a database property.
 -- `profile_skill` set the precedent of granting only the actions a table
 -- actually needs (spec 0003); this table needs one fewer than that.
+--
+-- REVOKE FIRST, THEN GRANT. Supabase's default privileges on `public` give
+-- `authenticated` truncate, references, trigger and maintain on every new
+-- table, and a `grant` only adds, so without this line those four stay
+-- (`/check verify`, 2026-09-30, live ACL `authenticated=arDxtm`). Truncate
+-- matters most: row level security never applies to it, so it would empty
+-- every user's history at once.
+revoke all on public.resume_version from authenticated;
 grant select, insert on public.resume_version to authenticated;
 
 -- Written even though this project does not expose a new table to the Data API
