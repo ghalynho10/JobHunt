@@ -1,5 +1,7 @@
 import { formatMonth } from "@/features/profile/calendar";
 
+import { normalizeLineBreaks } from "./line-breaks";
+
 /**
  * The profile seed: the first draft of a resume, written from the profile
  * (spec 0024, AC-2).
@@ -8,7 +10,8 @@ import { formatMonth } from "@/features/profile/calendar";
  * hands the rows in, so the template is testable without a database and the
  * reads stay where the spans are.
  *
- * THE TEMPLATE IS THE SPEC'S, EXACTLY. Header lines, then the summary, then
+ * THE TEMPLATE IS THE SPEC'S, EXACTLY. The name and the location as two
+ * paragraphs, then the summary, then
  * `## Skills`, `## Experience` and an always present, always empty
  * `## Education`, each block separated by one blank line. A block with nothing
  * in it is omitted whole rather than left as a heading over nothing, except
@@ -76,9 +79,14 @@ function experienceEntry(entry: SeedExperience): string {
 
 /** The markdown the editor opens with when there is no resume to start from. */
 export function profileSeed(input: SeedInput): string {
+  /**
+   * A BLANK LINE BETWEEN THE NAME AND THE LOCATION, not a single line break:
+   * markdown renders a single break as a space, so the two once came out as
+   * one line, "Avery Fixture Springfield, IL" (`/check verify`, 2026-09-30).
+   */
   const header = [input.fullName, input.location]
     .filter((line): line is string => line !== undefined)
-    .join("\n");
+    .join("\n\n");
 
   const skills =
     input.skills.length === 0
@@ -92,7 +100,15 @@ export function profileSeed(input: SeedInput): string {
           .map(experienceEntry)
           .join("\n\n")}`;
 
-  return `${[header, input.summary, skills, experience, "## Education"]
-    .filter((block): block is string => block !== undefined)
-    .join("\n\n")}\n`;
+  /**
+   * Line breaks normalised because the profile stores its own textareas as the
+   * browser posted them, `\r\n` and all, and those rows already exist. Left in,
+   * the seed never equals the field it opens in and the editor calls itself
+   * unsaved before anyone types (`line-breaks.ts`).
+   */
+  return normalizeLineBreaks(
+    `${[header, input.summary, skills, experience, "## Education"]
+      .filter((block): block is string => block !== undefined)
+      .join("\n\n")}\n`,
+  );
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { BLANK_CONTENT, tooLongContent } from "./copy";
+import { normalizeLineBreaks } from "./line-breaks";
 import { RESUME_MAX_LENGTH } from "./limits";
 
 /**
@@ -21,6 +22,10 @@ const MAX_PREVIOUS_VERSION = 2_147_483_646;
 /**
  * What a save submits (AC-3, AC-9).
  *
+ * LINE BREAKS ARE NORMALISED FIRST (`line-breaks.ts`), before either check, so
+ * the blank and length rules judge the text the reader sees and the stored
+ * text is what a textarea reports when it is read back (AC-7).
+ *
  * THE BLANK CHECK TRIMS, and it runs before the length check, so a reader who
  * submits only spaces meets `COPY-10` rather than a length message. JavaScript's
  * `trim()` removes every kind of whitespace, which is stricter than Postgres's
@@ -38,6 +43,7 @@ const MAX_PREVIOUS_VERSION = 2_147_483_646;
 export const saveResumeSchema = z.object({
   content: z
     .string()
+    .transform(normalizeLineBreaks)
     .refine((value) => value.trim().length > 0, { message: BLANK_CONTENT })
     .refine((value) => value.length <= RESUME_MAX_LENGTH, {
       message: tooLongContent(RESUME_MAX_LENGTH),

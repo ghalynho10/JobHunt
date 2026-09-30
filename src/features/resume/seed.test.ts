@@ -1,4 +1,8 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+
+import { MarkdownText } from "@/lib/markdown";
 
 import { profileSeed, type SeedInput } from "./seed";
 
@@ -40,6 +44,7 @@ describe("the profile seed (AC-2)", () => {
     expect(profileSeed(FULL)).toBe(
       [
         "Jane Doe",
+        "",
         "Chicago, IL",
         "",
         "Backend engineer who likes boring databases.",
@@ -61,6 +66,50 @@ describe("the profile seed (AC-2)", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("renders the location on its own line, not joined to the name", () => {
+    /**
+     * Asserted on the rendered output a reader sees, not on the seed string,
+     * because the defect lived in the gap between the two: markdown renders a
+     * single line break as a space, so two consecutive header lines came out as
+     * "Avery Fixture Springfield, IL" (`/check verify`, 2026-09-30).
+     */
+    // covers: AC-2, AC-5
+    const html = renderToStaticMarkup(
+      createElement(MarkdownText, { source: profileSeed(FULL) }),
+    );
+
+    const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
+      (match) => match[1],
+    );
+
+    expect(paragraphs.slice(0, 2)).toEqual(["Jane Doe", "Chicago, IL"]);
+  });
+
+  it("carries no `\\r` from profile text saved through a browser form", () => {
+    /**
+     * The profile stores its textareas as posted, so a two line summary saved
+     * on `/profile` holds `\r\n` (seen in the database on 2026-09-30). A seed
+     * that kept it never equalled the field it opened in (AC-7).
+     */
+    // covers: AC-2, AC-7
+    const seed = profileSeed({
+      ...FULL,
+      summary: "First line.\r\nSecond line.",
+      experience: [
+        {
+          title: "Engineer",
+          company: "Contoso",
+          description: "Shipped it.\r\nThen shipped it again.",
+          startedOn: "2021-07-01",
+          endedOn: undefined,
+        },
+      ],
+    });
+
+    expect(seed).not.toContain("\r");
+    expect(seed).toContain("First line.\nSecond line.");
   });
 
   it("omits empty blocks whole but always keeps Education", () => {
