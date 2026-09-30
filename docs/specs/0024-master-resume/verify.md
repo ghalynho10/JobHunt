@@ -55,6 +55,14 @@ One step per row of the spec's Value sourcing table, exercising the edge that br
 - [ ] Dirty check baseline source: fail a save (over length content), confirm the field's `defaultValue` is now the echoed typed text, and confirm the dirty check still reports true against the original fixed baseline, not against that new `defaultValue` → AC-3, AC-7
 - [ ] Card read source: change the resume, reload `/profile` → the card's version number and date match `/resume`'s own current version exactly, not a cached or separate read → AC-10
 
+## Added by /develop, 2026-09-30
+
+Three steps the build surfaced that the design time list above does not cover.
+
+- [ ] With a resume saved, visit `/resume?edit=resume&from=<a uuid that is not one of this caller's own versions>` → "That version is no longer there." sits above the REAL plain view (the current version rendered, "N versions saved"), never above "You haven't written a resume yet." (the build's own browser pass caught exactly that; locked by `src/app/(app)/resume/page.test.ts`) → AC-8
+- [ ] Submit a blank save → only `COPY-10` shows, on the field, with no sentence above it; then tamper `previousVersionNumber` to a non numeric value with valid text → `COPY-33` shows above the field and no field message appears (the two are never shown together) → AC-3
+- [ ] Once the migration is applied to the hosted development project, run spec 0024 Build plan step 11 there: `has_table_privilege` shows `authenticated` holding select and insert only, a manufactured duplicate `(profile_id, version_number)` insert is refused with `23505`, and deleting a profile removes its `resume_version` rows → AC-9, AC-11
+
 ## Acceptance-criteria coverage
 
 - AC-1 covered by the empty state manual step
