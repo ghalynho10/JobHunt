@@ -148,6 +148,20 @@ type ButtonAsLink = ButtonCommon & {
    * it says so. That keeps the WCAG 2.2 AA commitment without a client boundary.
    */
   readonly current?: boolean;
+  /**
+   * Runs before `next/link`'s client side transition, and may cancel it with
+   * `event.preventDefault()` (spec 0024, AC-7). It exists for the resume
+   * editor's Cancel, which asks before discarding unsaved text.
+   *
+   * A NAMED PROP FOR ONE CALLER, the same reasoning as `focusKey`, and the one
+   * function this component accepts. It only works from inside a client
+   * component: a Server Component cannot hand a function across to `Link`, and
+   * React refuses the render if one tries, which is what keeps every other
+   * page's buttons on the server. It never runs on a full page load, a middle
+   * click or with JavaScript off, so it is a convenience guard and never the
+   * only thing protecting data.
+   */
+  readonly onNavigate?: (event: { preventDefault: () => void }) => void;
   readonly disabled?: never;
   /** `type` is a button attribute; an anchor has no use for it. */
   readonly type?: never;
@@ -161,6 +175,8 @@ type ButtonProps = ButtonAsButton | ButtonAsLink;
  * Server component: it takes no `onClick`, because a click handler would drag
  * every page rendering it across the client boundary, and BINDING RULE 7 keeps
  * writes in Server Actions. A form submit uses `type="submit"` inside a form.
+ * The one exception is the link shape's `onNavigate`, usable only from inside a
+ * client component, see its own comment.
  */
 export function Button(props: ButtonProps) {
   const { variant, size, label, className, children, focusKey } = props;
@@ -193,7 +209,13 @@ export function Button(props: ButtonProps) {
     );
   }
 
-  const { href, external = false, prefetch, current = false } = props;
+  const {
+    href,
+    external = false,
+    prefetch,
+    current = false,
+    onNavigate,
+  } = props;
 
   /**
    * `rel="noopener noreferrer"` on every external link: `noopener` closes the
@@ -219,6 +241,7 @@ export function Button(props: ButtonProps) {
     <Link
       href={href}
       prefetch={prefetch}
+      onNavigate={onNavigate}
       aria-current={current ? "page" : undefined}
       aria-label={label}
       className={classes}
