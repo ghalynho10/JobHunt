@@ -36,7 +36,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 28 | Spend visibility & gating polish | v1 extras | done |
 | 31 | Seeded demo account | v1 extras | done |
 | 19 | Listing data quality | v1.5 | done |
-| 24 | Master resume | v1.5 | planned |
+| 24 | Master resume | v1.5 | in-progress |
 | 25 | Resume tailoring per job | v1.5 | planned |
 | 26 | Profile depth & completeness | v1.5 | dropped |
 | 34 | Chip input for skills, titles & locations | v1.5 | done |
@@ -446,11 +446,18 @@ _Shipped 2026-09-22 in [#148](https://github.com/ghalynho10/JobHunt/pull/148) (m
 
 _Design decided 2026-09-21, spec [0022](../specs/0022-listing-data-quality/index.md). Two things this pass settled that the row above did not. **The outlier clause of Done when is already met, not built:** "outliers are handled visibly rather than shown as fact" is answered by spec 0013 AC-7's existing "(estimated)" label, and batch relative detection was rejected on sample size (at most 20 results, mostly predicted). Reword that clause through `/scope`; this pass did not edit Done when. **The Everpure pair is not a confirmed duplicate**: its two ids carry different titles, so no confirmed duplicate is on record, and the pair is the fixture a dedup key must keep as two results. The estimate contradicting a stated salary is deferred, see Deferred._
 
-### 24. Master resume · needs a decision
+### 24. Master resume · in-progress
 One canonical resume as the single source of truth, from which every tailored version is regenerated fresh rather than edited in place.
 **Done when:** the canonical version is editable and versioned, a tailored version is always regenerated from it rather than from a previous tailoring, and each generated version is saved as a snapshot tied to its application record.
 _Resume permanence, decided 2026-09-18, settling the question between this feature and feature 36. An uploaded resume (feature 36, resume upload with extraction) replaces the master outright: the master is the one permanent, single source of truth, never merged with an upload and never left as a second version beside it. A tailored resume (feature 25) is always regenerated fresh from the current master, never edited in place, and never regenerated from an earlier tailoring rather than the master itself. Each tailored version still saves as a snapshot tied to its own application record, so the record of what was actually sent to a given employer survives even after the master changes later. There is one resume of record, and an upload overwrites it._
-- [ ] Design it (spec): `/architect master resume`
+- [x] Design it (spec): [0024](../specs/0024-master-resume/index.md). The resume is its own append only, versioned markdown document under a new `resume_version` table, seeded once from the profile and never synced back to it; a card on `/profile` links into a new `/resume` page. Two tabs saving at once are caught by a unique constraint on `(profile_id, version_number)` rather than silently overwritten. Went through three cross check rounds. Flags that this spec's own resume permanence design means feature 25's numeral check should test bullets against the master resume's current text, not "the user's own profile data" as this row's intro still reads; a later `/scope` pass should reword that once feature 25 is designed.
+- [ ] Build it: `/develop master resume`
+  - [ ] Schema, registry and safety foundations: the `resume_version` migration with its checks, unique constraint and RLS; `stored-fields.ts` registration and the privacy notice's effective date bump; `copy.ts`'s `COPY-1` through `COPY-13`; the shared `src/lib` markdown renderer and its script/`javascript:`/image safety test, satisfies AC-11, AC-12, AC-13
+  - [ ] Read and write paths: the profile seed function and resume queries; `ResumeSaveState` and `saveResumeVersion()` with its database error mapping, satisfies AC-2, AC-3, AC-4, AC-9
+  - [ ] The `/resume` page: the empty state, the client component editor with `useActionState`, the version list, the `beforeunload` and `onNavigate` unsaved changes guards, and the inline, unrendered conflict state, satisfies AC-1, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
+  - [ ] Profile integration and cleanup: the resume card on `/profile`, and spec 0010's two "feature 26" references corrected to point at spec 0024, satisfies AC-10, AC-14
+- [ ] Verify it: `/check verify master resume`
+- [ ] Test it: `/test master resume`
 
 ### 25. Resume tailoring per job · needs a decision
 Generate a resume tailored to a specific listing, showing the fit score alongside with no hard gate. Ships with the numeral verification pattern carried forward from the reference project: a deterministic check after generation that drops any bullet containing a number not present in the user's own profile data. Needs the application record and the master resume live first.

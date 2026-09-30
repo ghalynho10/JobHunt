@@ -20,7 +20,7 @@ See [rationale.md](rationale.md).
 - As a signed in user, I want a mistake I typed to be shown to me and correctable, not silently discarded.
 - As a signed in user, I want a work history entry I added by mistake to be removable, not stuck on my profile forever.
 
-**Out of scope**: education (no table exists for it; belongs to feature 26), matched or missing skill display (that is feature 14's scoring output), and any role or years of experience field (public.profile has no columns for them). See AC-18.
+**Out of scope**: education (no table exists for it; lives only as a heading inside the resume text, spec [0024](../0024-master-resume/index.md), AC-2, AC-14), matched or missing skill display (that is feature 14's scoring output), and any role or years of experience field (public.profile has no columns for them). See AC-18.
 
 **Acceptance criteria** (the contract, each independently checkable):
 
@@ -215,7 +215,7 @@ Ordered for Tracer Bullet: a thin, real end to end slice through the identity se
 **Neutral**
 
 - No new migration; spec 0003's schema is already applied to all three databases.
-- Education, matched or missing skill display, and a role or years of experience field are all explicitly out of scope, deferred to feature 26 and feature 14 respectively.
+- Education, matched or missing skill display, and a role or years of experience field are all explicitly out of scope: education lives only inside the resume text (spec [0024](../0024-master-resume/index.md)), matched or missing skill display is feature 14's, and a role or years field has no column at all.
 
 ## Follow-up
 
