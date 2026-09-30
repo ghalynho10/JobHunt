@@ -19,6 +19,8 @@ import {
   readProfileSections,
 } from "@/features/profile/queries";
 import { SkillsSection } from "@/features/profile/skills-section";
+import { readResumeHistory } from "@/features/resume/queries";
+import { ResumeCard } from "@/features/resume/resume-card";
 import { isFailure } from "@/lib/result";
 
 /**
@@ -59,7 +61,15 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
     return <ReadFailed message={profile.message} />;
   }
 
-  const sections = await readProfileSections();
+  /**
+   * The resume history is read beside the sections, not after them, and its
+   * failure is handed to the card rather than failing the page: AC-10 of spec
+   * 0024 confines a broken resume read to the resume card.
+   */
+  const [sections, resume] = await Promise.all([
+    readProfileSections(),
+    readResumeHistory({ withContent: false }),
+  ]);
 
   if (isFailure(sections)) return <ReadFailed message={sections.message} />;
 
@@ -98,6 +108,9 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
               preferences={sections.value.preferences}
               editing={isEditing(pageState, "preferences")}
             />
+
+            {/* Spec 0024, AC-10: the only way into `/resume`. */}
+            <ResumeCard history={resume} />
           </div>
 
           <div className="mt-8">

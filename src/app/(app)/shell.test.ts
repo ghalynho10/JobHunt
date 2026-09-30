@@ -6,6 +6,7 @@ import { success } from "@/lib/result";
 import {
   findAllByType,
   flatten,
+  renderDeepAsync,
   textOf,
 } from "../../../test/helpers/react-element";
 
@@ -57,6 +58,16 @@ vi.mock("@/features/profile/queries", () => ({
     Promise.resolve(
       success({ skills: [], experience: [], preferences: undefined }),
     ),
+}));
+
+/**
+ * Added when spec 0024 gave `/profile` a resume card, read beside the profile
+ * sections. Same reason as the stub above: this file asserts the shell.
+ */
+vi.mock("@/features/resume/queries", () => ({
+  readResumeHistory: () =>
+    Promise.resolve(success({ versions: [], current: undefined })),
+  readResumeVersion: () => Promise.resolve(success(undefined)),
 }));
 
 vi.mock("@/lib/kill-switch", () => ({
@@ -119,6 +130,22 @@ function renderApplications() {
   return ApplicationsPage({ searchParams: Promise.resolve({}) });
 }
 const { default: HealthPage } = await import("./health/page");
+const { default: ResumePage } = await import("./resume/page");
+
+/**
+ * `/resume` (spec 0024) composes its header inside a local page shell rather
+ * than at the top of what the route returns, so it is rendered one level deep,
+ * stopping at `AppHeader` so the header's own props are what is asserted.
+ */
+async function renderResume() {
+  return renderDeepAsync(
+    ResumePage({
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({}),
+    }),
+    [AppHeader],
+  );
+}
 
 /** The one `AppHeader` a route composed, with the props it was given. */
 function headerOf(rendered: unknown) {
@@ -133,7 +160,7 @@ function headerOf(rendered: unknown) {
 }
 
 describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
-  it("composes the header on all four routes, including the diagnostic", async () => {
+  it("composes the header on all five routes, including the diagnostic", async () => {
     /**
      * `/health` is in the group and NOT in the navigation (AC-22), so it takes
      * the header with no `current`. Leaving it out of this list is how a route
@@ -143,6 +170,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
     expect(headerOf(await renderProfile())).toBeDefined();
     expect(headerOf(await renderApplications())).toBeDefined();
     expect(headerOf(await HealthPage())).toBeDefined();
+    expect(headerOf(await renderResume())).toBeDefined();
   });
 
   it.each([
@@ -159,6 +187,7 @@ describe("every route under (app) wears the shell (AC-1, AC-5)", () => {
   it.each([
     ["/applications", renderApplications],
     ["/health", async () => await HealthPage()],
+    ["/resume", renderResume],
   ] as const)(
     "%s claims no current page, because it is in no navigation",
     async (_route, render) => {

@@ -61,6 +61,15 @@ vi.mock("@/features/profile/queries", () => ({
     ),
 }));
 
+/**
+ * The resume card's read (spec 0024, AC-10), replaced for the same reason as
+ * the two above: the page renders without a database. No resume yet.
+ */
+vi.mock("@/features/resume/queries", () => ({
+  readResumeHistory: () =>
+    Promise.resolve(success({ versions: [], current: undefined })),
+}));
+
 const { default: ProfilePage } = await import("./page");
 
 /** `COPY-4`, the engineer's, asserted verbatim. */
