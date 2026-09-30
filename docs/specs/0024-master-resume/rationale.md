@@ -1,0 +1,63 @@
+# 0024. Master resume: rationale
+
+## Context
+
+The v1 profile (spec 0010) holds structured facts: a name, a location, a summary, a skill list, and one layer of work history. A resume is not that. It is prose someone chose to write, in an order they chose, sometimes with numbers the profile never asked for (a GPA, a team size, a revenue figure) and always with the option of an education section the profile has never had a home for. Feature 25 (resume tailoring per job) and feature 36 (resume upload with extraction) both depend on this feature landing first: 25 regenerates a tailored version from whatever this feature calls canonical, and 36 overwrites whatever this feature stores.
+
+The forces at play: the resume has to be editable text, not a form; it has to survive edits without losing history, since feature 25's own tailored snapshots need to cite exactly what they were generated from; and it has to be safe to edit from two tabs without a silent, unnoticed overwrite, because this is the first feature in the app where that is even possible (every existing profile section edits one owner's one row with no version to race against). None of this can quietly live inside the six tables spec 0003 already built, and inventing a seventh way to store text would contradict the "no rule enforced only in application code" position this project has held since spec 0001.
+
+## Options considered
+
+### Option 1: A separate, versioned markdown document, seeded once from the profile
+
+The resume is its own text, stored as an append only sequence of versions, seeded from the profile the first time and never synced back to it afterward.
+
+**Pros**:
+- Holds prose, numbers, and an education section the profile schema has no room for, with no schema change to the profile tables.
+- Versioning is a property of one small table, not a concern threaded through five existing ones.
+- Matches the resume permanence decision `docs/scope/scope.md` already recorded for feature 24: an upload (feature 36) overwrites this outright, never merges.
+
+**Cons**:
+- The resume and the profile can drift: a skill added to the profile later does not retroactively appear on an already written resume. This is the cost of "seeded once, never synced", accepted explicitly here.
+- A second place to look for "what does this person's history say", next to the profile.
+
+### Option 2: The profile is the master (rendered, not stored separately)
+
+Generate the resume view directly from the profile tables at read time; "editing the resume" is redirected to editing the profile.
+
+**Pros**:
+- One source of truth. Nothing can ever disagree with itself.
+- No new table, no migration.
+
+**Cons**:
+- No home for prose, an education section, or any number the profile does not already model; "editable and versioned" from the scope row's Done when would have to mean versioning the profile itself, which no other feature needs and which complicates every one of the four existing profile forms.
+- A tailored resume (feature 25) would be regenerated from raw fields with no wording of its own ever kept, which is a materially different, weaker feature than "regenerate from the canonical resume text".
+
+### Option 3: A separate document, kept in sync both ways with the profile
+
+The resume is its own document, but edits in either direction (profile to resume, resume to skills) propagate.
+
+**Pros**:
+- Looks like it gets both worlds: free text and a single underlying model.
+
+**Cons**:
+- Needs a merge policy for every field that could disagree (a skill worded differently on the resume than in the profile list, a role description edited on one side only), which nobody has designed and which the acceptance criteria never asked for.
+- Directly contradicts feature 36's own decision, already recorded, that an upload overwrites the master outright with no merge; building two way sync here and a one way overwrite there is two different answers to the same question live in the same feature area.
+
+## Rationale
+
+Option 1, because the two forces that matter most both point the same way. First, a resume genuinely needs a shape the profile tables cannot hold (free prose, numbers with no column, an education section), which Option 2 cannot supply without turning the profile into something it was not designed to be. Second, the project has already made the permanence decision this spec has to be consistent with: `docs/scope/scope.md`'s feature 24 note states the master is regenerated fresh for every tailoring and is overwritten outright by an upload, never merged. Option 3's two way sync is a direct contradiction of that decision, not a refinement of it. Option 1 is also the only one of the three that gives feature 25 something worth citing: a specific version of real prose, rather than a re-render of the same five fields every time.
+
+The versioning shape (append only, immutable, enforced by withheld database privilege rather than by a convention nobody is forced to follow) follows spec 0003's own posture: every rule that matters is enforced in Postgres, not trusted to application code. The unique constraint on `(profile_id, version_number)` is what turns "two tabs cannot silently clobber each other" from a hope into a guarantee, the same way spec 0003's unique constraint on `(profile_id, source, source_job_id)` turned "no duplicate application" into one.
+
+The markdown renderer itself, specifically, stays server rendered with no client boundary at all, never shipped to the browser: root `AGENTS.md`'s rule that no Supabase call and no session check runs in the browser is about a narrower thing than "avoid client components" (spec 0010's own forms are client components, corrected below), but the renderer has no interactivity to justify a client boundary either way, so it stays a plain server side function. Do not reach for a general purpose markdown editing library when a plain `Textarea` (already built, already accessible) does the writing side of the job. A markdown editing library was explicitly not taken: it would reintroduce the server rendered to client control swap spec 0023's own AC-4 had to be narrowed over, it would put WCAG 2.2 AA behaviour into third party code `/check verify` would then have to prove with a real screen reader, and its visual surface would sit entirely outside `src/components/ui/`, spec 0005's charter for where this project's visual patterns live. A renderer with no interactivity carries none of those three costs: it is a pure function from stored text to React elements, proven safe by a real test rather than trusted by a README, and it ships now under `src/lib` rather than deferred, because features 25 and 36 both need the same rendering and deferring it only guarantees one of them invents its own. The conflict state shows the newer version's text raw and unrendered rather than passing it through this renderer, for a concrete reason found on a second cross check: rendering it would pull `react-markdown` into the editor's own client bundle, the one place this spec otherwise keeps it out of.
+
+**Corrected after a cross model check found the original draft's premise wrong.** The first draft of this spec assumed the editor could stay server rendered with no client component, and gated Restore behind a server rendered confirmation step for that reason. Both were mistaken. Spec 0010's own forms (`identity-form.tsx` and the rest) are already client components using `useActionState`; that is how its AC-3 (keep the typed text after a failed save) works there, and this feature needs exactly the same mechanism, extended with its own conflict state, to keep 20000 characters of typed text across a failed save or a version conflict, a case spec 0010 never had to handle. Once that premise is corrected, the whole restore confirmation collapses on its own logic: it lived on the plain view, where the editor cannot simultaneously be open with unsaved text, so it was guarding against a loss that had already happened (if at all) before the confirmation could ever be reached.
+
+**A second cross check on the first fix found two more defects worth recording, because both are the kind of thing that looks right until traced through carefully.** First, `previousVersionNumber` had been read as "the version whose text is on screen", which is wrong: restoring version 2 while version 5 is current would submit `2`, insert as `3`, and collide with the real version 5, reporting a conflict that is not one. It has to be the profile's actual current version at the moment the editor loaded, independent of which version's text `from` asked to display; this is what lets a restore of an old version still save cleanly as the next real version. Second, a dirty check compared against the field's own `defaultValue` would have been comparing the reader's unsaved text against itself: React resets an uncontrolled field's `defaultValue` to whatever a re-render passes it, and after a failed or conflicted save that is the just typed, still unsaved content echoed back by `ResumeSaveState`, exactly the value `src/features/profile/form-state.ts`'s own doc comment says is echoed back because the browser's own retention of an uncontrolled value covers only the JavaScript path. The baseline the dirty check needs is the value the editor was loaded with, held as a fixed prop, never re-read from the field after a submit.
+
+**What genuinely needed protecting, leaving a dirty editor, moved rather than disappeared once the editor became a client component, and now uses two mechanisms rather than one.** A real page load (reload, close, typing a new address) is caught by the browser's own `beforeunload` prompt. A client routed transition inside this feature (Edit, Restore, Cancel) is caught differently: `next/link`'s `onNavigate` handler (confirmed against `node_modules/next/dist/client/app-dir/link.d.ts`) lets the dirty check ask for confirmation before the transition proceeds, without giving up client routing for the sake of the guard. A plain, real `<a>` tag in place of these three controls was considered and declined: it would protect a little more (it would also make the browser's Back button a real navigation for this one page, so `beforeunload` would catch it too), but it costs a full page load on every Edit and every Restore, for a solo user editing their own resume, which is a worse trade than the small named gap left instead. What remains genuinely unprotected, named together rather than scattered across the spec: the shared app header's Search, Profile and logo links (client routed, shared chrome this feature does not modify), the Sign out control (a Server Action form handled client side), and the browser's Back or Forward button (a `popstate` transition that triggers neither mechanism). Closing the first two would mean adding navigation guards to chrome every other page also uses; closing the third would mean the same full page load tradeoff just declined. Both are accepted, not overlooked.
+
+## References
+
+See `index.md`'s References section; the citations above are the same sources, kept here only in narrative form.
