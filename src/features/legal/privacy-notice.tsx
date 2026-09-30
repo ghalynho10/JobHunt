@@ -58,7 +58,7 @@ const PURPOSE_INTRO = [
 ];
 
 const PURPOSES = [
-  "Your sign in details, profile, work history, preferences and applications are processed because the service cannot be provided without them. This is contract necessity: you asked for a tool that ranks jobs against your career history, and there is no version of that which does not process your career history.",
+  "Your sign in details, profile, work history, resume, preferences and applications are processed because the service cannot be provided without them. This is contract necessity: you asked for a tool that ranks jobs against your career history, and there is no version of that which does not process your career history.",
   "Error and performance events are processed to keep the service working, on the basis of legitimate interest. Nobody should be asked to opt in to a product noticing that it broke, and the events carry no personal data, which is the point below about Sentry.",
 ];
 
@@ -130,7 +130,7 @@ const RETENTION = [
 
 const DELETION = [
   "Write to the address below and ask, from the email address you signed in with, and your account record is removed by hand.",
-  "Removing that record removes everything: the profile, the skills, the work history, the preferences, every application and every answer you wrote all fall with it, because each is tied to the account record and the database is built to delete them alongside it. Nothing is kept back, anonymised and retained, or archived somewhere else.",
+  "Removing that record removes everything: the profile, the skills, the work history, every saved version of your resume, the preferences, every application and every answer you wrote all fall with it, because each is tied to the account record and the database is built to delete them alongside it. Nothing is kept back, anonymised and retained, or archived somewhere else.",
   "Two honest caveats. This is done by a person reading mail rather than by a button you press, so it takes as long as it takes somebody to read it, and there is no way to do it yourself yet. And error reports already sent to Sentry cannot be pulled back, though they carry nothing that identifies you, which is why they are safe to leave.",
 ];
 

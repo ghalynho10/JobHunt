@@ -342,6 +342,38 @@ export type Database = {
           },
         ]
       }
+      resume_version: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          profile_id: string
+          version_number: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          version_number: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resume_version_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_cap: {
         Row: {
           call_type: string

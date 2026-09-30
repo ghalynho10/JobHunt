@@ -43,6 +43,12 @@ export const PERSONAL_DATA_TABLES: readonly PersonalDataTable[] = [
   { table: "profile", heading: "Your profile" },
   { table: "profile_skill", heading: "Your skills" },
   { table: "work_experience", heading: "Your work history" },
+  /**
+   * Spec 0024, AC-12: placed straight after work history because the resume is
+   * seeded from the three tables above it, so the notice reads who you are,
+   * then the document written from that.
+   */
+  { table: "resume_version", heading: "Your resume" },
   { table: "job_preference", heading: "What you are looking for" },
   { table: "application", heading: "Jobs you applied to" },
   {
@@ -209,6 +215,41 @@ export const STORED_FIELDS: readonly StoredField[] = [
     table: "work_experience",
     column: "updated_at",
     describedAs: "when it was last changed",
+  },
+
+  // resume_version
+  {
+    table: "resume_version",
+    column: "id",
+    describedAs: "an identifier for each saved version",
+  },
+  {
+    table: "resume_version",
+    column: "profile_id",
+    describedAs: "the profile it belongs to",
+  },
+  {
+    table: "resume_version",
+    column: "version_number",
+    describedAs: "which version it is, counting up from 1 with each save",
+  },
+  {
+    /**
+     * SPEC 0024, AC-12: DESCRIBED AS WHATEVER THE READER WROTE, NOT AS A
+     * NARROWER LIST. The column is free text and nothing restricts what goes
+     * into it, so naming only "your work history and skills" would be a claim
+     * the schema does not keep. Contact details are named because a resume is
+     * exactly where somebody would type them.
+     */
+    table: "resume_version",
+    column: "content",
+    describedAs:
+      "the full text of your resume as you wrote it, which may include contact details or anything else you chose to type, with every earlier version kept rather than replaced",
+  },
+  {
+    table: "resume_version",
+    column: "created_at",
+    describedAs: "when you saved that version",
   },
 
   // job_preference

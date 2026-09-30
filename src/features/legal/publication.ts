@@ -47,7 +47,7 @@ export const CONTACT_EMAIL = "contact@usejobhunt.dev";
  * Stored as the raw ISO date and formatted at render, per the project's store
  * raw rule.
  */
-export const EFFECTIVE_DATE = "2026-09-01";
+export const EFFECTIVE_DATE = "2026-09-30";
 
 /**
  * The effective date as a reader sees it, for example `1 September 2026`.
