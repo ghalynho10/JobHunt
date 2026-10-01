@@ -23,11 +23,15 @@ create table public.resume_version (
   -- `> 0` also makes `previousVersionNumber = 0` a value no row can hold, so
   -- the very first save can never collide with anything.
   version_number integer not null check (version_number > 0),
-  -- Stored exactly as written, markdown and all (invariant 3). Non blank after
-  -- trimming mirrors `profile.full_name`'s own rule; the ceiling is the same
-  -- 20000 characters the Zod parse in `saveResumeVersion()` enforces, and it is
-  -- `char_length` so the limit counts characters the reader typed rather than
-  -- bytes, which a multibyte name would otherwise eat into.
+  -- Markdown, stored as the reader wrote it with one exception: line endings
+  -- arrive normalised to `\n` by the save parse in `saveResumeVersion()`
+  -- (spec 0024, AC-3), so the text here is what a textarea reports when it is
+  -- read back. Nothing else rewrites it. The check below is invariant 3: non
+  -- blank after trimming mirrors `profile.full_name`'s own rule, and the
+  -- ceiling is the same 20000 characters the Zod parse enforces, measured after
+  -- that normalisation. It is `char_length`, so the limit counts characters the
+  -- reader typed rather than bytes, which a multibyte name would otherwise eat
+  -- into.
   content text not null
     check (length(btrim(content)) > 0 and char_length(content) <= 20000),
   -- The only timestamp: there is no `updated_at` because nothing is updated,
