@@ -4,7 +4,7 @@ _Steps derived from spec 0024 acceptance criteria and its Value sourcing table. 
 ## UI / manual
 
 - [ ] Sign in as a profile with skills and work history but no resume yet, open `/resume` → the empty state names that no resume exists and offers "Start from my profile" → AC-1
-- [ ] Follow "Start from my profile" into the editor → the textarea holds exactly the AC-2 template: name and location, then the summary paragraph, a `## Skills` bulleted list, a `## Experience` section with entries ordered most recently started first in the `**title** — company (month year – month year or Present)` shape, and an empty `## Education` heading; no email or phone appears anywhere → AC-2
+- [ ] Follow "Start from my profile" into the editor → the textarea holds exactly the AC-2 template: the name, a blank line, the location, then the summary paragraph, a `## Skills` bulleted list, a `## Experience` section with entries ordered most recently started first in the `**title** — company (month year – month year or Present)` shape, and an empty `## Education` heading; no email or phone appears anywhere → AC-2
 - [ ] Same profile with no skills and no work history → the seeded editor omits the `## Skills` and `## Experience` headings entirely rather than showing them empty → AC-2
 - [ ] A profile whose summary plus several long work history descriptions sum past 20000 characters → the seed still renders in full, unedited, and the first Save attempt fails with the over length message rather than a silently truncated seed → AC-2, AC-3
 - [ ] Submit a blank (whitespace only) textarea → refused with a visible message, nothing written, the editor stays open with the text as typed → AC-3
