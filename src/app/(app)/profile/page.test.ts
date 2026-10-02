@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { success } from "@/lib/result";
+import { failure, success } from "@/lib/result";
 
 import { renderDeep, textOf } from "../../../../test/helpers/react-element";
 
@@ -31,16 +31,18 @@ import { renderDeep, textOf } from "../../../../test/helpers/react-element";
  * is what makes "the list rendered and the line did not" a visible failure
  * rather than an empty page.
  */
+const PROFILE = {
+  id: "0f5f4f1e-3a2b-4c7d-9e8f-1a2b3c4d5e6f",
+  full_name: "Fixture Person",
+  location: undefined,
+  summary: undefined,
+};
+
+/** Replaceable per test; `beforeEach` restores the fixture profile. */
+const readOwnProfile = vi.fn();
+
 vi.mock("@/features/profile/queries", () => ({
-  readOwnProfile: () =>
-    Promise.resolve(
-      success({
-        id: "0f5f4f1e-3a2b-4c7d-9e8f-1a2b3c4d5e6f",
-        full_name: "Fixture Person",
-        location: undefined,
-        summary: undefined,
-      }),
-    ),
+  readOwnProfile,
   readProfileSections: () =>
     Promise.resolve(
       success({
@@ -61,7 +63,26 @@ vi.mock("@/features/profile/queries", () => ({
     ),
 }));
 
+/**
+ * The resume card's read (spec 0024, AC-10), replaced for the same reason as
+ * the two above: the page renders without a database. `beforeEach` restores
+ * "no resume yet"; the AC-10 tests below replace it.
+ */
+const readResumeHistory = vi.fn();
+
+vi.mock("@/features/resume/queries", () => ({ readResumeHistory }));
+
 const { default: ProfilePage } = await import("./page");
+const { IdentityForm } = await import("@/features/profile/identity-form");
+
+beforeEach(() => {
+  readOwnProfile.mockReset();
+  readResumeHistory.mockReset();
+  readOwnProfile.mockResolvedValue(success(PROFILE));
+  readResumeHistory.mockResolvedValue(
+    success({ versions: [], current: undefined }),
+  );
+});
 
 /** `COPY-4`, the engineer's, asserted verbatim. */
 const GONE = "That entry is no longer on your profile.";
@@ -117,5 +138,82 @@ describe("AC-13: an entry id that resolves to nothing says so", () => {
 
   it("stays silent when no entry was asked for, so the line means something", async () => {
     expect(textOf(renderDeep((await render({})) as never))).not.toContain(GONE);
+  });
+});
+
+describe("the resume card (spec 0024, AC-10)", () => {
+  it("names the current version and when it was saved, linking to /resume", async () => {
+    // covers: AC-10
+    readResumeHistory.mockResolvedValue(
+      success({
+        versions: [
+          {
+            id: "33333333-aaaa-4aaa-8aaa-333333333333",
+            versionNumber: 3,
+            createdAt: "2026-09-30T15:00:00Z",
+          },
+        ],
+        current: undefined,
+      }),
+    );
+
+    const text = textOf(renderDeep((await render({})) as never));
+
+    expect(text).toContain(
+      "Resume: version 3, last updated September 30, 2026.",
+    );
+    expect(text).toContain("Open your resume");
+  });
+
+  it("shows only its own failure line when its read fails, and the rest of the page still renders", async () => {
+    /**
+     * The isolation is the claim: a broken resume read must cost the reader
+     * the card and nothing else. So the assertions reach past the card, to
+     * the identity and the work history the page renders either side of it.
+     */
+    // covers: AC-10
+    /**
+     * The failure's own message differs from `COPY-29` on purpose, so the
+     * line below can only come from the card's copy, never from the page
+     * echoing whatever the read reported.
+     */
+    readResumeHistory.mockResolvedValue(
+      failure({
+        kind: "database_unavailable",
+        severity: "unexpected",
+        message: "Fixture outage, never shown.",
+      }),
+    );
+
+    const text = textOf(renderDeep((await render({})) as never));
+
+    expect(text).toContain("We couldn't load your resume just now.");
+    expect(text).not.toContain("Fixture outage, never shown.");
+    expect(text).toContain("Fixture Person");
+    expect(text).toContain("Northwind Labs");
+    expect(text).not.toContain("Resume:");
+  });
+
+  it("does not render at all before a profile row exists", async () => {
+    /**
+     * Spec 0010 AC-1's identity only first run: no section card renders, and
+     * this one does not either. `IdentityForm` is a client component, so the
+     * walk stops at it rather than calling its hooks.
+     */
+    // covers: AC-10
+    readOwnProfile.mockResolvedValue(
+      failure({
+        kind: "record_not_found",
+        severity: "expected",
+        message: "No profile yet.",
+      }),
+    );
+
+    const tree = renderDeep((await render({})) as never, [IdentityForm]);
+    const text = textOf(tree);
+
+    expect(text).toContain("Your name is all this needs to start.");
+    expect(text).not.toContain("No resume yet.");
+    expect(text).not.toContain("Resume:");
   });
 });

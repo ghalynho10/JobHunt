@@ -1,3 +1,5 @@
+import { formatLongDate } from "./dates";
+
 /**
  * Formatting two features share for the same listing values (spec 0014).
  *
@@ -132,13 +134,7 @@ export function relativePostedAt(
  * string, on the same reasoning as `relativePostedAt`.
  */
 export function appliedOnText(appliedAt: string): string | undefined {
-  const applied = new Date(appliedAt);
+  const applied = formatLongDate(appliedAt);
 
-  if (Number.isNaN(applied.getTime())) return undefined;
-
-  return `applied ${new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(applied)}`;
+  return applied === undefined ? undefined : `applied ${applied}`;
 }

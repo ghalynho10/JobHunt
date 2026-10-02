@@ -164,3 +164,48 @@ describe("every stored column is named on the notice (covers AC-2, AC-23)", () =
     }
   });
 });
+
+/**
+ * The master resume's entry, against its own spec (spec 0024, AC-12).
+ *
+ * THE CASES ABOVE TAG SPEC 0009 AND PIN ONLY ONE PART OF THIS CRITERION. They
+ * prove every column of every table is named, which covers `resume_version`'s
+ * five columns generically, but nothing above checks the heading AC-12 chose,
+ * where it sits, or that `content` is described as broadly as the column
+ * really is. A test tagged with a criterion it only partly pins is how a
+ * criterion looks covered when nothing holds it, so this block pins the rest.
+ *
+ * NOT PINNED HERE, deliberately: AC-12's bump of the privacy notice's
+ * effective date. A date carries no rule a test could hold without restating
+ * the date itself, so it stays a `/check verify` read of `publication.ts`.
+ */
+describe("the master resume's entry (spec 0024, AC-12)", () => {
+  it("lists resume_version under its own heading, straight after work history", () => {
+    // covers: spec 0024 AC-12
+    const tables = PERSONAL_DATA_TABLES.map((entry) => entry.table);
+    const at = tables.indexOf("resume_version");
+
+    expect(PERSONAL_DATA_TABLES[at]?.heading).toBe("Your resume");
+    expect(tables[at - 1]).toBe("work_experience");
+  });
+
+  it("names all five of its columns", () => {
+    // covers: spec 0024 AC-12
+    expect(
+      fieldsFor("resume_version")
+        .map((field) => field.column)
+        .sort(),
+    ).toEqual(["content", "created_at", "id", "profile_id", "version_number"]);
+  });
+
+  it("describes the text as whatever the reader wrote, contact details included, not a narrower list", () => {
+    // covers: spec 0024 AC-12
+    const content = fieldsFor("resume_version").find(
+      (field) => field.column === "content",
+    );
+
+    expect(content?.describedAs).toContain(
+      "may include contact details or anything else you chose to type",
+    );
+  });
+});
