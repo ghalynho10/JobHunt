@@ -466,7 +466,7 @@ _Resume permanence, decided 2026-09-18, settling the question between this featu
   - [x] Read and write paths: the profile seed function and resume queries; `ResumeSaveState` and `saveResumeVersion()` with its database error mapping, satisfies AC-2, AC-3, AC-4, AC-9
   - [x] The `/resume` page: the empty state, the client component editor with `useActionState`, the version list, the `beforeunload` and `onNavigate` unsaved changes guards, and the inline, unrendered conflict state, satisfies AC-1, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
   - [x] Profile integration and cleanup: the resume card on `/profile`, and spec 0010's two "feature 26" references corrected to point at spec 0024, satisfies AC-10, AC-14 · the spec 0010 half needed no edit: lines 23 and 218 already pointed at spec 0024, corrected during the design pass
-- [ ] Verify it: `/check verify master resume`
+- [x] Verify it: `/check verify master resume` · **PASS on 2026-10-01**, after a FAIL on 2026-09-30 found two defects (an editor reopened on any saved version called itself unsaved, because browser posted `\r\n` was stored as posted; and `authenticated` held truncate, references, trigger and maintain on `resume_version`), fixed in `cbdd6a1` and `453f6ce`. Every acceptance criterion was exercised against the real app and local stack, with build plan step 11 on hosted development, and 45 of 46 `verify.md` steps are ticked. The one left open is a missing test, not a failing behaviour: nothing pins which `previousVersionNumber` the page hands the editor, though the browser proves it right. That gap is for `Test it`
 - [ ] Test it: `/test master resume`
 
 ### 25. Resume tailoring per job · needs a decision
