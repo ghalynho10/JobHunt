@@ -256,7 +256,7 @@ Tracer Bullet, the project's default: land the whole vertical thread (schema thr
 
 ## Follow-up
 
-- [ ] `docs/scope/scope.md` feature 25's wording ("drops any bullet containing a number not present in the user's own profile data") needs correcting through `/scope` to name the master resume's current version text as the check's corpus, per this spec's Consequences.
+- [x] `docs/scope/scope.md` feature 25's wording ("drops any bullet containing a number not present in the user's own profile data") needs correcting through `/scope` to name the master resume's current version text as the check's corpus, per this spec's Consequences. · done by `/scope` on 2026-10-02: feature 25's intent now reads "not present in the current version of the master resume", and its Done when tests bullets against "a number the master resume does not contain".
 - [ ] Feature 25 (resume tailoring) and feature 36 (resume upload with extraction) both reuse the `src/lib` markdown renderer this feature adds; neither should add its own.
 - [ ] Feature 36's upload overwrites this feature's canonical version outright, per the resume permanence decision already recorded under feature 24 in `docs/scope/scope.md`; it still needs to decide whether an overwrite starts a new `resume_version` row (consistent with "append only, never overwritten") or is itself a distinct action, since that decision belongs to feature 36's own design.
 - [ ] If a Sentry alert is ever built on the `resume.save_version` span, confirm a version conflict outcome is excluded from its numerator by construction (it is a `ResumeSaveState`, never a `Failure`, so it cannot appear there by accident, but a future alert built on span status alone rather than on `Failure` kind should still double check this).
