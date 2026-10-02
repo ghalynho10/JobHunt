@@ -128,7 +128,21 @@ export function ResumeEditor({
 
       {conflict ? (
         <div className="flex flex-col gap-3">
-          <div id={conflictId}>
+          {/*
+           * `role="alert"`, ON ITS OWN ELEMENT, NOT THROUGH `FieldError` (spec
+           * 0024, AC-9). An outcome the server returns for a submitted form
+           * is announced assertively, the same as every other Save outcome in
+           * this form (`COPY-10`, `COPY-11`, `COPY-30` to `COPY-33`); a
+           * refusal a field raises itself, client side, before anything is
+           * sent is polite, which is spec 0023's chip refusal (the rule is in
+           * spec 0024's rationale, "Announcing an outcome"). `FieldError` would
+           * announce it too, but a conflict is explicitly not a `Failure`, and
+           * the error component would say otherwise in markup. The role sits
+           * on this `div` because `Text` drops every `role` and `aria-*` prop.
+           * Found missing by `/check review` on 2026-10-02: until then the
+           * conflict was announced to nobody.
+           */}
+          <div id={conflictId} role="alert">
             <Text>{conflictMessage(state.currentVersionNumber ?? 0)}</Text>
           </div>
           {/*
@@ -179,11 +193,23 @@ export function ResumeEditor({
         {/*
          * The editor's only exit control (AC-7). `onNavigate` runs before the
          * client side transition and cancels it unless the reader confirms.
+         *
+         * WHILE A SAVE IS IN FLIGHT IT DOES NOT LEAVE AT ALL, and asks nothing.
+         * Leaving mid save would land on `/resume` before the save it started
+         * had redirected there, so the plain view could show the version before
+         * it. A link cannot be disabled (`Button` forbids it, there is no
+         * disabled anchor), so the transition is refused instead, while Save
+         * beside it shows the pending state. Found by `/check review` on
+         * 2026-10-02.
          */}
         <Button
           variant="tertiary"
           href="/resume"
           onNavigate={(event) => {
+            if (pending) {
+              event.preventDefault();
+              return;
+            }
             if (
               hasUnsavedText(formRef.current, baseline.current) &&
               !window.confirm(LEAVE_WITHOUT_SAVING_CONFIRM)
