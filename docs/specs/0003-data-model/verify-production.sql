@@ -62,7 +62,16 @@ begin
   return next 'AC-2  policy count (expect 23): ' || n::text
               || case when n = 23 then '   pass' else '   FAIL' end;
 
-  -- AC-2: the privilege gate. `authenticated` and nothing else.
+  -- The `maintain` checks below need Postgres 17. On anything older this script
+  -- errors at the first of them, which is loud, and the revision 2 migration
+  -- (which names `maintain`) would fail there too.
+  return next 'note  ' || version();
+
+  -- AC-2 and AC-17: the privilege gate. `authenticated` and nothing else, and
+  -- for `authenticated` exactly each table's own list. ALL EIGHT table
+  -- privileges, not only the four a policy governs: the four line version of
+  -- this check passed while `authenticated` still held Supabase's default
+  -- truncate, references, trigger and maintain on all six (spec 0003 revision 2).
   for r in
     select ro.rolname,
            t.tbl,
@@ -70,12 +79,16 @@ begin
              case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'select') then 'select' end,
              case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'insert') then 'insert' end,
              case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'update') then 'update' end,
-             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'delete') then 'delete' end), ''), 'NOTHING') as privs
+             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'delete') then 'delete' end,
+             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'truncate') then 'truncate' end,
+             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'references') then 'references' end,
+             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'trigger') then 'trigger' end,
+             case when has_table_privilege(ro.rolname, 'public.' || t.tbl, 'maintain') then 'maintain' end), ''), 'NOTHING') as privs
     from (values ('profile'),('profile_skill'),('work_experience'),('job_preference'),('application'),('application_answer')) t(tbl)
     cross join (values ('anon'),('authenticated'),('service_role')) ro(rolname)
     order by ro.rolname, t.tbl
   loop
-    return next 'AC-2  ' || rpad(r.rolname, 13) || ' on ' || rpad(r.tbl, 20) || ': ' || r.privs
+    return next 'AC-17 ' || rpad(r.rolname, 13) || ' on ' || rpad(r.tbl, 20) || ': ' || r.privs
       || case
            when r.rolname in ('anon','service_role') and r.privs = 'NOTHING' then '   pass'
            when r.rolname in ('anon','service_role') then '   FAIL, must hold nothing'
@@ -84,6 +97,24 @@ begin
            else '   FAIL'
          end;
   end loop;
+
+  -- AC-19: the default that put those four there. Reads the `postgres` grantor
+  -- row itself, not any table's result, and prints it raw so a run before the
+  -- revision 2 migration and a run after it can be compared line for line.
+  -- The `supabase_admin` row is platform managed and deliberately not checked.
+  select coalesce(string_agg(d.defaclacl::text, ' '), 'NO ROW') into result
+  from pg_default_acl d join pg_namespace nsp on nsp.oid = d.defaclnamespace
+  where nsp.nspname = 'public' and d.defaclobjtype = 'r' and d.defaclrole = 'postgres'::regrole;
+  return next 'AC-19 default acl, grantor postgres, tables in public: ' || result;
+
+  select count(*) into n
+  from pg_default_acl d join pg_namespace nsp on nsp.oid = d.defaclnamespace
+  cross join lateral aclexplode(d.defaclacl) a
+  where nsp.nspname = 'public' and d.defaclobjtype = 'r' and d.defaclrole = 'postgres'::regrole
+    and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole)
+    and a.privilege_type in ('TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN');
+  return next 'AC-19 default grants of truncate, references, trigger or maintain to the three API roles (expect 0): '
+              || n::text || case when n = 0 then '   pass' else '   FAIL' end;
 
   -- AC-4: each policy carries the clause its action permits.
   select count(*) into n

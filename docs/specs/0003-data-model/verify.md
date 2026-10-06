@@ -143,3 +143,35 @@ place is caught even when the shape is right.
 - AC-14 · covered by the three sign in steps, including the missing profile failure and its announcement
 - AC-15 · covered by the `db:types` and typecheck command, and the parse is exercised by every successful sign in step
 - AC-16 · covered by the production confirmation step, which is the gate the drop may not be written before
+
+# Verify: revision 2, tighten authenticated table privileges · spec 0003 · updated 2026-10-05
+
+_Steps derived from AC-17, AC-18 and AC-19 (feature 38). Each before reading must be taken before the change reaches that database: the pull request's `db-migrate` job applies the migration to development, and the merge applies it to production. Without a before reading, an after reading cannot tell a real fix from a no op._
+
+## Before the change reaches each database
+
+- [x] Local: `pg_default_acl`'s `postgres` row for tables in `public` reads `{postgres=arwdDxtm/postgres,anon=Dxtm/postgres,authenticated=Dxtm/postgres,service_role=Dxtm/postgres}`, and `authenticated` holds truncate, references, trigger and maintain on exactly the six tables, 24 rows → AC-17, AC-19 · read 2026-10-05
+- [ ] Development, before pushing the branch: run [verify-production.sql](verify-production.sql) (it only reads) in jobhunt-dev's SQL editor and keep the output → expect the `note` line to name PostgreSQL 17, each `AC-17 authenticated` line to read its list plus `truncate,references,trigger,maintain` and `FAIL`, and the AC-19 count to read 12 (three roles times four privileges, as on local) with `FAIL` → AC-17, AC-19
+- [ ] Production, before merging: the same script in production's SQL editor, output kept → the same expectations. **Stop before merging if the `note` line names a version below 17**: the migration names `maintain`, which does not exist there → AC-17, AC-19
+
+## Commands (local and CI)
+
+- [x] `pnpm vitest run --project integration test/integration/data-model-privileges.test.ts test/integration/table-privilege-drift.test.ts` against the schema before the migration → exactly 7 failures, the drift guard naming all six tables in exactly 24 rows → AC-17, AC-18 · 2026-10-05
+- [x] The same command after `pnpm db:reset` applies the migration → 7 passed → AC-17, AC-18 · 2026-10-05
+- [x] `pnpm test:integration` and `pnpm test` → all green against the tightened privileges (237 passed, 8 skipped paid `*-live` cases; 1559 unit) → AC-17 · 2026-10-05
+- [x] In a rolled back transaction on local, create a table as `postgres` and read `has_table_privilege` for `anon`, `authenticated` and `service_role` → none of the eight privileges held → AC-19 · 2026-10-05
+- [ ] On local, `grant truncate on public.resume_version to authenticated;` (a table outside the six), run the drift guard → it fails naming `resume_version TRUNCATE` only; revoke it again and the guard passes → AC-18
+- [ ] On local, in a rolled back transaction, `alter default privileges for role postgres in schema public grant truncate on tables to authenticated;` then run [verify-production.sql](verify-production.sql) → the AC-19 count reads 1 and `FAIL`, every other line unchanged → AC-19
+
+## After the change reaches each database
+
+- [x] Local: the `postgres` row reads `{postgres=arwdDxtm/postgres}`, `authenticated`'s extras read 0 rows (24 before), the `supabase_admin` row is unchanged, and `service_role` still holds the four on `app_settings`, `usage_cap`, `demo_result` and `demo_refresh` (the accepted risk) → AC-17, AC-19 · 2026-10-05
+- [ ] Development, after the pull request's `db-migrate` job logs `Applying migration 20261005120000_tighten_authenticated_table_privileges.sql`: run [verify-production.sql](verify-production.sql) again → every `AC-17` line `pass`, the AC-19 row printed without `anon`, `authenticated` or `service_role`, its count 0 and `pass`, and each line compared against the before output rather than read alone → AC-17, AC-19
+- [ ] Production, after the merge's `production` job logs the same migration: the same script → the same expectations, compared against production's before output → AC-17, AC-19
+- [ ] Development: the existing sign in and profile steps still work for dev-one (a read and a save on `/profile`), proving the regrant left the four intended privileges in place on a hosted project → AC-17
+
+## Acceptance criteria coverage
+
+- AC-17 · covered by the per table test before and after, the full suites, and the `verify-production.sql` AC-17 lines before and after on development and production
+- AC-18 · covered by the drift guard before and after, and the out of six break on `resume_version`. Local and CI only by design; no step claims it for production
+- AC-19 · covered by the local default reads before and after, the new table probe, the reopened default break, and the AC-19 lines before and after on development and production
