@@ -36,7 +36,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 28 | Spend visibility & gating polish | v1 extras | done |
 | 31 | Seeded demo account | v1 extras | done |
 | 19 | Listing data quality | v1.5 | done |
-| 38 | Tighten authenticated table privileges | v1.5 | in-progress |
+| 38 | Tighten authenticated table privileges | v1.5 | done |
 | 24 | Master resume | v1.5 | done |
 | 25 | Resume tailoring per job | v1.5 | planned |
 | 26 | Profile depth & completeness | v1.5 | dropped |
@@ -450,7 +450,7 @@ _Shipped 2026-09-22 in [#148](https://github.com/ghalynho10/JobHunt/pull/148) (m
 
 _Design decided 2026-09-21, spec [0022](../specs/0022-listing-data-quality/index.md). Two things this pass settled that the row above did not. **The outlier clause of Done when is already met, not built:** "outliers are handled visibly rather than shown as fact" is answered by spec 0013 AC-7's existing "(estimated)" label, and batch relative detection was rejected on sample size (at most 20 results, mostly predicted). Reword that clause through `/scope`; this pass did not edit Done when. **The Everpure pair is not a confirmed duplicate**: its two ids carry different titles, so no confirmed duplicate is on record, and the pair is the fixture a dedup key must keep as two results. The estimate contradicting a stated salary is deferred, see Deferred._
 
-### 38. Tighten authenticated table privileges
+### 38. Tighten authenticated table privileges · done
 Revoke what `authenticated` holds on the six user data tables beyond the grants each table actually needs. `supabase/migrations/20260825162457_data_model.sql` lines 284 to 289 revoke from `anon` and `service_role` only, so `authenticated` keeps Supabase's default truncate, references, trigger and maintain on `profile`, `profile_skill`, `work_experience`, `job_preference`, `application` and `application_answer`, and row level security never applies to truncate. Found 2026-09-30 by `/check verify master resume`.
 **Done when:** `has_table_privilege` shows `authenticated` holding exactly each table's own grants and nothing more on all six tables; a drift guard test shows the same holds for every table in `public`, not only these six; `pg_default_acl`'s `postgres` grantor row no longer grants `authenticated` the four extras, so a table the project creates from here on needs no revoke of its own; and the existing suite still passes against the tightened privileges.
 _**Defence in depth, not a live hole.** No current caller can reach the gap, since PostgREST never issues TRUNCATE. That is what makes it cheap to do first and wrong to panic about. **Beta, the project default, on this row's own terms**: the check is mechanical, since `has_table_privilege` answers it exactly, and the failure is loud rather than silent, since revoking too much breaks reads the existing suite already exercises. A fresh model review and a `/document` pass would be ceremony for a privilege migration whose correctness is a boolean. It amends spec [0003](../specs/0003-data-model/index.md). `resume_version` (feature 24) gets the same revoke in its own migration and is not part of this row._
