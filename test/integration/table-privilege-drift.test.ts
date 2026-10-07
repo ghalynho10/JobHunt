@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { queryAsSuperuser } from "../helpers/database";
@@ -55,5 +57,60 @@ describe("no table in public grants authenticated more than a policy can govern 
       ]),
     );
     expect(held.map((row) => `${row.relname} ${row.privilege}`)).toEqual([]);
+  });
+});
+
+/**
+ * Spec 0003, AC-19: a table `postgres` creates from here on receives nothing
+ * by default. THE OUTCOME, NOT THE SETTING: this never reads `pg_default_acl`,
+ * which the manual `verify-production.sql` already does. It creates a table and
+ * asks what the three API roles actually hold on it.
+ *
+ * NOTHING IS EVER COMMITTED. The whole probe is one `do` block that always
+ * raises, carrying its finding in the message, so the table rolls back on a
+ * pass and on a failure alike. A committed table, even briefly, would also
+ * reach the drift guard above while files run in parallel, and would make
+ * PostgREST reload its schema mid suite.
+ *
+ * The owner is in the message because the default is per creating role: a
+ * probe run as a role with no default of its own would hold nothing and pass
+ * for the wrong reason.
+ */
+describe("a table postgres creates from here on receives nothing by default (AC-19)", () => {
+  it("grants anon, authenticated and service_role none of the eight table privileges", async () => {
+    // covers: AC-19
+    // Hex only, from our own random bytes, so interpolating it is safe.
+    const table = `zz_ac19_default_probe_${randomBytes(6).toString("hex")}`;
+
+    const outcome = await queryAsSuperuser(
+      `do $probe$
+       declare
+         held text;
+         owner text;
+       begin
+         create table public.${table} (id int);
+         select pg_get_userbyid(relowner) into owner
+           from pg_class where oid = 'public.${table}'::regclass;
+         select coalesce(string_agg(role || ' ' || privilege, ', ' order by role, privilege), 'nothing')
+           into held
+           from unnest(array['anon', 'authenticated', 'service_role']) as role,
+                unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']) as privilege
+          where has_table_privilege(role, 'public.${table}'::regclass, privilege);
+         raise exception 'AC-19 probe: owner %, held %', owner, held;
+       end
+       $probe$`,
+    ).then(
+      () =>
+        "the probe returned without raising, so its table may have been committed",
+      (error: unknown) =>
+        error instanceof Error ? error.message : String(error),
+    );
+    const [leftBehind] = await queryAsSuperuser<{ found: boolean }>(
+      "select to_regclass($1) is not null as found",
+      [`public.${table}`],
+    );
+
+    expect(outcome).toBe("AC-19 probe: owner postgres, held nothing");
+    expect(leftBehind).toEqual({ found: false });
   });
 });

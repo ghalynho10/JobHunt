@@ -143,6 +143,15 @@ begin
   return next 'note  profile rows on this database: ' || n::text
               || case when n = 0 then '   (expected on production, nobody has signed up yet)' else '' end;
 
+  -- Names the database a saved output came from. Nothing else here does: every
+  -- other line can read the same on development and production, and on
+  -- 2026-10-06 and 2026-10-07 four saved outputs were byte identical in pairs,
+  -- profile row count included, so which project each came from rested on the
+  -- engineer's word. The auth user count told the two apart (jobhunt-dev 4,
+  -- jobhunt-prod 5 on 2026-10-06). A count only, never an identity.
+  select count(*) into n from auth.users;
+  return next 'note  auth users on this database: ' || n::text;
+
   -- AC-13: the drop. BEFORE the second pull request this reads `still present`,
   -- which is correct and required. AFTER it, this must read `gone`.
   select case when to_regclass('public.scaffold_check') is null then 'gone' else 'still present' end into result;
