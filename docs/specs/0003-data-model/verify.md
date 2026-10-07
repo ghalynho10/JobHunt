@@ -148,6 +148,8 @@ place is caught even when the shape is right.
 
 _Steps derived from AC-17, AC-18 and AC-19 (feature 38). Each before reading must be taken before the change reaches that database: the pull request's `db-migrate` job applies the migration to development, and the merge applies it to production. Without a before reading, an after reading cannot tell a real fix from a no op._
 
+_**Which database a saved reading came from.** Every hosted reading below was taken before [verify-production.sql](verify-production.sql) printed `note  auth users on this database:` (added 2026-10-07). Its source is recorded by the engineer's confirmation, not by its own content: no line in those outputs differs between jobhunt-dev and jobhunt-prod, and each pair of saved files is byte identical. A reading taken after that line was added carries its source in its own output._
+
 ## Before the change reaches each database
 
 - [x] Local: `pg_default_acl`'s `postgres` row for tables in `public` reads `{postgres=arwdDxtm/postgres,anon=Dxtm/postgres,authenticated=Dxtm/postgres,service_role=Dxtm/postgres}`, and `authenticated` holds truncate, references, trigger and maintain on exactly the six tables, 24 rows → AC-17, AC-19 · read 2026-10-05
