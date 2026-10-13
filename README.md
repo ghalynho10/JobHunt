@@ -198,7 +198,7 @@ As of 2026-09-18. **v1 is complete**, declared 2026-09-17.
   this week: 7 of 25", visible in the screenshot above), but the gate itself
   still counts calls, not tokens or dollars, and I still read vendor spend by
   hand from two dashboards. Product analytics is feature 29, moved to v2. Only
-  2 of the 26 named Sentry spans have an alert. The scoring pipeline and every
+  2 of the 28 named Sentry spans have an alert. The scoring pipeline and every
   product write have none yet, a sequencing call I recorded in
   [spans.md](docs/observability/spans.md).
 - **No end-to-end browser test runner.** Playwright is my recorded choice. It
