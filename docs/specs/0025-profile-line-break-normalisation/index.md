@@ -118,7 +118,7 @@ Ordered for Tracer Bullet: the forward fix (needed today regardless of any count
 
 ## Follow-up
 
-- [ ] Flag to `/scope`: feature 39's Done when line reads "only if the production count below is not zero, existing rows are converted." This spec ships the backfill unconditionally, with no count gate; that line should be corrected once this feature builds, so the row does not under describe what shipped (the same correction feature 38 needed for its own widened scope).
+- [x] **Resolved 2026-10-15, before the build started**: `db233f6` (the commit linking feature 39 to this spec) rewrote the Done when to describe the unconditional, guarded backfill, and the rest of feature 39's row that still carried the conditional framing was corrected while the feature was being built. Original item: Flag to `/scope`: feature 39's Done when line reads "only if the production count below is not zero, existing rows are converted." This spec ships the backfill unconditionally, with no count gate; that line should be corrected once this feature builds, so the row does not under describe what shipped (the same correction feature 38 needed for its own widened scope).
 - [ ] Features 35, 36, and 37 (each adding profile free text in this same phase) should use `multilineText()` for any new textarea backed field, rather than `optionalText()`, if that field can realistically receive multi line input.
 
 ## Rationale
