@@ -68,6 +68,16 @@ export const LINE_BREAK_CASES: readonly LineBreakCase[] = [
     expected: "Just one line, nothing to change.",
   },
   {
+    /**
+     * AC-5's "changes nothing else": a tab, the Unicode line and next line
+     * separators, an accented letter and an emoji are not carriage returns,
+     * so neither implementation may touch them.
+     */
+    name: "other whitespace and characters are left unchanged",
+    input: "a\tb c\u0085d é 🚀",
+    expected: "a\tb c\u0085d é 🚀",
+  },
+  {
     name: "the empty string",
     input: "",
     expected: "",
