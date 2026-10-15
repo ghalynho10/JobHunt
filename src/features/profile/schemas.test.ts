@@ -521,3 +521,105 @@ describe("the entry id boundary (AC-13)", () => {
     ).toBe(false);
   });
 });
+
+describe("line break normalisation on textarea fields (spec 0025)", () => {
+  /**
+   * Visible characters split into four lines joined by `\r\n`, so the three
+   * breaks sit inside the text and `optionalText()`'s trim cannot remove them.
+   * The raw posted length is the visible count plus six; the normalised length
+   * is the visible count plus three.
+   */
+  function fourLines(visible: number): string {
+    const base = Math.floor(visible / 4);
+    const lengths = [base, base, base, visible - base * 3];
+    return lengths.map((length) => "s".repeat(length)).join("\r\n");
+  }
+
+  const identity = (summary: string, location = "") =>
+    identitySchema.safeParse({ full_name: "Ada", location, summary });
+
+  const experience = (overrides: Record<string, string>) =>
+    workExperienceSchema(TODAY).safeParse({
+      ...validExperience,
+      ...overrides,
+    });
+
+  it("stores a summary posted with \\r\\n with \\n only", () => {
+    // covers: spec 0025 AC-1
+    expect(identity("First line\r\nSecond line").data?.summary).toBe(
+      "First line\nSecond line",
+    );
+  });
+
+  it("stores a summary posted with a lone \\r with \\n only", () => {
+    // covers: spec 0025 AC-1
+    expect(identity("First line\rSecond line").data?.summary).toBe(
+      "First line\nSecond line",
+    );
+  });
+
+  it("stores a description posted with a lone \\r with \\n only", () => {
+    // covers: spec 0025 AC-2
+    expect(
+      experience({ description: "Built it\rShipped it" }).data?.description,
+    ).toBe("Built it\nShipped it");
+  });
+
+  it("stores a description posted with \\r\\n with \\n only", () => {
+    // covers: spec 0025 AC-2
+    expect(
+      experience({ description: "Built it\r\n\r\nShipped it" }).data
+        ?.description,
+    ).toBe("Built it\n\nShipped it");
+  });
+
+  it("accepts a summary that is 4003 characters posted and 4000 once normalised", () => {
+    // covers: spec 0025 AC-3
+    const posted = fourLines(3997);
+    expect(posted).toHaveLength(4003);
+
+    const parsed = identity(posted);
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.summary).toHaveLength(4000);
+  });
+
+  it("refuses a summary that is 4001 characters once normalised", () => {
+    // covers: spec 0025 AC-3
+    const posted = fourLines(3998);
+    expect(posted).toHaveLength(4004);
+
+    expect(messageFor(identity(posted).error?.issues ?? [], "summary")).toBe(
+      "Keep the summary to 4000 characters or fewer.",
+    );
+  });
+
+  it("checks the description's cap against the normalised length too", () => {
+    // covers: spec 0025 AC-3
+    expect(experience({ description: fourLines(3997) }).success).toBe(true);
+    expect(
+      messageFor(
+        experience({ description: fourLines(3998) }).error?.issues ?? [],
+        "description",
+      ),
+    ).toBe("Keep the description to 4000 characters or fewer.");
+  });
+
+  it("still maps a summary of only line breaks and spaces to undefined", () => {
+    // covers: spec 0025 AC-1, spec 0010 invariant 8
+    expect(identity("\r\n  \r\n").data?.summary).toBeUndefined();
+    expect(
+      experience({ description: "\r\r" }).data?.description,
+    ).toBeUndefined();
+  });
+
+  it("leaves a carriage return inside either location field as submitted", () => {
+    // covers: spec 0025 AC-4
+    expect(identity("", "Berlin\rGermany").data?.location).toBe(
+      "Berlin\rGermany",
+    );
+    expect(experience({ location: "Berlin\r\nGermany" }).data?.location).toBe(
+      "Berlin\r\nGermany",
+    );
+  });
+});

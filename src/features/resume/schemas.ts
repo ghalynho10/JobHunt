@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { BLANK_CONTENT, tooLongContent } from "./copy";
-import { normalizeLineBreaks } from "./line-breaks";
+import { normalizeLineBreaks } from "@/lib/line-breaks";
+
 import { RESUME_MAX_LENGTH } from "./limits";
 
 /**
@@ -22,7 +23,7 @@ const MAX_PREVIOUS_VERSION = 2_147_483_646;
 /**
  * What a save submits (AC-3, AC-9).
  *
- * LINE BREAKS ARE NORMALISED FIRST (`line-breaks.ts`), before either check, so
+ * LINE BREAKS ARE NORMALISED FIRST (`src/lib/line-breaks.ts`), before either check, so
  * the blank and length rules judge the text the reader sees and the stored
  * text is what a textarea reports when it is read back (AC-7).
  *
