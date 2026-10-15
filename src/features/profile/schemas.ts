@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { normalizeLineBreaks } from "@/lib/line-breaks";
+
 import { EARLIEST_YEAR, isAfter, type CalendarMonth } from "./calendar";
 import { tooLongValue, tooManyValues } from "./copy";
 import { LIST_VALUE_MAX_LENGTH, PREFERENCE_LIST_MAX_COUNT } from "./limits";
@@ -36,6 +38,34 @@ function optionalText(max: number, message: string) {
     .trim()
     .max(max, message)
     .transform((value) => (value === "" ? undefined : value));
+}
+
+/**
+ * An optional free text field backed by a textarea: line breaks normalised to
+ * `\n`, then everything `optionalText()` does (spec 0025, AC-1 to AC-3, AC-5).
+ *
+ * A BROWSER POSTS A TEXTAREA'S LINE BREAKS AS `\r\n`. Stored as posted, the
+ * value never equals what the textarea reopens with, and every line break
+ * counts twice against the cap while showing once.
+ *
+ * NORMALISED BEFORE THE CAP, NEVER AFTER (invariant 2). The cap has to judge
+ * the text the reader sees; swapping the order reopens the bug this fixes.
+ *
+ * A SEPARATE HELPER, NOT A CHANGE TO `optionalText()` (spec 0025, Decision).
+ * Two of `optionalText()`'s four fields are single line inputs (`location` on
+ * both forms), which cannot post a line break and are left as submitted
+ * (AC-4). Use this for any new textarea backed field, `optionalText()` for a
+ * single line one, and `requiredText()` for a single line field that must be
+ * filled.
+ *
+ * @param max The character cap, applied to the normalised, trimmed value.
+ * @param message What the reader sees when it is over the cap.
+ */
+function multilineText(max: number, message: string) {
+  return z
+    .string()
+    .transform(normalizeLineBreaks)
+    .pipe(optionalText(max, message));
 }
 
 /** A required free text field: trimmed, non blank, and capped. */
@@ -120,7 +150,7 @@ export const identitySchema = z.object({
     "Keep your name to 200 characters or fewer.",
   ),
   location: optionalText(200, "Keep the location to 200 characters or fewer."),
-  summary: optionalText(4000, "Keep the summary to 4000 characters or fewer."),
+  summary: multilineText(4000, "Keep the summary to 4000 characters or fewer."),
 });
 
 export type IdentityInput = z.output<typeof identitySchema>;
@@ -292,7 +322,7 @@ export function workExperienceSchema(today: CalendarMonth) {
         200,
         "Keep the location to 200 characters or fewer.",
       ),
-      description: optionalText(
+      description: multilineText(
         4000,
         "Keep the description to 4000 characters or fewer.",
       ),

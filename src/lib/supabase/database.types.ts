@@ -508,6 +508,7 @@ export type Database = {
           period_start: string
         }[]
       }
+      normalize_line_breaks: { Args: { input: string }; Returns: string }
       provider_display_name: { Args: { provider: string }; Returns: string }
       replace_demo_results: {
         Args: {

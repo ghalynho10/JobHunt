@@ -53,7 +53,8 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { saveSkills, saveIdentity } = await import("@/features/profile/actions");
+const { addWorkExperience, saveIdentity, saveSkills, updateWorkExperience } =
+  await import("@/features/profile/actions");
 const { IDLE_STATE } = await import("@/features/profile/form-state");
 const { createClient } = await import("@/lib/supabase/server");
 
@@ -260,5 +261,151 @@ describe("a skills save that fails midway never loses what was already there (in
      * started with, which is the direction this ordering chooses.
      */
     expect(await storedSkills()).toEqual(["alpha", "beta", "delta", "gamma"]);
+  });
+});
+
+describe("the profile's textarea fields reach the database with \\n only (spec 0025)", () => {
+  /**
+   * THE ACTIONS, NOT ONLY THE SCHEMAS. `schemas.test.ts` proves the parse
+   * normalises; these prove each action writes what the parse produced rather
+   * than the raw form value, and that the database's own `length(...) <= 4000`
+   * check agrees with the parse about what fits. Each value is read back
+   * through the application's own client, as the caller.
+   */
+
+  /** Four lines of `visible` characters joined by `\r\n`, as a browser posts. */
+  function postedFourLines(visible: number): string {
+    const base = Math.floor(visible / 4);
+    return [base, base, base, visible - base * 3]
+      .map((length) => "s".repeat(length))
+      .join("\r\n");
+  }
+
+  async function storedIdentity(): Promise<
+    | { readonly location: string | null; readonly summary: string | null }
+    | undefined
+  > {
+    const supabase = await createClient(session.jar);
+    const { data } = await supabase
+      .from("profile")
+      .select("location, summary")
+      .maybeSingle();
+
+    return data ?? undefined;
+  }
+
+  async function storedDescription(company: string): Promise<{
+    readonly id: string;
+    readonly description: string | null;
+  }> {
+    const supabase = await createClient(session.jar);
+    const { data } = await supabase
+      .from("work_experience")
+      .select("id, description")
+      .eq("company", company);
+
+    expect(data, `exactly one ${company} row`).toHaveLength(1);
+    const row = data?.[0];
+    if (row === undefined) throw new Error(`No ${company} row was stored.`);
+    return row;
+  }
+
+  function roleForm(company: string, description: string): FormData {
+    return formOf({
+      company,
+      title: "Engineer",
+      location: "",
+      description,
+      started_month: "3",
+      started_year: "2024",
+      ended_month: "",
+      ended_year: "",
+    });
+  }
+
+  it("saveIdentity stores a summary posted with \\r\\n and a lone \\r with \\n only", async () => {
+    // covers: spec 0025 AC-1
+    await expect(
+      saveIdentity(
+        IDLE_STATE,
+        formOf({
+          full_name: "Skills Owner",
+          location: "",
+          summary: "One\r\nTwo\rThree",
+        }),
+      ),
+    ).rejects.toThrow(REDIRECTED);
+
+    expect((await storedIdentity())?.summary).toBe("One\nTwo\nThree");
+  });
+
+  it("saveIdentity stores a location holding a \\r exactly as submitted", async () => {
+    // covers: spec 0025 AC-4
+    await expect(
+      saveIdentity(
+        IDLE_STATE,
+        formOf({
+          full_name: "Skills Owner",
+          location: "Berlin\r\nGermany",
+          summary: "",
+        }),
+      ),
+    ).rejects.toThrow(REDIRECTED);
+
+    expect((await storedIdentity())?.location).toBe("Berlin\r\nGermany");
+  });
+
+  it("saveIdentity stores a summary posted at 4003 characters that is 4000 once normalised", async () => {
+    /**
+     * Before spec 0025 this was refused twice over: by the parse, and by the
+     * column's own check had the parse let it through. A person could type it,
+     * since a textarea's `maxLength` counts a line break once.
+     */
+    // covers: spec 0025 AC-3
+    const posted = postedFourLines(3997);
+    expect(posted).toHaveLength(4003);
+
+    await expect(
+      saveIdentity(
+        IDLE_STATE,
+        formOf({ full_name: "Skills Owner", location: "", summary: posted }),
+      ),
+    ).rejects.toThrow(REDIRECTED);
+
+    const summary = (await storedIdentity())?.summary;
+    expect(summary).toHaveLength(4000);
+    expect(summary).not.toContain("\r");
+  });
+
+  it("addWorkExperience stores a description posted with \\r\\n with \\n only", async () => {
+    // covers: spec 0025 AC-2
+    await expect(
+      addWorkExperience(
+        IDLE_STATE,
+        roleForm("Line Break Added", "Built it\r\n\r\nShipped it"),
+      ),
+    ).rejects.toThrow(REDIRECTED);
+
+    expect((await storedDescription("Line Break Added")).description).toBe(
+      "Built it\n\nShipped it",
+    );
+  });
+
+  it("updateWorkExperience stores a description posted with a lone \\r with \\n only", async () => {
+    // covers: spec 0025 AC-2
+    await expect(
+      addWorkExperience(IDLE_STATE, roleForm("Line Break Edited", "Before")),
+    ).rejects.toThrow(REDIRECTED);
+    const { id } = await storedDescription("Line Break Edited");
+
+    const edit = roleForm("Line Break Edited", "Led it\rGrew it");
+    edit.append("entry_id", id);
+    await expect(updateWorkExperience(IDLE_STATE, edit)).rejects.toThrow(
+      REDIRECTED,
+    );
+
+    expect((await storedDescription("Line Break Edited")).description).toBe(
+      "Led it\nGrew it",
+    );
   });
 });

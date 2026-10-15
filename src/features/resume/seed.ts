@@ -1,6 +1,5 @@
 import { formatMonth } from "@/features/profile/calendar";
-
-import { normalizeLineBreaks } from "./line-breaks";
+import { normalizeLineBreaks } from "@/lib/line-breaks";
 
 /**
  * The profile seed: the first draft of a resume, written from the profile
@@ -101,10 +100,13 @@ export function profileSeed(input: SeedInput): string {
           .join("\n\n")}`;
 
   /**
-   * Line breaks normalised because the profile stores its own textareas as the
-   * browser posted them, `\r\n` and all, and those rows already exist. Left in,
-   * the seed never equals the field it opens in and the editor calls itself
-   * unsaved before anyone types (`line-breaks.ts`).
+   * Line breaks normalised because the profile used to store its own textareas
+   * as the browser posted them, `\r\n` and all. Spec 0025 now normalises them at
+   * save and converts the rows already stored, and this stays as the seed's own
+   * guarantee rather than a promise borrowed from another feature. Left out, a
+   * single `\r` reaching the seed would make it never equal the field it opens
+   * in, and the editor would call itself unsaved before anyone types
+   * (`src/lib/line-breaks.ts`).
    */
   return normalizeLineBreaks(
     `${[header, input.summary, skills, experience, "## Education"]
