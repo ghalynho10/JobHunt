@@ -1,7 +1,7 @@
 # 0025. Profile line break normalisation
 
 **Date**: 2026-10-14
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
