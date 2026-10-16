@@ -1,8 +1,8 @@
 # Feature 14 v2: extraction + deterministic scoring architecture
 
-*Captured: September 2026. Status: v1.5/v2 idea, not v1 — v1's single-call scorer ships first, proves the concept, then this is the natural next iteration.*
+*Captured: September 2026. Status: deferred idea, not built (see scope.md's Deferred list). It cannot start before the ATS job board work in the v2 phase ships, and may never be built. "v2" in this document means feature 14's second version, not a scope phase. v1's single-call scorer ships first, proves the concept, then this is the natural next iteration.*
 
-*Delete this file once feature 14 v2 ships; its content will live in the spec by then.*
+*Delete this file once feature 14 v2 ships or is ruled out; its content will live in the spec by then.*
 
 ## The core shift
 
@@ -47,7 +47,7 @@ Given Stage 1 and Stage 2's structured output, plain code applies the seniority-
 - **Ground truth gets easier to author, not harder.** Two eval surfaces instead of one: does Stage 1 correctly tag core vs. nice-to-have, and does Stage 3 (given known-correct structured input) compute the expected band — the second one is a plain unit test, not an LLM eval at all, and dissolves the "author ranges before seeing output" problem entirely, since there's nothing to calibrate against once the function is deterministic.
 - **Failures become diagnosable by stage.** When a result looks wrong, check which stage failed — extraction missing that Docker was optional, or the weighting logic mishandling a correct extraction. v1's single call gave no way to localize the problem this way.
 
-**Answered 2026-10-15: Adzuna provides a truncated excerpt of at most 500 characters, so this architecture cannot run on Adzuna rows.** Extraction would only ever see part of the actual requirements, and a three-stage pipeline makes that worse than v1's single call, since Stage 3 computes a confident band from an incomplete Stage 1 output with no way to know what it's missing. Direct ATS sources (the ATS sources brief, v1.5) provide full text, so v2 is viable for ATS rows only. Adzuna rows stay on v1's single-call scorer, which the brief's ranking within source already keeps separate.
+**Answered 2026-10-15: Adzuna provides a truncated excerpt of at most 500 characters, so this architecture cannot run on Adzuna rows.** Extraction would only ever see part of the actual requirements, and a three-stage pipeline makes that worse than v1's single call, since Stage 3 computes a confident band from an incomplete Stage 1 output with no way to know what it's missing. Direct ATS sources (the ATS sources brief, scope phase v2) provide full text, so feature 14 v2 is viable for ATS rows only. Adzuna rows stay on v1's single-call scorer, which the brief's ranking within source already keeps separate.
 
 ## Multi-model agreement — where it fits, and where it doesn't
 
