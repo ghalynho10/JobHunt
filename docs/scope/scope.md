@@ -41,7 +41,7 @@ _You are in charge. Every box below is a **suggestion**, not a gate: run any, sk
 | 26 | Profile depth & completeness | v1.5 | dropped |
 | 34 | Chip input for skills, titles & locations | v1.5 | done |
 | 39 | Profile line break normalisation | v1.5 | done |
-| 40 | Reverse the search persistence rule | v2 | planned |
+| 40 | Reverse the search persistence rule | v2 | in-progress |
 | 41 | ATS spike: endpoints and a full text scoring probe | v2 | planned |
 | 42 | Job store schema & company registry | v2 | planned |
 | 43 | Adapter interface, ingest route & failure alert | v2 | planned |
@@ -569,11 +569,21 @@ Then three slices of the brief's own shape, not a return to the old Slices 3 to 
 
 **The v2 completion test.** A signed in user searches and sees at least one ATS sourced result with a full description, ranked with shown reasoning, whose apply link goes direct to the company's posting. A posting removed from its board stops appearing. A failed fetch leaves every job open and records a failed poll. The existing pairs still pass for the Adzuna path, and new ATS sourced pairs, authored before seeing output, meet the same bar. ATS and Adzuna results are ranked as separate groups, ATS first. A board that suddenly comes back empty closes nothing and is flagged. Failed polls and flagged boards raise an alert, and a scheduler that stops raises one too. Feature 25 is judged on its own Done when line, after this test.
 
-### 40. Reverse the search persistence rule · needs a decision · GA
+### 40. Reverse the search persistence rule · in-progress · GA
 Decide, before any ATS feature is designed, that listings from company job boards are ingested and stored. Record the exact boundary of the reversal and the cost accepted with it, and update the places that restate the old rule.
 **Done when:** a spec records the reversal and its boundary (ATS rows are stored and shared across users; Adzuna rows stay live and unstored; the accepted trade off that jobs merely seen but not acted on are not deduplicated per user still stands, so no per user seen jobs ledger appears); it names the staleness cost taken on (`first_seen_at`, `last_seen_at`, closed status, failed polls, the mass close guard) as the deliberate price; it lists which already accepted specs state that results or scores never persist and says which need amending, including whether a score for a stored ATS row is still computed per render as spec 0015 says today; and the standing rule below and the echoes in features 4, 11 and 12 read consistently with it.
 _Tagged GA over the project default because it changes an inherited standing rule that later specs read without re reading, the same reasoning behind the GA tags on features 4 and 7. **Done in this scope pass, 2026-10-16:** the standing rule and the three feature rows now carry the reversal, struck or annotated rather than deleted. **Not done, and left for the spec:** ratifying it. Until this row's spec exists, the reversal is the engineer's direction recorded here, not an accepted decision. Specs found on 2026-10-16 by a search for the persistence wording: 0003, 0013 and 0015 at least. Two statements in spec 0013 are stale for reasons unrelated to this reversal and are `/architect`'s to fix, not this row's: how its line 64 cites where the rule was recorded, and its prediction about what feature 12 imports from feature 11. Do not carry either claim into the specs this phase writes._
-- [ ] Design it (spec): `/architect reverse the search persistence rule`
+- [x] Design it (spec): [0026](../specs/0026-search-persistence-reversal/index.md). Ratifies the reversal for ATS listings only: Adzuna search stays live and unstored, scores stay per render, one read contract (owned by feature 45) over separate storage, and the two existing places Adzuna data is stored (the application snapshot, `demo_result`) are named. Retention of closed jobs, the application link and the `source` values stay with feature 42; feature 45 owns the contract and widening the apply path. Documents only, no code.
+- [ ] Build it: `/develop reverse the search persistence rule`
+  - [ ] Dated notes on the older specs: 0003, 0008, 0014, 0019. Satisfies AC-20 to AC-22
+  - [ ] Spec 0013's two stale claims struck through and corrected, and the three notes on spec 0015. Satisfies AC-20 to AC-24
+  - [ ] Scope edits: the standing rule, and the notes on features 4 and 12. Satisfies AC-25, AC-26
+  - [ ] Repeat the persistence search until it finds nothing new, then at close set spec 0026 `Accepted` and reword this row's note. Satisfies AC-19, AC-27
+- [ ] Verify it: `/check verify reverse the search persistence rule`
+- [ ] Test it: `/test reverse the search persistence rule`
+- [ ] Review it (fresh model): `/check review reverse the search persistence rule`
+- [ ] Document it: `/document reverse the search persistence rule`
+- [ ] Sync it: `/sync reverse the search persistence rule`
 
 ### 41. ATS spike: endpoints and a full text scoring probe · Prototype
 Hit all three endpoints for three or more real company slugs. Confirm current URL shapes, query options (Greenhouse needs content requested), field names, description format (HTML or plain text), and any rate or caching behaviour. The endpoint details in the brief came from memory and must be verified.
