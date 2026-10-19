@@ -580,7 +580,7 @@ _Tagged GA over the project default because it changes an inherited standing rul
   - [x] Scope edits: the standing rule, and the notes on features 4 and 12. Satisfies AC-25, AC-26
   - [ ] Repeat the persistence search until it finds nothing new, then at close set spec 0026 `Accepted` and reword this row's note. Satisfies AC-19, AC-27
 - [x] Verify it: `/check verify reverse the search persistence rule` · **PASS** on 2026-10-19, 26 of 27 acceptance criteria met with evidence; AC-27 is met at close by build step 9. The first pass failed AC-5 and AC-9 on wording, fixed in 8aac6cf.
-- [ ] Test it: `/test reverse the search persistence rule`
+- [ ] Test it: `/test reverse the search persistence rule` · **skipped** 2026-10-19: documents only, no code changed (the branch touches nothing under src/ or supabase/). The one durable check, the AC-19 persistence search, stays a manual step in spec 0026's build plan rather than a test, because a test over prose would fail on unrelated doc edits.
 - [ ] Review it (fresh model): `/check review reverse the search persistence rule`
 - [ ] Document it: `/document reverse the search persistence rule`
 - [ ] Sync it: `/sync reverse the search persistence rule`
