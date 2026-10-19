@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 
 import { canonicalSiteUrl } from "@/lib/origin";
 
@@ -7,27 +7,39 @@ import "./globals.css";
 
 /**
  * The two locked faces (spec 0005, AC-2; `docs/design/brand-tokens.md` picks
- * them and forbids a third). Loaded through `next/font/google` so the files are
- * self hosted at build time: no request to a Google domain at runtime, and no
- * layout shift while a webfont swaps in.
+ * them and forbids a third). Loaded through `next/font/local` from files
+ * committed under `./fonts/`, so a build makes no request to any font host and
+ * the page makes none to a Google domain at runtime. Spec 0005's Revision 2
+ * records why this is not `next/font/google`: that loader failed CI
+ * intermittently inside Turbopack's own query parser, before any download.
+ *
+ * Each file is one complete variable woff2, not a subset, so it covers every
+ * weight in its range and every character Google's subsets did. Its `OFL.txt`
+ * sits beside it because SIL OFL 1.1 condition 2 requires the copyright notice
+ * and licence with every copy. `preload` and the automatic fallback (`'Arial'`
+ * base, against layout shift while a face swaps in) stay on their defaults.
  *
  * `variable` rather than `className` on each: the class goes on `<html>`, which
  * is `:root`, and `globals.css` maps these two variables into `--font-sans` and
  * `--font-mono` inside its `@theme` block. Nothing else should reference them
  * directly.
  */
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  /** 400 body, 500 and 600 for display and emphasis, per brand-tokens.md. */
-  weight: ["400", "500", "600", "700"],
+const spaceGrotesk = localFont({
+  src: "./fonts/space-grotesk/space-grotesk-variable.woff2",
+  /**
+   * 400 body, 500 and 600 for display and emphasis, per brand-tokens.md, which
+   * names nothing above 600. 700 is here for `<strong>`, the browser's default
+   * bold, used on `/health`.
+   */
+  weight: "400 700",
   variable: "--font-space-grotesk",
   display: "swap",
 });
 
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  /** 400 / 500 / 600, the weights brand-tokens.md reserves for mono. */
-  weight: ["400", "500", "600"],
+const jetBrainsMono = localFont({
+  src: "./fonts/jetbrains-mono/jetbrains-mono-variable.woff2",
+  /** 400 to 600, the weights brand-tokens.md reserves for mono. */
+  weight: "400 600",
   variable: "--font-jetbrains-mono",
   display: "swap",
 });
