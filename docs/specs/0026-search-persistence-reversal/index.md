@@ -1,7 +1,7 @@
 # 0026. Reverse the search persistence rule for ATS listings
 
 **Date**: 2026-10-19
-**Status**: In Progress
+**Status**: Accepted
 
 Scope feature 40 ([docs/scope/scope.md](../../scope/scope.md), "40. Reverse the search persistence rule", the first row of v2). Mode: ENHANCEMENT, decision only. This spec adds no table, no route and no code. It changes documents only.
 
@@ -123,7 +123,7 @@ Documents only. `/develop` applies these in order. AC-1 to AC-18 need no step, b
 6. [x] Add the note to spec 0019 `index.md`. Satisfies **AC-20**, **AC-21**, **AC-22**.
 7. [x] Apply the scope edits listed under "Scope edits", except feature 40's row note and status, which wait for this spec to be `Accepted`. Satisfies **AC-25**, **AC-26**.
 8. [x] Repeat the persistence search over `docs/specs`, `src/` and `supabase/migrations` using the audit's term list plus `cached`, `ephemeral` and `no cache`. Add every new hit to the audit, then amend or justify it, and repeat until a pass finds nothing new. Satisfies **AC-19**.
-9. [ ] At feature close, set this spec's Status to `Accepted`, then reword feature 40's row note. Satisfies **AC-27**.
+9. [x] At feature close, set this spec's Status to `Accepted`, then reword feature 40's row note. Satisfies **AC-27**.
 
 ## Consequences
 
