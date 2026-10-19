@@ -575,9 +575,9 @@ Decide, before any ATS feature is designed, that listings from company job board
 _Tagged GA over the project default because it changes an inherited standing rule that later specs read without re reading, the same reasoning behind the GA tags on features 4 and 7. **Done in this scope pass, 2026-10-16:** the standing rule and the three feature rows now carry the reversal, struck or annotated rather than deleted. **Not done, and left for the spec:** ratifying it. Until this row's spec exists, the reversal is the engineer's direction recorded here, not an accepted decision. Specs found on 2026-10-16 by a search for the persistence wording: 0003, 0013 and 0015 at least. Two statements in spec 0013 are stale for reasons unrelated to this reversal and are `/architect`'s to fix, not this row's: how its line 64 cites where the rule was recorded, and its prediction about what feature 12 imports from feature 11. Do not carry either claim into the specs this phase writes._
 - [x] Design it (spec): [0026](../specs/0026-search-persistence-reversal/index.md). Ratifies the reversal for ATS listings only: Adzuna search stays live and unstored, scores stay per render, one read contract (owned by feature 45) over separate storage, and the two existing places Adzuna data is stored (the application snapshot, `demo_result`) are named. Retention of closed jobs, the application link and the `source` values stay with feature 42; feature 45 owns the contract and widening the apply path. Documents only, no code.
 - [ ] Build it: `/develop reverse the search persistence rule`
-  - [ ] Dated notes on the older specs: 0003, 0008, 0014, 0019. Satisfies AC-20 to AC-22
-  - [ ] Spec 0013's two stale claims struck through and corrected, and the three notes on spec 0015. Satisfies AC-20 to AC-24
-  - [ ] Scope edits: the standing rule, and the notes on features 4 and 12. Satisfies AC-25, AC-26
+  - [x] Dated notes on the older specs: 0003, 0008, 0014, 0019. Satisfies AC-20 to AC-22
+  - [x] Spec 0013's two stale claims struck through and corrected, and the three notes on spec 0015. Satisfies AC-20 to AC-24
+  - [x] Scope edits: the standing rule, and the notes on features 4 and 12. Satisfies AC-25, AC-26
   - [ ] Repeat the persistence search until it finds nothing new, then at close set spec 0026 `Accepted` and reword this row's note. Satisfies AC-19, AC-27
 - [ ] Verify it: `/check verify reverse the search persistence rule`
 - [ ] Test it: `/test reverse the search persistence rule`

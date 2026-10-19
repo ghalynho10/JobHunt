@@ -100,6 +100,9 @@ Line numbers are as of 2026-10-19. Each row also gives the text, because lines m
 | 0008 `index.md:97`, `:237`; `rationale.md:151` | Cookie persistence; a stateless render path; a different "only place" | Unrelated to search results. |
 | 0001, 0004, 0005, 0006, 0010, 0023, 0024 | Matches on "persist" or "only place" in other senses (a session cookie, an entry page that stores nothing, the secret key's one home, a profile editor) | Unrelated. |
 | 0009 | No match | The privacy notice does not state that search results are not stored. |
+| 0013 `index.md:206`, Consequences (added by build pass) | "this app keeps no cache of its own to serve a repeat view from" | About what a repeat view of an Adzuna search costs (AC-10). Adzuna stays a live, uncached call, so it is still true. How a search over stored job board rows is read is feature 45's to state. |
+| 0002 `rationale.md:62`; 0005 `rationale.md:19`; 0008 `index.md:75`, `:231`; 0013 `index.md:28`, `:140`; 0014 `index.md:51`, `:146`, `:250`, `:264` and `rationale.md:108`; 0015 `index.md:203`; 0020 `index.md:49`, `:208` and `rationale.md:69`, `:117`; 0021 `index.md:484`, `:853` (added by build pass) | Matches in other senses: an ephemeral preview database, values "never stored formatted", session cookie persistence, vendor retention terms, a redirect that must not be cached, "Every rendered result" matching "every render", a promise that "needs no cache", a usage read per render, "persistently" | Unrelated to search results. |
+| `src/app/(app)/search/page.tsx:195`, `:198` and `page.test.ts:253` (added by build pass) | One Adzuna call per render, and a shared promise that "needs no cache" | Code comments and a test name about the Adzuna path, which this spec leaves live. Still true. The build pass searched all of `src/` with the full term list; every other hit there is in another sense (cookies, render helpers, design system notes). |
 
 ### The two stale claims in spec 0013
 
