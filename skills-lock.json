@@ -5,73 +5,73 @@
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/architect/SKILL.md",
-      "computedHash": "0397f01f00c4bb716d0a6199ee217834a8bc8db9175bd0bcf2d438d71d97dd7a"
+      "computedHash": "a42c2792eafecdd8e34c8c7011efdc58455c3b81d95734ec91d4f3c2dad93c76"
     },
     "audit": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/audit/SKILL.md",
-      "computedHash": "e3a76a685d7436160f036155afa4e989f5cb457914d34c8eaa69b736e9f3c592"
+      "computedHash": "080e57d0686cfe95302e33d787ff09ed262b1fd1ce3f92f700d25b725c0057e9"
     },
     "check": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/check/SKILL.md",
-      "computedHash": "f57678c12ecc72e4d4e1bb384f41924293f1e58b7a92a0a37f87ded412a540da"
+      "computedHash": "45ff98dc6578384495b81a3f78090aac5b4ae45d69b917f3fbcee3739f989d28"
     },
     "checkpoint": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/checkpoint/SKILL.md",
-      "computedHash": "57669b3c5fcf077937987783c0e31dc1f6e52546c6e4dd055708d8f22199d8b9"
+      "computedHash": "6e480cf6a8dc29034470acdbc036e688c3969d617ebd253694b2c7bbbb11f866"
     },
     "debug": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/debug/SKILL.md",
-      "computedHash": "c73891284ff66f04d00a7eb4e826d7202cf14d92d809eacacb355b184bdde55d"
+      "computedHash": "115b14afe125570ae2975762016fa97032ebac4a371b75fb0e9ea78ba261a5b3"
     },
     "develop": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/develop/SKILL.md",
-      "computedHash": "245688b798cd22b847d393d3e557f48210769a745b82547026a67407e8cc8cc7"
+      "computedHash": "fd98b976b698fe92875d80b072ae435da9e137c9b4751bdf185abd0e1e2d8f35"
     },
     "document": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/document/SKILL.md",
-      "computedHash": "68f768feb819eb6b7866b8a85e42a30e7d5ef20a1380b307ab22ccc1563532e8"
+      "computedHash": "c975d0b9dc1c1856447b06107b6497ddc2370474e5610874ef8b3621a4d71b27"
     },
     "imprint": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/imprint/SKILL.md",
-      "computedHash": "2df036602c051cc333981e140459500e1bc22f428441b9626a9617626c497df9"
+      "computedHash": "daffaf90ea47baf571cd3c7617ddc28e7e78e46861f3d1788d97d4bda07c186e"
     },
     "overview": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/overview/SKILL.md",
-      "computedHash": "b767ad5688d68778b0a0abb28bc1993e9cc00780b80ed6a4a867cdc1dbb921c8"
+      "computedHash": "af813f85e6db85a4270eaa9eabf3e1b10205c63e2d25bf84150256e20bdaf64c"
     },
     "recover": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/recover/SKILL.md",
-      "computedHash": "b6f41efdae222fd1922c30dc37af63adb9b6b52bf28ad831278cfedaa3ab219c"
+      "computedHash": "0a6cf8a02d309338044237247be42701e4d9defd708d18f4caf9dfd298098c9e"
     },
     "reflex": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/reflex/SKILL.md",
-      "computedHash": "6f58c2edd5b40eabb5a504cba5813499e7dd304051a0d01cdea3189600c4c794"
+      "computedHash": "690f6b659ddb422c217e10b472ee83b8318b90b7dfdab9288e2e06864b32fd36"
     },
     "scope": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/scope/SKILL.md",
-      "computedHash": "cc0c9ad797d81ab7466aa647ed7a62376e7734e6cb85b6c94d6f9b8ab997b7e5"
+      "computedHash": "9aa3e86a596e3b3053d8aba7194e5bff16792f513ba69167cf7b5ae21180cfe6"
     },
     "sentry-nextjs-sdk": {
       "source": "getsentry/sentry-for-ai",
@@ -101,13 +101,13 @@
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/sync/SKILL.md",
-      "computedHash": "c30f7fad0d52c812de41ea4831e5b5396811097bcde86b482e49262462c6ad59"
+      "computedHash": "47c78e824ea3219de8f045d6494ff5cb51778604bb25e8e9dbfbfe4da0b84a05"
     },
     "test": {
       "source": "ghalynho10/skills",
       "sourceType": "github",
       "skillPath": "skills/test/SKILL.md",
-      "computedHash": "c16769fc36b0b44427c78112adeb8870854cb0c6731ca8036d9fffe549f19d93"
+      "computedHash": "fe029c71e4dfe913326d9a633430b358cb9cc8920c71aab1f9da32adfd6006ea"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
