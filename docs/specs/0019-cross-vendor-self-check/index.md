@@ -45,7 +45,7 @@ No new database table. Like the score itself (spec 0015), a check outcome is com
 | `CheckOutcome` | `Result<{ allowed: true; value: { ungroundedSkills: readonly string[] } } \| { allowed: false; reason: UsageGateReason }>` | Identical shape to `ScoreOutcome` (`score.ts:29`). A `Failure` means the check did not complete (AC-7's unverifiable state); `{ allowed: true, value }` means it ran, and `ungroundedSkills` is empty for a clean result or non-empty for a flagged one. `{ allowed: false }` is a gate refusal, structurally distinct from a `Failure` per spec 0012's own invariant, though it renders the same as a `Failure` at the card level (AC-7, AC-9). |
 | `ListingOutcome` | `{ readonly score: ScoreOutcome; readonly check: CheckOutcome \| "skipped_no_score" \| "skipped_no_skills" }` | One per listing, replacing the bare `ScoreOutcome` that `scoreListings()` currently returns. `"skipped_no_score"` covers AC-5 (nothing to check because scoring itself did not succeed); `"skipped_no_skills"` covers AC-4. Neither string variant is a `CheckOutcome`, so a card can tell "nothing was attempted" apart from "something was attempted and did not finish" (AC-8) by the type alone, not by a convention a later change could quietly break. |
 
-**State transitions**: none. The check is stateless per render, matching spec 0012's router and spec 0015's own score.
+**State transitions**: none. The check is stateless per render, matching spec 0012's router and spec 0015's own score. **Note, 2026-10-19 (spec 0026):** True for real searches. The one exception is `demo_result.ungrounded_skills`, which stores a check outcome for the public demo (spec 0021).
 
 **API surface**:
 | Function | Kind | Key inputs | Key outputs | Auth | Key errors |

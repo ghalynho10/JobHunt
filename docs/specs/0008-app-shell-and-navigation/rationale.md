@@ -67,7 +67,7 @@ have been honoured.
 **The fourth is scale by subtraction.** Spec 0003's decisions fix the
 inventory: no dashboard in v1 (feature 23 is v1.5), no saved results (feature
 11's results are fresh per search), and the application record is the only
-place a job persists. A signed in user can do three things, so the inventory
+place a job persists. **Note, 2026-10-19 (spec 0026):** This describes v1. From v2, job board listings are stored, though still not saved per user. A signed in user can do three things, so the inventory
 is three routes. The shell is thin because the app is thin, not because it
 was left unfinished, and the spec says so deliberately so a later reader does
 not "complete" it out of habit.

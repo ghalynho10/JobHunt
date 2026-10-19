@@ -22,7 +22,7 @@ below. Nothing already shipped is reversed; this only adds what was missing.
 
 ## Summary
 
-This spec settles the six tables every later feature reads and writes: the profile, its skills, its work history, its stated job preferences, the application record, and the typed answers captured against an application. Everything is normalised (one fact in one place, related by keys) and every rule that matters is enforced by the database rather than by application code, because the database is the only thing no feature can forget to call. Search results still do not persist, so an application carries a full copy of the listing it was made against. The scaffold table from feature 1 is removed here, but only after the health page has been repointed at the profile and that repoint is live on production, so the deployed end to end proof never goes dark and no running build ever queries a table that is already gone.
+This spec settles the six tables every later feature reads and writes: the profile, its skills, its work history, its stated job preferences, the application record, and the typed answers captured against an application. Everything is normalised (one fact in one place, related by keys) and every rule that matters is enforced by the database rather than by application code, because the database is the only thing no feature can forget to call. Search results still do not persist, so an application carries a full copy of the listing it was made against. **Note, 2026-10-19 (spec 0026):** This holds for Adzuna results. From v2, listings from company job boards are stored too, and an application still carries its own full copy, because it must not depend on what later happens to a stored row. The scaffold table from feature 1 is removed here, but only after the health page has been repointed at the profile and that repoint is live on production, so the deployed end to end proof never goes dark and no running build ever queries a table that is already gone.
 
 ## Requirements
 
@@ -124,6 +124,8 @@ Unique index on `(profile_id, lower(name))`. Its leading column is `profile_id`,
 Check: `minimum_pay` and `minimum_pay_currency` are both present or both absent.
 
 `application` (the only place a job persists)
+
+**Note, 2026-10-19 (spec 0026):** From v2 a job board listing is also stored, in a shared job table. This table stays the only place a job is kept for one user, which is what this heading means.
 
 | Column | Type | Required | Notes |
 |---|---|---|---|

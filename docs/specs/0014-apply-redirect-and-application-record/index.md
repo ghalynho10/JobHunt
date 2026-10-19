@@ -235,7 +235,7 @@ Ordered for Tracer Bullet: one real apply travelling the whole way from a card t
 
 **Positive**:
 
-- The application record becomes the only place a job persists, which is what closes the Slice 1 loop: search, click out, record, see it later.
+- The application record becomes the only place a job persists, which is what closes the Slice 1 loop: search, click out, record, see it later. **Note, 2026-10-19 (spec 0026):** True of Adzuna jobs. Job board listings stored from v2 persist in their own table, and the application record still keeps its own copy.
 - The predicted salary decision that three specs deferred is settled, and settled in the direction that keeps AC-7's honesty rule true past the moment of applying.
 - `/applications` stops making a promise the product does not keep. That sentence has been live on production since feature 32 with nothing behind it.
 - Feature 23's dashboard inherits a table with real rows in it and a display path already written, rather than starting from an empty page.
