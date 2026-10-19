@@ -146,7 +146,7 @@
 
   /**
    * Two faces, locked (brand-tokens.md). The `--font-jetbrains-mono` and
-   * `--font-space-grotesk` variables are defined by `next/font/google` in
+   * `--font-space-grotesk` variables are defined by `next/font/local` in
    * `src/app/layout.tsx`, on the `<html>` element, which is `:root`, so these
    * references resolve for everything on the page.
    */

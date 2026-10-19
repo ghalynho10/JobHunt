@@ -4,18 +4,21 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
 /**
- * `next/font/google` is a build time transform: the real `Space_Grotesk()` is
+ * `next/font/local` is a build time transform: the real `localFont()` is
  * substituted by Next's compiler and simply does not exist under `node`, so
  * importing the layout without this throws before a single assertion runs.
  *
  * This is a boundary mock, not a mock of anything we own. The layout uses only
  * the `variable` each font returns, and `globals.css` maps those names into
  * `--font-sans` and `--font-mono`; the type scale that depends on them is
- * already guarded by `tv.test.ts`. Nothing asserted below reads a font.
+ * already guarded by `tv.test.ts`. Nothing asserted below reads a font. One
+ * default export now serves both faces, so it hands back the `variable` each
+ * call passed rather than a fixed name.
  */
-vi.mock("next/font/google", () => ({
-  Space_Grotesk: () => ({ variable: "--font-space-grotesk" }),
-  JetBrains_Mono: () => ({ variable: "--font-jetbrains-mono" }),
+vi.mock("next/font/local", () => ({
+  default: (options: { readonly variable: string }) => ({
+    variable: options.variable,
+  }),
 }));
 
 const { metadata } = await import("./layout");
