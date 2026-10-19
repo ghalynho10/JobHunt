@@ -583,7 +583,7 @@ _Tagged GA over the project default because it changes an inherited standing rul
 - [ ] Test it: `/test reverse the search persistence rule` · **skipped** 2026-10-19: documents only, no code changed (the branch touches nothing under src/ or supabase/). The one durable check, the AC-19 persistence search, stays a manual step in spec 0026's build plan rather than a test, because a test over prose would fail on unrelated doc edits.
 - [x] Review it (fresh model): `/check review reverse the search persistence rule` · run 2026-10-19 on Sonnet 5.5 (author was Opus), 12 files, the branch against `main`. Verdict **Approve with nits**: no blockers, no majors, four minors, three nits. Findings in [2026-10-19-docs-search-persistence-reversal.md](../reviews/2026-10-19-docs-search-persistence-reversal.md)
 - [x] Document it: `/document reverse the search persistence rule` · pull request text written 2026-10-19, chat only
-- [ ] Sync it: `/sync reverse the search persistence rule`
+- [x] Sync it: `/sync reverse the search persistence rule` · run 2026-10-19 on the branch before merge: a docs only close, 0 source files reconciled, mention sweep 12 hits in 7 specs, 0 flagged.
 
 ### 41. ATS spike: endpoints and a full text scoring probe · Prototype
 Hit all three endpoints for three or more real company slugs. Confirm current URL shapes, query options (Greenhouse needs content requested), field names, description format (HTML or plain text), and any rate or caching behaviour. The endpoint details in the brief came from memory and must be verified.
