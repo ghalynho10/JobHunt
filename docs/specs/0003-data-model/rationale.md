@@ -12,7 +12,7 @@ Three forces shape it.
 
 **Isolation has to be a property of the database.** Spec 0001 already settled this as a binding rule, and both existing migrations demonstrate the pattern: an explicit grant plus a policy, `force row level security` so the table owner is not exempt, and no privilege for `anon` so a request with no session is refused rather than answered with an empty list. The reference project's worst class of bug was an application layer check that was simply not written on one path. Nothing in this model may depend on a caller remembering anything.
 
-**Search results do not persist, by an earlier decision.** That removes a staleness state machine entirely, and it moves a burden: the moment a user applies is the last moment the listing is available, so the application record has to carry a copy or the record becomes a link to a page that will eventually 404.
+**Search results do not persist, by an earlier decision.** That removes a staleness state machine entirely, and it moves a burden: the moment a user applies is the last moment the listing is available, so the application record has to carry a copy or the record becomes a link to a page that will eventually 404. **Note, 2026-10-19 (spec 0026):** Reversed for job board listings, which are stored and shared, with the staleness cost taken on deliberately. It still holds for Adzuna results. The reason for the snapshot stands for both sources.
 
 **The project is small and stays small.** Tens of users, one developer, a free tier. There is no scale argument for any of this. The arguments are correctness, honesty about failure, and not having to rewrite the foundation in three months.
 

@@ -61,7 +61,7 @@ Full reasoning and the options weighed: see [rationale.md](rationale.md).
 
 **Data model sketch**:
 
-No new database table. Results are never persisted (by product decision, recorded in `docs/scope/scope.md`'s Slice 1 introduction), so the only new shape is an in memory value object, Zod parsed at the Adzuna response boundary and never written to Postgres. Feature 12 imports this exact shape later for its own field mapping (spec 0003 already names feature 11 as owner of that mapping).
+No new database table. Results are never persisted ~~(by product decision, recorded in `docs/scope/scope.md`'s Slice 1 introduction)~~, so the only new shape is an in memory value object, Zod parsed at the Adzuna response boundary and never written to Postgres. ~~Feature 12 imports this exact shape later for its own field mapping (spec 0003 already names feature 11 as owner of that mapping).~~ **Correction, 2026-10-19 (spec 0026):** the rule is the standing rule 'Search results never persist' under 'Standing rules this scope was written under' in `docs/scope/scope.md`, now scoped to Adzuna results by spec 0026. The Slice 1 introduction does not mention it. Feature 12 did not import this shape: it declared its own `listingSnapshotSchema` in `src/features/applications/schemas.ts`.
 
 `Listing` (in memory, request scoped):
 
